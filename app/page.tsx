@@ -62,7 +62,7 @@ export default function Home() {
           <nav className="hidden items-center gap-8 text-sm text-white/75 md:flex">
             <a href="/buy" className="transition hover:text-[#c9a961]">Buy</a><a href="/rent" className="transition hover:text-[#c9a961]">Rent</a><a href="#categories" className="transition hover:text-[#c9a961]">Explore</a><a href="/message" className="transition hover:text-[#c9a961]">Messages</a>
           </nav>
-          <div className="flex items-center gap-3"><Button variant="ghost" className="hidden text-white hover:bg-white/10 hover:text-white sm:inline-flex">Sign in</Button><Button className="rounded-full bg-[#c9a961] px-5 text-[#0b3d2e] hover:bg-[#e1c67e]">List Property <ArrowRight data-icon="inline-end" /></Button></div>
+          <div className="flex items-center gap-3"><a href="/auth/login" className="hidden rounded-lg px-3 py-2 text-sm font-medium text-white hover:bg-white/10 sm:inline-flex">Sign in</a><a href="/auth/login" className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#c9a961] px-5 text-sm font-medium text-[#0b3d2e] hover:bg-[#e1c67e]">List Property <ArrowRight data-icon="inline-end" /></a></div>
         </div>
       </header>
 
