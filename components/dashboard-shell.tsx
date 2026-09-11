@@ -5,11 +5,12 @@ import Link from 'next/link'
 import { Bell, ChevronRight, Home, LayoutDashboard, Menu, Search, Settings, ShieldCheck, Sparkles, Users, X } from 'lucide-react'
 import { DashboardLiveData } from '@/components/dashboard-live-data'
 
-type Role = 'User' | 'Agent' | 'Admin' | 'Super Admin'
+type Role = 'User' | 'Agent' | 'Property Owner' | 'Admin' | 'Super Admin'
 
 const roleLinks: Record<Role, { label: string; href: string; icon: typeof LayoutDashboard }[]> = {
-  User: [{ label: 'Overview', href: '/dashboard/user', icon: LayoutDashboard }, { label: 'Favorites', href: '/dashboard/user#favorites', icon: Home }, { label: 'Inquiries & Chats', href: '/message', icon: Users }, { label: 'Visits', href: '/dashboard/user#visits', icon: Search }, { label: 'Saved KPR', href: '/dashboard/user#kpr', icon: Sparkles }],
+  User: [{ label: 'Overview', href: '/dashboard/user', icon: LayoutDashboard }, { label: 'Favorites', href: '/dashboard/user#favorites', icon: Home }, { label: 'Inquiries & Chats', href: '/message', icon: Users }, { label: 'Visits', href: '/dashboard/user#visits', icon: Search }, { label: 'Become an Agent / Owner', href: '/onboarding', icon: Sparkles }],
   Agent: [{ label: 'Overview', href: '/dashboard/agent', icon: LayoutDashboard }, { label: 'My Listings', href: '/dashboard/agent#listings', icon: Home }, { label: 'Leads CRM', href: '/dashboard/agent#leads', icon: Users }, { label: 'Analytics', href: '/dashboard/agent#analytics', icon: Search }, { label: 'Billing', href: '/dashboard/agent#billing', icon: Sparkles }],
+  'Property Owner': [{ label: 'Overview', href: '/dashboard/property-owner', icon: LayoutDashboard }, { label: 'My Properties', href: '/dashboard/property-owner#properties', icon: Home }, { label: 'Inquiries', href: '/dashboard/property-owner#inquiries', icon: Users }, { label: 'Calendar', href: '/dashboard/property-owner#calendar', icon: Search }, { label: 'List Property', href: '/list', icon: Sparkles }],
   Admin: [{ label: 'Overview', href: '/dashboard/admin', icon: LayoutDashboard }, { label: 'Moderate Listings', href: '/dashboard/admin#moderation', icon: ShieldCheck }, { label: 'Users & Agents', href: '/dashboard/admin#users', icon: Users }, { label: 'Reports & Fraud', href: '/dashboard/admin#reports', icon: Search }, { label: 'AI Monitoring', href: '/dashboard/admin#ai', icon: Sparkles }],
   'Super Admin': [{ label: 'Overview', href: '/dashboard/super-admin', icon: LayoutDashboard }, { label: 'Roles & Permissions', href: '/dashboard/super-admin#roles', icon: ShieldCheck }, { label: 'System Config', href: '/dashboard/super-admin#system', icon: Settings }, { label: 'Audit Log', href: '/dashboard/super-admin#audit', icon: Search }, { label: 'Feature Flags', href: '/dashboard/super-admin#flags', icon: Sparkles }],
 }

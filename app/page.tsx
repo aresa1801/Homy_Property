@@ -1,6 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import {
   ArrowRight,
   BedDouble,
@@ -41,6 +42,18 @@ export default function Home() {
   const [downPayment, setDownPayment] = useState(20)
   const [tenor, setTenor] = useState(15)
   const [activeSlide, setActiveSlide] = useState(0)
+  const [profileRole, setProfileRole] = useState<string | null>(null)
+
+  useEffect(() => {
+    createClient().auth.getUser().then(async ({ data }) => {
+      if (!data.user) return
+      const { data: profile } = await createClient().from('profiles').select('role').eq('id', data.user.id).maybeSingle()
+      setProfileRole(profile?.role ?? 'user')
+    })
+  }, [])
+
+  const canListProperty = profileRole === 'agent' || profileRole === 'property_owner'
+  const listHref = canListProperty ? '/list' : profileRole ? '/onboarding' : '/auth/login'
 
   const installment = useMemo(() => {
     const principal = price * (1 - downPayment / 100)
@@ -62,7 +75,7 @@ export default function Home() {
           <nav className="hidden items-center gap-8 text-sm text-white/75 md:flex">
             <a href="/buy" className="transition hover:text-[#c9a961]">Buy</a><a href="/rent" className="transition hover:text-[#c9a961]">Rent</a><a href="#categories" className="transition hover:text-[#c9a961]">Explore</a><a href="/message" className="transition hover:text-[#c9a961]">Messages</a>
           </nav>
-          <div className="flex items-center gap-3"><a href="/auth/login" className="hidden rounded-lg px-3 py-2 text-sm font-medium text-white hover:bg-white/10 sm:inline-flex">Sign in</a><a href="/auth/login" className="inline-flex h-9 items-center gap-1.5 rounded-full bg-[#c9a961] px-5 text-sm font-medium text-[#0b3d2e] hover:bg-[#e1c67e]">List Property <ArrowRight data-icon="inline-end" /></a></div>
+          <div className="flex items-center gap-3"><a href={profileRole ? (profileRole === 'agent' ? '/dashboard/agent' : profileRole === 'property_owner' ? '/dashboard/property-owner' : '/dashboard/user') : '/auth/login'} className="hidden rounded-lg px-3 py-2 text-sm font-medium text-white hover:bg-white/10 sm:inline-flex">{profileRole ? 'Dashboard' : 'Sign in'}</a><a href={listHref} className={`inline-flex h-9 items-center gap-1.5 rounded-full px-5 text-sm font-medium ${canListProperty ? 'bg-[#c9a961] text-[#0b3d2e] hover:bg-[#e1c67e]' : 'border border-white/30 bg-white/10 text-white hover:bg-white/20'}`}>{canListProperty ? 'List Property' : 'Become a partner'} <ArrowRight data-icon="inline-end" /></a></div>
         </div>
       </header>
 
