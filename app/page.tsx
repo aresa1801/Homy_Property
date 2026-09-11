@@ -60,7 +60,7 @@ export default function Home() {
             <span className="font-serif text-2xl font-bold tracking-tight">Homy<span className="text-[#c9a961]">.</span></span>
           </a>
           <nav className="hidden items-center gap-8 text-sm text-white/75 md:flex">
-            <a href="#properties" className="transition hover:text-[#c9a961]">Buy</a><a href="#properties" className="transition hover:text-[#c9a961]">Rent</a><a href="#categories" className="transition hover:text-[#c9a961]">Explore</a><a href="#insights" className="transition hover:text-[#c9a961]">Insights</a>
+            <a href="/buy" className="transition hover:text-[#c9a961]">Buy</a><a href="/rent" className="transition hover:text-[#c9a961]">Rent</a><a href="#categories" className="transition hover:text-[#c9a961]">Explore</a><a href="/message" className="transition hover:text-[#c9a961]">Messages</a>
           </nav>
           <div className="flex items-center gap-3"><Button variant="ghost" className="hidden text-white hover:bg-white/10 hover:text-white sm:inline-flex">Sign in</Button><Button className="rounded-full bg-[#c9a961] px-5 text-[#0b3d2e] hover:bg-[#e1c67e]">List Property <ArrowRight data-icon="inline-end" /></Button></div>
         </div>
