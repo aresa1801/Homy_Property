@@ -69,7 +69,7 @@ const dictionaries: Record<Language, Dictionary> = {
     villa: "Vila",
     boardingHouse: "Kost",
   },
-  en: {
+  id_only: {
     sale: "Jual",
     rent: "Sewa",
     listProperty: "Pasang Properti",
@@ -120,9 +120,9 @@ const dictionaries: Record<Language, Dictionary> = {
     planConfidence: "Plan with confidence",
     moveClarity: "Make your move with clarity.",
     kprCalculator: "KPR calculator",
-    estimateInstallment: "Estimate your monthly installment",
-    nextChapter: "Your next chapter starts here.",
-    talkAssistant: "Talk to our AI assistant",
+    estimateInstallment: "Perkirakan cicilan bulanan Anda",
+    nextChapter: "Babak berikutnya dimulai di sini.",
+    talkAssistant: "Bicara dengan asisten AI",
     find: "Find",
     house: "House",
     apartment: "Apartment",
