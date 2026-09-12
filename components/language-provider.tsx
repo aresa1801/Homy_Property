@@ -75,6 +75,16 @@ const dictionaries: Record<Language, Dictionary> = {
   },
 }
 
+const copy: Record<string, [string, string]> = {
+  "Buy": ["Jual", "Sale"], "Buy property": ["Properti untuk dijual", "Properties for sale"], "Find your forever place.": ["Temukan hunian impian Anda.", "Find your forever place."], "Explore homes curated around your lifestyle and goals.": ["Jelajahi hunian pilihan yang sesuai gaya hidup dan tujuan Anda.", "Explore homes curated around your lifestyle and goals."],
+  "Rent with confidence": ["Sewa dengan tenang", "Rent with confidence"], "Find a home for": ["Temukan hunian untuk", "Find a home for"], "your next chapter.": ["tahap hidup Anda berikutnya.", "your next chapter."], "Flexible rentals, transparent costs, and homes ready when you are.": ["Sewa fleksibel, biaya transparan, dan hunian siap saat Anda membutuhkannya.", "Flexible rentals, transparent costs, and homes ready when you are."],
+  "List your property.": ["Pasang properti Anda.", "List your property."], "For owners and agents": ["Untuk pemilik dan agen", "For owners and agents"], "Tell us about the place. We'll help you present it beautifully.": ["Ceritakan properti Anda. Kami akan membantu menampilkannya dengan menarik.", "Tell us about the place. We'll help you present it beautifully."], "Save draft and exit": ["Simpan draf dan keluar", "Save draft and exit"],
+  "Location": ["Lokasi", "Location"], "Property type": ["Tipe properti", "Property type"], "Duration": ["Durasi", "Duration"], "Move-in date": ["Tanggal mulai tinggal", "Move-in date"], "Map view": ["Tampilan peta", "Map view"], "All property types": ["Semua tipe properti", "All property types"], "City, neighborhood": ["Kota, area", "City, neighborhood"], "City or neighborhood": ["Kota atau area", "City or neighborhood"],
+  "Welcome back, Raka": ["Selamat datang kembali, Raka", "Welcome back, Raka"], "Operations center": ["Pusat operasional", "Operations center"], "System command center": ["Pusat kendali sistem", "System command center"], "Everything under control.": ["Semua terkendali.", "Everything under control."], "Keep Homy trusted.": ["Jaga kepercayaan di Homy.", "Keep Homy trusted."], "Your home journey.": ["Perjalanan hunian Anda.", "Your home journey."], "Grow your property business.": ["Kembangkan bisnis properti Anda.", "Grow your property business."],
+  "Loading your profile...": ["Memuat profil Anda...", "Loading your profile..."], "Almost there": ["Hampir selesai", "Almost there"], "How will you use Homy?": ["Bagaimana Anda akan menggunakan Homy?", "How will you use Homy?"], "Choose your path. You can always apply to become an Agent or Property Owner later.": ["Pilih kebutuhan Anda. Anda selalu dapat mendaftar sebagai Agen atau Pemilik Properti nanti.", "Choose your path. You can always apply to become an Agent or Property Owner later."], "Just exploring": ["Saya hanya menjelajah", "Just exploring"], "Find and save properties.": ["Cari dan simpan properti.", "Find and save properties."], "I am an Agent": ["Saya seorang Agen", "I am an Agent"], "Manage clients and listings.": ["Kelola klien dan listing.", "Manage clients and listings."], "I own Property": ["Saya Pemilik Properti", "I own Property"], "List and manage my property.": ["Pasang dan kelola properti saya.", "List and manage my property."], "Full name": ["Nama lengkap", "Full name"], "Phone number": ["Nomor telepon", "Phone number"], "Company name": ["Nama perusahaan", "Company name"], "Why are you applying?": ["Mengapa Anda mendaftar?", "Why are you applying?"], "Submit application": ["Kirim pendaftaran", "Submit application"], "Sign in with Google": ["Masuk dengan Google", "Sign in with Google"], "Continue with Google": ["Lanjutkan dengan Google", "Continue with Google"],
+  "Active listings": ["Listing aktif", "Active listings"], "New leads": ["Prospek baru", "New leads"], "Conversion rate": ["Tingkat konversi", "Conversion rate"], "Monthly revenue": ["Pendapatan bulanan", "Monthly revenue"], "Pending approvals": ["Persetujuan tertunda", "Pending approvals"], "Active users": ["Pengguna aktif", "Active users"], "Open reports": ["Laporan terbuka", "Open reports"], "System uptime": ["Waktu aktif sistem", "System uptime"], "Active admins": ["Admin aktif", "Active admins"], "Feature flags": ["Feature flag", "Feature flags"], "Last backup": ["Cadangan terakhir", "Last backup"], "Healthy": ["Sehat", "Healthy"], "Pending": ["Tertunda", "Pending"], "Review": ["Tinjau", "Review"], "View all": ["Lihat semua", "View all"], "Manage leads": ["Kelola prospek", "Manage leads"], "Full analytics": ["Analitik lengkap", "Full analytics"], "Jual": ["Jual", "Sale"], "Sale": ["Jual", "Sale"], "Buy": ["Jual", "Sale"], "Rent": ["Sewa", "Rent"], "List Property": ["Pasang Properti", "List Property"], "Messages": ["Pesan", "Messages"], "Sign in": ["Masuk", "Sign in"], "Search": ["Cari", "Search"], "Advanced filters": ["Filter lanjutan", "Advanced filters"], "Compare properties": ["Bandingkan properti", "Compare properties"], "View details": ["Lihat detail", "View details"], "Save": ["Simpan", "Save"], "AI recommendation": ["Rekomendasi AI", "AI recommendation"], "Transparent & personalized": ["Transparan & personal", "Transparent & personalized"], "properties found": ["properti ditemukan", "properties found"], "Price range": ["Rentang harga", "Price range"], "Any price": ["Harga berapa pun", "Any price"], "Under Rp 3B": ["Di bawah Rp 3M", "Under Rp 3B"], "All property types": ["Semua tipe properti", "All property types"], "House": ["Rumah", "House"], "Apartment": ["Apartemen", "Apartment"], "Villa": ["Vila", "Villa"], "Fully furnished": ["Furnished", "Fully furnished"], "Semi furnished": ["Semi-furnished", "Semi furnished"], "Monthly": ["Bulanan", "Monthly"], "Yearly": ["Tahunan", "Yearly"], "Step": ["Langkah", "Step"], "of": ["dari", "of"], "Listing type": ["Jenis listing", "Listing type"], "Property details": ["Detail properti", "Property details"], "Pricing": ["Harga", "Pricing"], "Media": ["Media", "Media"], "Preview": ["Pratinjau", "Preview"], "Add new listing": ["Tambah listing", "Add new listing"], "Performance overview": ["Ringkasan performa", "Performance overview"], "Lead pipeline": ["Alur prospek", "Lead pipeline"], "Moderation queue": ["Antrean moderasi", "Moderation queue"], "Reports to resolve": ["Laporan untuk ditangani", "Reports to resolve"], "System activity": ["Aktivitas sistem", "System activity"], "Platform health": ["Kesehatan platform", "Platform health"], "Audit log": ["Log audit", "Audit log"], "Infrastructure": ["Infrastruktur", "Infrastructure"]
+}
+
 const LanguageContext = createContext<{ language: Language; setLanguage: (language: Language) => void; t: (key: string) => string } | null>(null)
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
@@ -90,8 +100,40 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     window.localStorage.setItem("homy-language", next)
   }
 
+  useEffect(() => {
+    const sources = new WeakMap<Text, string>()
+    const translate = () => {
+      const target = language === "id" ? 0 : 1
+      document.querySelectorAll("body *:not(script):not(style)").forEach((element) => {
+        element.childNodes.forEach((node) => {
+          if (node.nodeType !== Node.TEXT_NODE) return
+          const raw = node.textContent?.trim()
+          if (!raw) return
+          const textNode = node as Text
+          const source = sources.get(textNode) ?? raw
+          const match = Object.entries(copy).find(([, values]) => values.includes(source))
+          if (match) {
+            sources.set(textNode, source)
+            const nextText = match[1][target]
+            if (textNode.textContent !== nextText) textNode.textContent = nextText
+          }
+        })
+        ;["placeholder", "aria-label", "title"].forEach((attribute) => {
+          const value = element.getAttribute(attribute)
+          if (!value) return
+          const match = Object.entries(copy).find(([, values]) => values.includes(value))
+          if (match) element.setAttribute(attribute, match[1][target])
+        })
+      })
+    }
+    translate()
+    const observer = new MutationObserver(translate)
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [language])
+
   const value = useMemo(() => ({ language, setLanguage, t: (key: string) => dictionaries[language][key] ?? key }), [language])
-  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>
+  return <LanguageContext.Provider value={value}><div className="contents"><LanguageToggle /><div className="contents">{children}</div></div></LanguageContext.Provider>
 }
 
 export function useLanguage() {
@@ -103,7 +145,7 @@ export function useLanguage() {
 export function LanguageToggle() {
   const { language, setLanguage } = useLanguage()
   return (
-    <div className="inline-flex items-center rounded-full border border-white/20 bg-white/10 p-1 text-xs backdrop-blur" aria-label="Language selector">
+    <div className="fixed right-5 top-5 z-[100] inline-flex items-center rounded-full border border-white/20 bg-[#0b3d2e]/90 p-1 text-xs shadow-lg backdrop-blur" aria-label="Language selector">
       <button type="button" onClick={() => setLanguage("id")} aria-pressed={language === "id"} className={`rounded-full px-3 py-1.5 font-medium transition ${language === "id" ? "bg-white text-[#0b3d2e]" : "text-white/80 hover:text-white"}`}>ID</button>
       <button type="button" onClick={() => setLanguage("en")} aria-pressed={language === "en"} className={`rounded-full px-3 py-1.5 font-medium transition ${language === "en" ? "bg-white text-[#0b3d2e]" : "text-white/80 hover:text-white"}`}>EN</button>
     </div>
