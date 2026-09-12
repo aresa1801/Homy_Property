@@ -158,38 +158,6 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     window.localStorage.setItem("homy-language", next)
   }
 
-  useEffect(() => {
-    const sources = new WeakMap<Text, string>()
-    const translate = () => {
-      const target = language === "id" ? 0 : 1
-      document.querySelectorAll("body *:not(script):not(style)").forEach((element) => {
-        element.childNodes.forEach((node) => {
-          if (node.nodeType !== Node.TEXT_NODE) return
-          const raw = node.textContent?.trim()
-          if (!raw) return
-          const textNode = node as Text
-          const source = sources.get(textNode) ?? raw
-          const match = Object.entries(copy).find(([, values]) => values.includes(source))
-          if (match) {
-            sources.set(textNode, source)
-            const nextText = match[1][target]
-            if (textNode.textContent !== nextText) textNode.textContent = nextText
-          }
-        })
-        ;["placeholder", "aria-label", "title"].forEach((attribute) => {
-          const value = element.getAttribute(attribute)
-          if (!value) return
-          const match = Object.entries(copy).find(([, values]) => values.includes(value))
-          if (match) element.setAttribute(attribute, match[1][target])
-        })
-      })
-    }
-    translate()
-    const observer = new MutationObserver(translate)
-    observer.observe(document.body, { childList: true, subtree: true })
-    return () => observer.disconnect()
-  }, [language])
-
   const value = useMemo(() => ({ language, setLanguage, t: (key: string) => dictionaries[language][key] ?? key }), [language])
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>
 }
