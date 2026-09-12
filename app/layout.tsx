@@ -4,8 +4,8 @@ import { LanguageProvider } from '@/components/language-provider'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Homy Property — Find a place to call home',
-  description: 'Discover exceptional properties in Indonesia, thoughtfully curated for the way you want to live.',
+  title: 'Homy Property — Temukan hunian terbaik',
+  description: 'Temukan properti pilihan di Indonesia yang sesuai dengan gaya hidup Anda.',
   generator: 'v0.app',
   icons: {
     icon: [
@@ -37,7 +37,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="id">
       <body className="antialiased">
         <LanguageProvider>{children}</LanguageProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
