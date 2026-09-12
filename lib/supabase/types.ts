@@ -1,4 +1,4 @@
-export type Role = 'user' | 'agent' | 'admin' | 'super_admin'
+export type Role = 'user' | 'agent' | 'property_owner' | 'admin' | 'super_admin'
 export type ListingType = 'sale' | 'rent'
 export type PropertyStatus = 'draft' | 'pending' | 'published' | 'rejected' | 'archived'
 
