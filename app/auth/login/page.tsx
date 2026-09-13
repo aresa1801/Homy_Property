@@ -13,6 +13,11 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
     const supabase = createClient()
+    const { data: { user: existingUser } } = await supabase.auth.getUser()
+    if (existingUser) {
+      window.location.assign('/')
+      return
+    }
     const redirectTo = process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/auth/callback`
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
