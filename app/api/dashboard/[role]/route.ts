@@ -17,6 +17,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     ])
     return NextResponse.json({ ...base, metrics: { activeListings: properties.data?.filter((p) => p.status === 'published').length ?? 0, newLeads: inquiries.data?.filter((i) => i.status === 'open').length ?? 0 }, properties: properties.data ?? [], inquiries: inquiries.data ?? [] })
   }
+  if (role === 'property-owner') {
+    const [properties, inquiries] = await Promise.all([
+      supabase.from('properties').select('id,title,city,status,listing_type,price,created_at').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(50),
+      supabase.from('inquiries').select('id,property_id,status,message,created_at').eq('agent_id', user.id).order('created_at', { ascending: false }).limit(50),
+    ])
+    return NextResponse.json({ ...base, metrics: { properties: properties.data?.length ?? 0, publishedProperties: properties.data?.filter((p) => p.status === 'published').length ?? 0, inquiries: inquiries.data?.length ?? 0 }, properties: properties.data ?? [], inquiries: inquiries.data ?? [], visits: [] })
+  }
   if (role === 'admin') {
     const [pending, reports, users] = await Promise.all([
       supabase.from('properties').select('id,title,city,status,owner_id,created_at').eq('status', 'pending').order('created_at', { ascending: false }).limit(30),
