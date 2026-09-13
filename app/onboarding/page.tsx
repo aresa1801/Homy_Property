@@ -21,7 +21,9 @@ export default function OnboardingPage() {
     createClient().auth.getUser().then(({ data }) => {
       const email = data.user?.email?.trim().toLowerCase()
       const requestedRole = new URLSearchParams(window.location.search).get('role')
-      if (requestedRole === 'agent' || requestedRole === 'property_owner') setRole(requestedRole)
+      if (requestedRole === 'agent' || requestedRole === 'property_owner') {
+        setRole(requestedRole)
+      }
       setName(data.user?.user_metadata?.full_name ?? data.user?.email?.split('@')[0] ?? '')
       setLoading(false)
     })
@@ -48,8 +50,9 @@ export default function OnboardingPage() {
     if (applicationError) {
       setMessage('Peran Anda tersimpan, tetapi data pengajuan belum dapat dibuat. Anda tetap dapat melanjutkan ke dasbor.')
     }
-    window.location.href = role === 'agent' ? '/dashboard/agent' : '/dashboard/property-owner'
-    setSubmitting(false)
+    const destination = role === 'agent' ? '/dashboard/agent' : '/dashboard/property-owner'
+    window.location.replace(destination)
+    return
   }
 
   if (loading) return <main className="grid min-h-screen place-items-center bg-[#f7f3ec] text-[#0b3d2e]">Memuat profil Anda...</main>
