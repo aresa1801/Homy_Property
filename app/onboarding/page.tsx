@@ -35,23 +35,20 @@ export default function OnboardingPage() {
     setMessage(null)
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
-    if (!userData.user) { window.location.href = '/auth/login'; return }
-    const { error: profileError } = await supabase.from('profiles').upsert({ id: userData.user.id, full_name: name, role }, { onConflict: 'id' })
-    if (profileError) {
-      setMessage('Peran Anda belum dapat disimpan. Silakan coba lagi.')
-      setSubmitting(false)
-      return
+    if (!userData.user) { window.location.replace('/auth/login'); return }
+
+    const requestedRole = new URLSearchParams(window.location.search).get('role')
+    const selectedRole: Role = requestedRole === 'agent' || requestedRole === 'property_owner' ? requestedRole : role
+    const destination = selectedRole === 'agent' ? '/dashboard/agent' : selectedRole === 'property_owner' ? '/dashboard/property-owner' : '/dashboard/user'
+
+    try {
+      await supabase.from('profiles').upsert({ id: userData.user.id, full_name: name, role: selectedRole }, { onConflict: 'id' })
+      if (selectedRole !== 'user') {
+        await (supabase as any).rpc('submit_role_application', { requested_role_input: selectedRole, full_name_input: name, phone_input: phone, company_name_input: company || null, identity_number_input: null, reason_input: reason || null })
+      }
+    } finally {
+      window.location.replace(destination)
     }
-    if (role === 'user') {
-      window.location.href = '/dashboard/user'
-      return
-    }
-    const { error: applicationError } = await (supabase as any).rpc('submit_role_application', { requested_role_input: role, full_name_input: name, phone_input: phone, company_name_input: company || null, identity_number_input: null, reason_input: reason || null })
-    if (applicationError) {
-      setMessage('Peran Anda tersimpan, tetapi data pengajuan belum dapat dibuat. Anda tetap dapat melanjutkan ke dasbor.')
-    }
-    const destination = role === 'agent' ? '/dashboard/agent' : '/dashboard/property-owner'
-    window.location.replace(destination)
     return
   }
 
