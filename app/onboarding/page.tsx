@@ -42,7 +42,7 @@ export default function OnboardingPage() {
     }
     const { error: profileError } = await supabase.from('profiles').upsert({ id: userData.user.id, full_name: name, role }, { onConflict: 'id' })
     if (profileError) {
-      setMessage('We could not save your role. Please try again.')
+      setMessage('Peran Anda belum dapat disimpan. Silakan coba lagi.')
       setSubmitting(false)
       return
     }
@@ -52,7 +52,7 @@ export default function OnboardingPage() {
     }
     const { error: applicationError } = await (supabase as any).rpc('submit_role_application', { requested_role_input: role, full_name_input: name, phone_input: phone, company_name_input: company || null, identity_number_input: null, reason_input: reason || null })
     if (applicationError) {
-      setMessage('Your role was saved, but we could not create the application record. You can continue to your dashboard.')
+      setMessage('Peran Anda tersimpan, tetapi data pengajuan belum dapat dibuat. Anda tetap dapat melanjutkan ke dasbor.')
     }
     window.location.href = role === 'agent' ? '/dashboard/agent' : '/dashboard/property-owner'
     setSubmitting(false)

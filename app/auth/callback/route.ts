@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
-  const next = requestUrl.searchParams.get('next') || '/onboarding'
+  const next = requestUrl.searchParams.get('next') || '/'
 
   if (code) {
     const supabase = await createClient()
@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
     if (!error && data.user) {
       const email = data.user.email?.trim().toLowerCase()
-      const destination = email === 'rahadhyan@gmail.com' ? '/dashboard/super-admin' : next
+      const destination = next
 
       if (email === 'rahadhyan@gmail.com') {
         await supabase.from('profiles').upsert(
