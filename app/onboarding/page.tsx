@@ -22,10 +22,6 @@ export default function OnboardingPage() {
       const email = data.user?.email?.trim().toLowerCase()
       const requestedRole = new URLSearchParams(window.location.search).get('role')
       if (requestedRole === 'agent' || requestedRole === 'property_owner') setRole(requestedRole)
-      if (email === 'rahadhyan@gmail.com') {
-        window.location.replace('/dashboard/super-admin')
-        return
-      }
       setName(data.user?.user_metadata?.full_name ?? data.user?.email?.split('@')[0] ?? '')
       setLoading(false)
     })
@@ -38,10 +34,6 @@ export default function OnboardingPage() {
     const supabase = createClient()
     const { data: userData } = await supabase.auth.getUser()
     if (!userData.user) { window.location.href = '/auth/login'; return }
-    if (userData.user.email?.trim().toLowerCase() === 'rahadhyan@gmail.com') {
-      window.location.href = '/dashboard/super-admin'
-      return
-    }
     const { error: profileError } = await supabase.from('profiles').upsert({ id: userData.user.id, full_name: name, role }, { onConflict: 'id' })
     if (profileError) {
       setMessage('Peran Anda belum dapat disimpan. Silakan coba lagi.')
