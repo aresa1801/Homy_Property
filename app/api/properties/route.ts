@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   const supabase = await createClient()
   let query = supabase
     .from('properties')
-    .select('id,title,description,listing_type,status,property_type,city,district,price,price_period,bedrooms,bathrooms,land_area,building_area,furnished,utilities_included,available_from,created_at,property_media(storage_path,media_type,sort_order)')
+    .select('id,title,description,listing_type,status,property_type,province,postal_code,negotiable,certificate,year_built,floors,carports,electricity_va,water_source,property_condition,amenities,nearby,min_lease_months,rent_payment_terms,occupancy_status,extra_notes,ai_summary,ai_facts,city,district,price,price_period,bedrooms,bathrooms,land_area,building_area,furnished,utilities_included,available_from,created_at,property_media(storage_path,media_type,sort_order)')
     .eq('status', 'published')
   if (type === 'sale' || type === 'rent') query = query.eq('listing_type', type)
   if (city) query = query.ilike('city', `%${city}%`)

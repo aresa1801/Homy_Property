@@ -31,7 +31,7 @@ export default function PropertyDetailPage() {
     const supabase = createClient()
     supabase
       .from('properties')
-      .select('id,title,description,listing_type,status,property_type,city,district,address,price,price_period,bedrooms,bathrooms,land_area,building_area,furnished,utilities_included,available_from,created_at,property_media(storage_path,media_type,sort_order)')
+      .select('id,title,description,listing_type,status,property_type,province,postal_code,negotiable,certificate,year_built,floors,carports,electricity_va,water_source,property_condition,amenities,nearby,min_lease_months,rent_payment_terms,occupancy_status,extra_notes,ai_summary,ai_facts,city,district,address,price,price_period,bedrooms,bathrooms,land_area,building_area,furnished,utilities_included,available_from,created_at,property_media(storage_path,media_type,sort_order)')
       .eq('id', id)
       .maybeSingle()
       .then(({ data }) => {

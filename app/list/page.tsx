@@ -1,24 +1,27 @@
 'use client'
 
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
+  Building2,
   Check,
   FileSignature,
   Home,
   ImagePlus,
+  KeyRound,
   Loader2,
   MapPin,
   ShieldCheck,
   Sparkles,
+  Tag,
   Trash2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { MAX_PHOTOS, squareCompressPhoto } from '@/lib/image-utils'
 
-const steps = ['Jenis listing', 'Detail properti', 'Lokasi', 'Harga', 'Media', 'Pratinjau']
+const steps = ['Jenis listing', 'Detail properti', 'Lokasi', 'Fasilitas', 'Harga & sewa', 'Media', 'Pratinjau']
 
 const PROPERTY_TYPES = [
   { value: 'house', label: 'Rumah' },
@@ -27,9 +30,53 @@ const PROPERTY_TYPES = [
   { value: 'land', label: 'Tanah' },
   { value: 'shopHouse', label: 'Ruko' },
   { value: 'boardingHouse', label: 'Kost' },
+  { value: 'office', label: 'Kantor' },
+  { value: 'warehouse', label: 'Gudang' },
+]
+
+const CERTIFICATES = ['SHM', 'HGB', 'Strata Title', 'AJB', 'PPJB', 'Girik / Lainnya']
+const CONDITIONS = [
+  { value: 'new', label: 'Baru / Siap huni' },
+  { value: 'good', label: 'Baik' },
+  { value: 'renovated', label: 'Sudah renovasi' },
+  { value: 'needs_renovation', label: 'Perlu renovasi' },
+]
+const WATER_SOURCES = ['PDAM', 'Sumur bor', 'Sumur gali', 'Air tanah', 'Air pegunungan']
+const PAYMENT_TERMS = ['Bulanan', '3 bulanan', '6 bulanan', 'Tahunan', 'Fleksibel']
+const OCCUPANCY = [
+  { value: 'vacant', label: 'Kosong / siap huni' },
+  { value: 'occupied', label: 'Masih terisi' },
+]
+
+const AMENITIES = [
+  'AC', 'Kolam renang', 'Gym', 'Taman', 'Balkon', 'Dapur set', 'Water heater',
+  'Mesin cuci', 'Kulkas', 'WiFi / Internet', 'TV kabel', 'Garasi', 'Parkir mobil',
+  'Parkir motor', 'Keamanan 24 jam', 'CCTV', 'Lift', 'Genset', 'Panel surya',
+  'Jemuran', 'Pemandangan kota', 'Pemandangan laut', 'Akses difabel', 'Rooftop',
+]
+
+const NEARBY = [
+  'Sekolah', 'Universitas', 'Mall / pusat belanja', 'Rumah sakit', 'Pasar',
+  'Stasiun KRL / MRT', 'Halte bus / TransJakarta', 'Bandara', 'Jalan tol',
+  'Taman kota', 'Tempat ibadah', 'Restoran / kafe', 'Pusat bisnis / perkantoran',
 ]
 
 type PhotoItem = { file: File; url: string; name: string }
+type ListingKind = 'sale' | 'rent' | 'both'
+
+const labelCls = 'flex flex-col gap-2 text-sm font-semibold text-[#33433d]'
+const inputCls = 'h-12 w-full rounded-lg border border-[#e8dfd3] px-4 font-normal outline-none focus:border-[#0b3d2e]'
+const selectCls = 'h-12 w-full rounded-lg border border-[#e8dfd3] px-4 font-normal outline-none focus:border-[#0b3d2e]'
+
+function Fieldset({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+  return (
+    <div className="rounded-2xl border border-[#eee5d8] bg-[#fffdfa] p-5 sm:p-6">
+      <p className="font-serif text-lg text-[#0b3d2e]">{title}</p>
+      {hint && <p className="mt-1 text-xs text-[#65706c]">{hint}</p>}
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{children}</div>
+    </div>
+  )
+}
 
 export default function ListPage() {
   const [step, setStep] = useState(0)
@@ -74,7 +121,7 @@ export default function ListPage() {
   }, [])
 
   // Step 0 — listing kind
-  const [listingKind, setListingKind] = useState<'sale' | 'rent' | 'both'>('sale')
+  const [listingKind, setListingKind] = useState<ListingKind>('sale')
 
   // Step 1 — details
   const [title, setTitle] = useState('')
@@ -83,6 +130,10 @@ export default function ListPage() {
   const [bathrooms, setBathrooms] = useState('')
   const [buildingArea, setBuildingArea] = useState('')
   const [landArea, setLandArea] = useState('')
+  const [floors, setFloors] = useState('')
+  const [yearBuilt, setYearBuilt] = useState('')
+  const [certificate, setCertificate] = useState('SHM')
+  const [propertyCondition, setPropertyCondition] = useState('good')
   const [furnished, setFurnished] = useState<'furnished' | 'semi_furnished' | 'unfurnished'>('unfurnished')
   const [description, setDescription] = useState('')
 
@@ -90,18 +141,38 @@ export default function ListPage() {
   const [address, setAddress] = useState('')
   const [city, setCity] = useState('')
   const [district, setDistrict] = useState('')
+  const [province, setProvince] = useState('')
+  const [postalCode, setPostalCode] = useState('')
 
-  // Step 3 — price
-  const [price, setPrice] = useState('')
-  const [negotiable, setNegotiable] = useState('Yes')
+  // Step 3 — facilities
+  const [amenities, setAmenities] = useState<string[]>([])
+  const [nearby, setNearby] = useState<string[]>([])
+  const [electricity, setElectricity] = useState('')
+  const [waterSource, setWaterSource] = useState('PDAM')
+  const [carports, setCarports] = useState('')
+  const [extraNotes, setExtraNotes] = useState('')
+
+  // Step 4 — pricing (sale and/or rent)
+  const [salePrice, setSalePrice] = useState('')
+  const [saleNegotiable, setSaleNegotiable] = useState('Yes')
+  const [rentPrice, setRentPrice] = useState('')
+  const [minLeaseMonths, setMinLeaseMonths] = useState('')
+  const [rentPaymentTerms, setRentPaymentTerms] = useState('Bulanan')
   const [deposit, setDeposit] = useState('')
   const [serviceCharge, setServiceCharge] = useState('')
+  const [maintenanceFee, setMaintenanceFee] = useState('')
+  const [utilitiesIncluded, setUtilitiesIncluded] = useState(false)
+  const [availableFrom, setAvailableFrom] = useState('')
+  const [occupancyStatus, setOccupancyStatus] = useState('vacant')
 
-  // Step 4 — media
+  // Step 5 — media
   const [photos, setPhotos] = useState<PhotoItem[]>([])
   const [photoBusy, setPhotoBusy] = useState(false)
 
-  const pricePeriod = listingKind === 'rent' ? 'monthly' : 'total'
+  const wantsSale = listingKind === 'sale' || listingKind === 'both'
+  const wantsRent = listingKind === 'rent' || listingKind === 'both'
+  const isLand = propertyType === 'land'
+  const isBoarding = propertyType === 'boardingHouse'
 
   const numeric = (value: string) => {
     const clean = value.replace(/[^0-9.]/g, '')
@@ -111,11 +182,18 @@ export default function ListPage() {
   }
 
   const canContinue = useMemo(() => {
-    if (step === 1) return title.trim().length > 2 && city.trim().length > 0
+    if (step === 1) return title.trim().length > 2
     if (step === 2) return address.trim().length > 2 && city.trim().length > 0
-    if (step === 3) return numeric(price) !== null && numeric(price)! > 0
+    if (step === 4) {
+      const saleOk = !wantsSale || (numeric(salePrice) ?? 0) > 0
+      const rentOk = !wantsRent || (numeric(rentPrice) ?? 0) > 0
+      return saleOk && rentOk
+    }
     return true
-  }, [step, title, city, address, price])
+  }, [step, title, address, city, wantsSale, wantsRent, salePrice, rentPrice])
+
+  const toggle = (list: string[], value: string) =>
+    list.includes(value) ? list.filter((v) => v !== value) : [...list, value]
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return
@@ -146,6 +224,89 @@ export default function ListPage() {
     })
   }
 
+  // Human-readable facts paragraph — this is what the AI assistant reads to answer buyer questions.
+  function buildSummary(kind: 'sale' | 'rent') {
+    const typeLabel = PROPERTY_TYPES.find((t) => t.value === propertyType)?.label ?? propertyType
+    const bits: string[] = []
+    bits.push(`${typeLabel}${isBoarding ? ` dengan ${bedrooms || 0} kamar` : ''}${!isLand && !isBoarding ? ` ${bedrooms || 0} kamar tidur, ${bathrooms || 0} kamar mandi` : ''}`)
+    if (buildingArea) bits.push(`luas bangunan ${buildingArea} m²`)
+    if (landArea) bits.push(`luas tanah ${landArea} m²`)
+    if (floors) bits.push(`${floors} lantai`)
+    if (yearBuilt) bits.push(`dibangun sekitar tahun ${yearBuilt}`)
+    if (certificate) bits.push(`sertifikat ${certificate}`)
+    const condLabel = CONDITIONS.find((c) => c.value === propertyCondition)?.label
+    if (condLabel) bits.push(`kondisi ${condLabel.toLowerCase()}`)
+    if (!isLand) bits.push(furnished === 'furnished' ? 'fully furnished' : furnished === 'semi_furnished' ? 'semi furnished' : 'unfurnished')
+    if (carports) bits.push(`carport ${carports} mobil`)
+
+    const loc = [district, city, province].filter(Boolean).join(', ')
+    let text = bits.join(', ') + '.'
+    if (loc) text += ` Berlokasi di ${loc}${address ? ` (${address})` : ''}${postalCode ? `, kode pos ${postalCode}` : ''}.`
+    if (amenities.length) text += ` Fasilitas: ${amenities.join(', ')}.`
+    if (nearby.length) text += ` Dekat dengan: ${nearby.join(', ')}.`
+    if (electricity) text += ` Daya listrik ${electricity} VA.`
+    if (waterSource) text += ` Sumber air ${waterSource}.`
+    if (kind === 'sale') {
+      text += ` Dijual dengan harga Rp ${(numeric(salePrice) ?? 0).toLocaleString('id-ID')}${saleNegotiable === 'Yes' ? ' (masih bisa dinegosiasi)' : ''}.`
+    } else {
+      text += ` Disewakan Rp ${(numeric(rentPrice) ?? 0).toLocaleString('id-ID')} per bulan${minLeaseMonths ? `, minimal sewa ${minLeaseMonths} bulan` : ''}${rentPaymentTerms ? `, pembayaran ${rentPaymentTerms.toLowerCase()}` : ''}.`
+      if (deposit) text += ` Deposit Rp ${(numeric(deposit) ?? 0).toLocaleString('id-ID')}.`
+      if (serviceCharge) text += ` Biaya layanan Rp ${(numeric(serviceCharge) ?? 0).toLocaleString('id-ID')}.`
+      if (maintenanceFee) text += ` Maintenance fee Rp ${(numeric(maintenanceFee) ?? 0).toLocaleString('id-ID')}.`
+      text += utilitiesIncluded ? ' Termasuk utilitas (listrik/air).' : ' Utilitas tidak termasuk.'
+      if (availableFrom) text += ` Mulai tersedia ${availableFrom}.`
+      text += occupancyStatus === 'occupied' ? ' Saat ini masih terisi.' : ' Saat ini kosong dan siap huni.'
+    }
+    if (extraNotes.trim()) text += ` Catatan tambahan: ${extraNotes.trim()}`
+    return text
+  }
+
+  function buildFacts(kind: 'sale' | 'rent') {
+    return {
+      listing_type: kind,
+      property_type: propertyType,
+      headline: title.trim(),
+      summary: buildSummary(kind),
+      specs: {
+        bedrooms: Number(bedrooms) || 0,
+        bathrooms: Number(bathrooms) || 0,
+        building_area_m2: numeric(buildingArea),
+        land_area_m2: numeric(landArea),
+        floors: numeric(floors),
+        year_built: numeric(yearBuilt),
+        certificate,
+        condition: propertyCondition,
+        furnished,
+        carports: numeric(carports),
+        electricity_va: numeric(electricity),
+        water_source: waterSource,
+      },
+      location: {
+        address: address.trim() || null,
+        district: district.trim() || null,
+        city: city.trim(),
+        province: province.trim() || null,
+        postal_code: postalCode.trim() || null,
+      },
+      amenities,
+      nearby,
+      pricing: {
+        sale_price: numeric(salePrice),
+        negotiable: saleNegotiable === 'Yes',
+        rent_price_monthly: numeric(rentPrice),
+        min_lease_months: numeric(minLeaseMonths),
+        rent_payment_terms: rentPaymentTerms,
+        deposit: numeric(deposit),
+        service_charge: numeric(serviceCharge),
+        maintenance_fee: numeric(maintenanceFee),
+        utilities_included: utilitiesIncluded,
+        available_from: availableFrom || null,
+        occupancy_status: occupancyStatus,
+      },
+      notes: extraNotes.trim() || null,
+    }
+  }
+
   async function submit() {
     if (agreementGate !== 'ok') {
       window.location.assign(`/agreement?role=${partnerRole}&next=/list`)
@@ -163,12 +324,10 @@ export default function ListPage() {
     const ownerId = userData.user.id
 
     try {
-      const payloads = listingKind === 'both'
-        ? ['sale', 'rent']
-        : [listingKind]
+      const kinds: ('sale' | 'rent')[] = listingKind === 'both' ? ['sale', 'rent'] : [listingKind]
 
       const createdIds: string[] = []
-      for (const kind of payloads) {
+      for (const kind of kinds) {
         const { data: created, error: insertError } = await supabase
           .from('properties')
           .insert({
@@ -180,17 +339,37 @@ export default function ListPage() {
             property_type: propertyType,
             city: city.trim(),
             district: district.trim() || null,
+            province: province.trim() || null,
+            postal_code: postalCode.trim() || null,
             address: address.trim() || null,
-            price: numeric(price) ?? 0,
+            price: kind === 'sale' ? numeric(salePrice) ?? 0 : numeric(rentPrice) ?? 0,
             price_period: kind === 'rent' ? 'monthly' : 'total',
+            negotiable: kind === 'sale' ? saleNegotiable === 'Yes' : false,
             bedrooms: Number(bedrooms) || 0,
             bathrooms: Number(bathrooms) || 0,
             building_area: numeric(buildingArea),
             land_area: numeric(landArea),
+            floors: numeric(floors),
+            year_built: numeric(yearBuilt),
+            certificate,
+            property_condition: propertyCondition,
             furnished,
-            utilities_included: false,
-            deposit_amount: numeric(deposit),
-            service_charge: numeric(serviceCharge),
+            carports: numeric(carports),
+            electricity_va: numeric(electricity),
+            water_source: waterSource,
+            amenities,
+            nearby,
+            utilities_included: kind === 'rent' ? utilitiesIncluded : false,
+            deposit_amount: kind === 'rent' ? numeric(deposit) : null,
+            service_charge: kind === 'rent' ? numeric(serviceCharge) : null,
+            maintenance_fee: kind === 'rent' ? numeric(maintenanceFee) : null,
+            min_lease_months: kind === 'rent' ? numeric(minLeaseMonths) : null,
+            rent_payment_terms: kind === 'rent' ? rentPaymentTerms : null,
+            occupancy_status: kind === 'rent' ? occupancyStatus : null,
+            available_from: kind === 'rent' && availableFrom ? availableFrom : null,
+            extra_notes: extraNotes.trim() || null,
+            ai_summary: buildSummary(kind),
+            ai_facts: buildFacts(kind),
           })
           .select('id')
           .single()
@@ -219,7 +398,11 @@ export default function ListPage() {
         }
       }
 
-      setNotice('Listing berhasil dikirim dan menunggu moderasi admin.')
+      setNotice(
+        listingKind === 'both'
+          ? 'Dua listing berhasil dikirim (Jual + Sewa) dan menunggu moderasi admin.'
+          : 'Listing berhasil dikirim dan menunggu moderasi admin.',
+      )
       setStep(steps.length - 1)
     } catch {
       setError('Gagal menyimpan listing. Silakan coba lagi atau masuk ulang.')
@@ -275,7 +458,7 @@ export default function ListPage() {
   return (
     <main className="min-h-screen bg-[#f7f3ec] text-[#1c1c1c]">
       <header className="border-b border-[#e8dfd3] bg-[#0b3d2e] text-white">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 lg:px-8">
+        <div className="flex h-20 w-full items-center justify-between px-5 lg:px-12">
           <a href="/" className="flex items-center gap-3">
             <span className="grid size-10 place-items-center rounded-xl bg-[#c9a961] text-[#0b3d2e]"><Home /></span>
             <span className="font-serif text-2xl font-bold">Homy<span className="text-[#c9a961]">.</span></span>
@@ -283,13 +466,19 @@ export default function ListPage() {
           <a href="/" className="text-sm text-white/70 hover:text-white">Simpan draf dan keluar</a>
         </div>
       </header>
-      <div className="mx-auto max-w-5xl px-5 py-12 lg:px-8">
-        <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c09b54]">Untuk pemilik dan agen</p>
-        <h1 className="mt-2 font-serif text-5xl text-[#0b3d2e]">Pasang properti Anda.</h1>
-        <p className="mt-3 text-[#65706c]">Ceritakan properti Anda. Kami akan membantu menampilkannya dengan menarik.</p>
 
-        <form onSubmit={onSubmit} className="mt-10 grid gap-8 lg:grid-cols-[190px_1fr]">
-          <aside className="flex gap-2 overflow-auto lg:flex-col">
+      <div className="w-full px-5 py-10 lg:px-12">
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c09b54]">Untuk pemilik dan agen</p>
+            <h1 className="mt-2 font-serif text-5xl text-[#0b3d2e]">Pasang properti Anda.</h1>
+            <p className="mt-3 text-[#65706c]">Ceritakan properti Anda sedetail mungkin. Data ini akan dipakai AI Homy untuk menjawab pertanyaan calon pembeli & penyewa.</p>
+          </div>
+          <div className="flex items-center gap-2 rounded-full bg-[#edf2ed] px-4 py-2 text-sm text-[#0b3d2e]"><Sparkles className="size-4" /> AI assistance included</div>
+        </div>
+
+        <form onSubmit={onSubmit} className="mt-10 grid gap-6 xl:grid-cols-[240px_1fr]">
+          <aside className="flex gap-2 overflow-auto xl:flex-col">
             {steps.map((name, i) => (
               <button type="button" key={name} onClick={() => setStep(i)} className={`flex shrink-0 items-center gap-3 rounded-lg p-3 text-left text-sm ${step === i ? 'bg-[#0b3d2e] text-white' : 'text-[#65706c] hover:bg-white'}`}>
                 <span className={`grid size-7 place-items-center rounded-full text-xs ${step === i ? 'bg-[#c9a961] text-[#0b3d2e]' : 'bg-[#e2eee7] text-[#0b3d2e]'}`}>{i < step ? <Check /> : i + 1}</span>
@@ -298,115 +487,243 @@ export default function ListPage() {
             ))}
           </aside>
 
-          <section className="rounded-2xl bg-white p-6 shadow-[0_10px_35px_rgba(20,42,32,.07)] sm:p-10">
+          <section className="rounded-2xl bg-white p-6 shadow-[0_10px_35px_rgba(20,42,32,.07)] sm:p-8 xl:p-10">
             <div className="flex items-center justify-between border-b border-[#e8dfd3] pb-6">
               <div>
                 <p className="text-sm text-[#65706c]">Step {step + 1} of {steps.length}</p>
                 <h2 className="mt-1 font-serif text-3xl text-[#0b3d2e]">{steps[step]}</h2>
               </div>
-              <div className="hidden items-center gap-2 rounded-full bg-[#edf2ed] px-4 py-2 text-sm text-[#0b3d2e] sm:flex"><Sparkles /> AI assistance included</div>
+              <div className="hidden items-center gap-2 rounded-full bg-[#edf2ed] px-4 py-2 text-sm text-[#0b3d2e] lg:flex">
+                {listingKind === 'sale' ? <><Tag className="size-4" /> Dijual</> : listingKind === 'rent' ? <><KeyRound className="size-4" /> Disewakan</> : <><Building2 className="size-4" /> Dijual & Disewakan</>}
+              </div>
             </div>
 
             {step === 0 && (
               <div className="mt-8 grid gap-4 sm:grid-cols-3">
-                {([['sale', 'Jual'], ['rent', 'Sewa'], ['both', 'Jual & Sewa']] as const).map(([value, label]) => (
-                  <button type="button" key={value} onClick={() => setListingKind(value)} className={`rounded-xl border-2 p-6 text-left transition ${listingKind === value ? 'border-[#c9a961] bg-[#fbf8f3]' : 'border-[#e8dfd3]'}`}>
-                    <Home className="mb-8 text-[#0b3d2e]" />
+                {([['sale', 'Jual', 'Jangkau pembeli berkualitas', Tag], ['rent', 'Sewa', 'Temukan penyewa terbaik', KeyRound], ['both', 'Jual & Sewa', 'Tawarkan keduanya sekaligus', Building2]] as const).map(([value, label, hint, Icon]) => (
+                  <button type="button" key={value} onClick={() => setListingKind(value)} className={`rounded-xl border-2 p-6 text-left transition ${listingKind === value ? 'border-[#c9a961] bg-[#fbf8f3]' : 'border-[#e8dfd3] hover:border-[#d8ccbb]'}`}>
+                    <Icon className="mb-8 text-[#0b3d2e]" />
                     <p className="font-semibold text-[#0b3d2e]">{label}</p>
-                    <p className="mt-2 text-sm text-[#65706c]">{value === 'rent' ? 'Temukan penyewa terbaik' : value === 'sale' ? 'Jangkau pembeli berkualitas' : 'Tawarkan keduanya sekaligus'}</p>
+                    <p className="mt-2 text-sm text-[#65706c]">{hint}</p>
                   </button>
                 ))}
+                {listingKind === 'both' && (
+                  <p className="rounded-xl bg-[#edf2ed] p-4 text-sm text-[#0b3d2e] sm:col-span-3">
+                    Sistem akan membuat <strong>2 listing</strong> (satu Jual, satu Sewa) dari data yang sama — Anda cukup mengisi sekali.
+                  </p>
+                )}
               </div>
             )}
 
             {step === 1 && (
-              <div className="mt-8 grid gap-5 sm:grid-cols-2">
-                <label className="flex flex-col gap-2 text-sm font-semibold text-[#33433d] sm:col-span-2">Judul listing
-                  <input required value={title} onChange={(e) => setTitle(e.target.value)} className="h-12 rounded-lg border border-[#e8dfd3] px-4 font-normal" placeholder="Judul yang membuat properti Anda menonjol" />
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-semibold text-[#33433d]">Tipe properti
-                  <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)} className="h-12 rounded-lg border border-[#e8dfd3] px-4 font-normal">
-                    {PROPERTY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                  </select>
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-semibold text-[#33433d]">Kondisi perabot
-                  <select value={furnished} onChange={(e) => setFurnished(e.target.value as 'furnished' | 'semi_furnished' | 'unfurnished')} className="h-12 rounded-lg border border-[#e8dfd3] px-4 font-normal">
-                    <option value="unfurnished">Unfurnished</option>
-                    <option value="semi_furnished">Semi furnished</option>
-                    <option value="furnished">Fully furnished</option>
-                  </select>
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-semibold text-[#33433d]">Kamar tidur
-                  <input type="number" min={0} value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} className="h-12 rounded-lg border border-[#e8dfd3] px-4 font-normal" placeholder="3" />
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-semibold text-[#33433d]">Kamar mandi
-                  <input type="number" min={0} value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} className="h-12 rounded-lg border border-[#e8dfd3] px-4 font-normal" placeholder="2" />
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-semibold text-[#33433d]">Luas bangunan (m²)
-                  <input type="number" min={0} value={buildingArea} onChange={(e) => setBuildingArea(e.target.value)} className="h-12 rounded-lg border border-[#e8dfd3] px-4 font-normal" placeholder="180" />
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-semibold text-[#33433d]">Luas tanah (m²)
-                  <input type="number" min={0} value={landArea} onChange={(e) => setLandArea(e.target.value)} className="h-12 rounded-lg border border-[#e8dfd3] px-4 font-normal" placeholder="200" />
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-semibold text-[#33433d] sm:col-span-2">Deskripsi
-                  <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-32 rounded-lg border border-[#e8dfd3] p-4 font-normal" placeholder="Jelaskan keunggulan properti ini..." />
-                </label>
+              <div className="mt-8 space-y-6">
+                <Fieldset title="Identitas properti">
+                  <label className={`${labelCls} sm:col-span-2 xl:col-span-3`}>Judul listing
+                    <input required value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} placeholder="Contoh: Rumah Tropis Modern 3KT di Kebayoran" />
+                  </label>
+                  <label className={labelCls}>Tipe properti
+                    <select value={propertyType} onChange={(e) => setPropertyType(e.target.value)} className={selectCls}>
+                      {PROPERTY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                  </label>
+                  <label className={labelCls}>Sertifikat
+                    <select value={certificate} onChange={(e) => setCertificate(e.target.value)} className={selectCls}>
+                      {CERTIFICATES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </label>
+                  <label className={labelCls}>Kondisi properti
+                    <select value={propertyCondition} onChange={(e) => setPropertyCondition(e.target.value)} className={selectCls}>
+                      {CONDITIONS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+                    </select>
+                  </label>
+                </Fieldset>
+
+                <Fieldset title="Spesifikasi" hint={isLand ? 'Untuk tanah, isi fokus luas tanah & sertifikat.' : 'Isi sesuai kondisi sebenarnya — AI memakai data ini untuk menjawab pertanyaan.'}>
+                  {isLand ? (
+                    <label className={`${labelCls}`}>Luas tanah (m²)
+                      <input type="number" min={0} value={landArea} onChange={(e) => setLandArea(e.target.value)} className={inputCls} placeholder="200" />
+                    </label>
+                  ) : (
+                    <>
+                      <label className={labelCls}>{isBoarding ? 'Jumlah kamar kos' : 'Kamar tidur'}
+                        <input type="number" min={0} value={bedrooms} onChange={(e) => setBedrooms(e.target.value)} className={inputCls} placeholder="3" />
+                      </label>
+                      <label className={labelCls}>Kamar mandi
+                        <input type="number" min={0} value={bathrooms} onChange={(e) => setBathrooms(e.target.value)} className={inputCls} placeholder="2" />
+                      </label>
+                      <label className={labelCls}>Luas bangunan (m²)
+                        <input type="number" min={0} value={buildingArea} onChange={(e) => setBuildingArea(e.target.value)} className={inputCls} placeholder="180" />
+                      </label>
+                      <label className={labelCls}>Luas tanah (m²)
+                        <input type="number" min={0} value={landArea} onChange={(e) => setLandArea(e.target.value)} className={inputCls} placeholder="200" />
+                      </label>
+                      <label className={labelCls}>Jumlah lantai
+                        <input type="number" min={0} value={floors} onChange={(e) => setFloors(e.target.value)} className={inputCls} placeholder="2" />
+                      </label>
+                      <label className={labelCls}>Kondisi perabot
+                        <select value={furnished} onChange={(e) => setFurnished(e.target.value as 'furnished' | 'semi_furnished' | 'unfurnished')} className={selectCls}>
+                          <option value="unfurnished">Unfurnished</option>
+                          <option value="semi_furnished">Semi furnished</option>
+                          <option value="furnished">Fully furnished</option>
+                        </select>
+                      </label>
+                    </>
+                  )}
+                  <label className={labelCls}>Tahun dibangun
+                    <input type="number" min={1900} max={2100} value={yearBuilt} onChange={(e) => setYearBuilt(e.target.value)} className={inputCls} placeholder="2018" />
+                  </label>
+                </Fieldset>
+
+                <Fieldset title="Deskripsi & keunggulan">
+                  <label className={`${labelCls} sm:col-span-2 xl:col-span-3`}>Deskripsi
+                    <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-32 w-full rounded-lg border border-[#e8dfd3] p-4 font-normal outline-none focus:border-[#0b3d2e]" placeholder="Jelaskan keunggulan, keunikan, dan suasana properti ini..." />
+                  </label>
+                </Fieldset>
               </div>
             )}
 
             {step === 2 && (
-              <div className="mt-8 grid gap-5">
-                <label className="flex flex-col gap-2 text-sm font-semibold text-[#33433d]">Alamat lengkap
-                  <input required value={address} onChange={(e) => setAddress(e.target.value)} className="h-12 rounded-lg border border-[#e8dfd3] px-4 font-normal" placeholder="Jalan, lingkungan, kota" />
-                </label>
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <label className="flex flex-col gap-2 text-sm font-semibold text-[#33433d]">Kota
-                    <input required value={city} onChange={(e) => setCity(e.target.value)} className="h-12 rounded-lg border border-[#e8dfd3] px-4 font-normal" placeholder="Jakarta Selatan" />
+              <div className="mt-8 space-y-6">
+                <Fieldset title="Alamat lengkap">
+                  <label className={`${labelCls} sm:col-span-2 xl:col-span-3`}>Alamat lengkap
+                    <input required value={address} onChange={(e) => setAddress(e.target.value)} className={inputCls} placeholder="Jalan, nomor, RT/RW, kelurahan" />
                   </label>
-                  <label className="flex flex-col gap-2 text-sm font-semibold text-[#33433d]">Kecamatan / area
-                    <input value={district} onChange={(e) => setDistrict(e.target.value)} className="h-12 rounded-lg border border-[#e8dfd3] px-4 font-normal" placeholder="SCBD" />
+                  <label className={labelCls}>Kecamatan / area
+                    <input value={district} onChange={(e) => setDistrict(e.target.value)} className={inputCls} placeholder="SCBD" />
                   </label>
-                </div>
-                <div className="grid min-h-40 place-items-center rounded-xl border-2 border-dashed border-[#c9a961] bg-[#fbf8f3] p-6 text-center">
+                  <label className={labelCls}>Kota / Kabupaten
+                    <input required value={city} onChange={(e) => setCity(e.target.value)} className={inputCls} placeholder="Jakarta Selatan" />
+                  </label>
+                  <label className={labelCls}>Provinsi
+                    <input value={province} onChange={(e) => setProvince(e.target.value)} className={inputCls} placeholder="DKI Jakarta" />
+                  </label>
+                  <label className={labelCls}>Kode pos
+                    <input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className={inputCls} placeholder="12190" />
+                  </label>
+                </Fieldset>
+                <div className="grid min-h-32 place-items-center rounded-xl border-2 border-dashed border-[#c9a961] bg-[#fbf8f3] p-6 text-center">
                   <MapPin className="text-[#c09b54]" />
-                  <p className="mt-3 font-semibold text-[#0b3d2e]">Lokasi akan diverifikasi admin</p>
-                  <p className="text-sm text-[#65706c]">Koordinat akan dilengkapi tim kami saat moderasi.</p>
+                  <p className="mt-3 font-semibold text-[#0b3d2e]">Koordinat akan diverifikasi admin</p>
+                  <p className="text-sm text-[#65706c]">Titik peta dilengkapi tim Homy saat moderasi listing.</p>
                 </div>
               </div>
             )}
 
             {step === 3 && (
-              <div className="mt-8 grid gap-5 sm:grid-cols-2">
-                <label className="flex flex-col gap-2 text-sm font-semibold text-[#33433d]">{listingKind === 'rent' ? 'Sewa per bulan (Rp)' : 'Harga penawaran (Rp)'}
-                  <input required inputMode="numeric" value={price} onChange={(e) => setPrice(e.target.value)} className="h-12 rounded-lg border border-[#e8dfd3] px-4 font-normal" placeholder="1.500.000.000" />
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-semibold text-[#33433d]">Bisa dinegosiasi?
-                  <select value={negotiable} onChange={(e) => setNegotiable(e.target.value)} className="h-12 rounded-lg border border-[#e8dfd3] px-4 font-normal">
-                    <option>Yes</option>
-                    <option>No</option>
-                  </select>
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-semibold text-[#33433d]">Deposit (Rp, opsional)
-                  <input inputMode="numeric" value={deposit} onChange={(e) => setDeposit(e.target.value)} className="h-12 rounded-lg border border-[#e8dfd3] px-4 font-normal" placeholder="0" />
-                </label>
-                <label className="flex flex-col gap-2 text-sm font-semibold text-[#33433d]">Biaya layanan (Rp, opsional)
-                  <input inputMode="numeric" value={serviceCharge} onChange={(e) => setServiceCharge(e.target.value)} className="h-12 rounded-lg border border-[#e8dfd3] px-4 font-normal" placeholder="0" />
-                </label>
-                <div className="rounded-xl bg-[#edf2ed] p-5 text-sm text-[#0b3d2e] sm:col-span-2">
-                  <Sparkles className="mb-2" />
+              <div className="mt-8 space-y-6">
+                <Fieldset title="Fasilitas" hint="Klik semua fasilitas yang tersedia. AI memakai ini untuk menjawab pertanyaan pembeli.">
+                  <div className="sm:col-span-2 xl:col-span-3 flex flex-wrap gap-2">
+                    {AMENITIES.map((item) => {
+                      const active = amenities.includes(item)
+                      return (
+                        <button type="button" key={item} onClick={() => setAmenities((c) => toggle(c, item))} className={`rounded-full border px-4 py-2 text-sm transition ${active ? 'border-[#0b3d2e] bg-[#0b3d2e] text-white' : 'border-[#e8dfd3] bg-white text-[#33433d] hover:border-[#c9a961]'}`}>{item}</button>
+                      )
+                    })}
+                  </div>
+                  <p className="sm:col-span-2 xl:col-span-3 text-xs text-[#65706c]">{amenities.length} fasilitas dipilih</p>
+                </Fieldset>
+
+                <Fieldset title="Lingkungan sekitar" hint="Apa saja yang ada di dekat properti.">
+                  <div className="sm:col-span-2 xl:col-span-3 flex flex-wrap gap-2">
+                    {NEARBY.map((item) => {
+                      const active = nearby.includes(item)
+                      return (
+                        <button type="button" key={item} onClick={() => setNearby((c) => toggle(c, item))} className={`rounded-full border px-4 py-2 text-sm transition ${active ? 'border-[#4e866d] bg-[#e2eee7] text-[#0b3d2e]' : 'border-[#e8dfd3] bg-white text-[#33433d] hover:border-[#c9a961]'}`}>{item}</button>
+                      )
+                    })}
+                  </div>
+                </Fieldset>
+
+                <Fieldset title="Utilitas">
+                  <label className={labelCls}>Daya listrik (VA)
+                    <input type="number" min={0} value={electricity} onChange={(e) => setElectricity(e.target.value)} className={inputCls} placeholder="2200" />
+                  </label>
+                  <label className={labelCls}>Sumber air
+                    <select value={waterSource} onChange={(e) => setWaterSource(e.target.value)} className={selectCls}>
+                      {WATER_SOURCES.map((w) => <option key={w} value={w}>{w}</option>)}
+                    </select>
+                  </label>
+                  <label className={labelCls}>Kapasitas carport (mobil)
+                    <input type="number" min={0} value={carports} onChange={(e) => setCarports(e.target.value)} className={inputCls} placeholder="1" />
+                  </label>
+                </Fieldset>
+
+                <Fieldset title="Catatan tambahan">
+                  <label className={`${labelCls} sm:col-span-2 xl:col-span-3`}>Info lain yang perlu diketahui calon pembeli/penyewa
+                    <textarea value={extraNotes} onChange={(e) => setExtraNotes(e.target.value)} className="min-h-24 w-full rounded-lg border border-[#e8dfd3] p-4 font-normal outline-none focus:border-[#0b3d2e]" placeholder="Contoh: bebas banjir, ada jalur jogging, dekat pintu tol, biaya IPL, dsb." />
+                  </label>
+                </Fieldset>
+              </div>
+            )}
+
+            {step === 4 && (
+              <div className="mt-8 space-y-6">
+                {wantsSale && (
+                  <Fieldset title="Harga jual" hint="Harga penawaran properti untuk pembelian.">
+                    <label className={labelCls}>Harga jual (Rp)
+                      <input required inputMode="numeric" value={salePrice} onChange={(e) => setSalePrice(e.target.value)} className={inputCls} placeholder="1.500.000.000" />
+                    </label>
+                    <label className={labelCls}>Bisa dinegosiasi?
+                      <select value={saleNegotiable} onChange={(e) => setSaleNegotiable(e.target.value)} className={selectCls}>
+                        <option value="Yes">Ya, bisa nego</option>
+                        <option value="No">Harga pas</option>
+                      </select>
+                    </label>
+                  </Fieldset>
+                )}
+
+                {wantsRent && (
+                  <Fieldset title="Sewa" hint="Ketentuan sewa untuk calon penyewa.">
+                    <label className={labelCls}>Harga sewa per bulan (Rp)
+                      <input required inputMode="numeric" value={rentPrice} onChange={(e) => setRentPrice(e.target.value)} className={inputCls} placeholder="15.000.000" />
+                    </label>
+                    <label className={labelCls}>Minimal sewa (bulan)
+                      <input type="number" min={1} value={minLeaseMonths} onChange={(e) => setMinLeaseMonths(e.target.value)} className={inputCls} placeholder="12" />
+                    </label>
+                    <label className={labelCls}>Skema pembayaran
+                      <select value={rentPaymentTerms} onChange={(e) => setRentPaymentTerms(e.target.value)} className={selectCls}>
+                        {PAYMENT_TERMS.map((p) => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    </label>
+                    <label className={labelCls}>Deposit (Rp)
+                      <input inputMode="numeric" value={deposit} onChange={(e) => setDeposit(e.target.value)} className={inputCls} placeholder="15.000.000" />
+                    </label>
+                    <label className={labelCls}>Biaya layanan / IPL (Rp, opsional)
+                      <input inputMode="numeric" value={serviceCharge} onChange={(e) => setServiceCharge(e.target.value)} className={inputCls} placeholder="0" />
+                    </label>
+                    <label className={labelCls}>Maintenance fee (Rp, opsional)
+                      <input inputMode="numeric" value={maintenanceFee} onChange={(e) => setMaintenanceFee(e.target.value)} className={inputCls} placeholder="0" />
+                    </label>
+                    <label className={labelCls}>Tersedia mulai
+                      <input type="date" value={availableFrom} onChange={(e) => setAvailableFrom(e.target.value)} className={inputCls} />
+                    </label>
+                    <label className={labelCls}>Status saat ini
+                      <select value={occupancyStatus} onChange={(e) => setOccupancyStatus(e.target.value)} className={selectCls}>
+                        {OCCUPANCY.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-3 rounded-lg border border-[#e8dfd3] px-4 py-3 text-sm font-normal text-[#33433d]">
+                      <input type="checkbox" checked={utilitiesIncluded} onChange={(e) => setUtilitiesIncluded(e.target.checked)} className="size-4" />
+                      Termasuk utilitas (listrik & air)
+                    </label>
+                  </Fieldset>
+                )}
+
+                <div className="rounded-xl bg-[#edf2ed] p-5 text-sm text-[#0b3d2e]">
+                  <Sparkles className="mb-2 size-4" />
                   <strong>Saran Harga AI</strong>
                   <p className="mt-1 text-[#65706c]">Lengkapi lokasi dan spesifikasi untuk melihat estimasi kisaran pasar.</p>
                 </div>
               </div>
             )}
 
-            {step === 4 && (
+            {step === 5 && (
               <div className="mt-8">
                 <div className="mb-4 flex items-center justify-between">
                   <p className="text-sm font-semibold text-[#33433d]">Foto properti</p>
                   <span className="text-xs text-[#65706c]">{photos.length}/{MAX_PHOTOS} foto · maks 500 KB · persegi (1:1)</span>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-3 xl:grid-cols-4">
                   {photos.map((photo, index) => (
                     <div key={photo.url} className="group relative overflow-hidden rounded-xl border border-[#e8dfd3]">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -426,23 +743,31 @@ export default function ListPage() {
               </div>
             )}
 
-            {step === 5 && (
+            {step === 6 && (
               <div className="mt-8 rounded-xl bg-[#fbf8f3] p-6">
                 <h3 className="font-serif text-2xl text-[#0b3d2e]">Siap dikirim?</h3>
-                <p className="mt-2 text-[#65706c]">Listing Anda akan ditinjau tim moderasi sebelum tayang.</p>
-                <div className="mt-6 grid gap-3 text-sm sm:grid-cols-2">
+                <p className="mt-2 text-[#65706c]">Listing Anda akan ditinjau tim moderasi sebelum tayang. Ringkasan di bawah juga yang dibaca AI Homy.</p>
+                <div className="mt-6 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-3">
+                  <div className="rounded-lg bg-white p-4"><p className="text-[#65706c]">Jenis</p><p className="font-semibold text-[#0b3d2e]">{listingKind === 'both' ? 'Jual & Sewa' : listingKind === 'sale' ? 'Jual' : 'Sewa'}</p></div>
                   <div className="rounded-lg bg-white p-4"><p className="text-[#65706c]">Judul</p><p className="font-semibold text-[#0b3d2e]">{title || '—'}</p></div>
-                  <div className="rounded-lg bg-white p-4"><p className="text-[#65706c]">Lokasi</p><p className="font-semibold text-[#0b3d2e]">{[district, city].filter(Boolean).join(', ') || '—'}</p></div>
-                  <div className="rounded-lg bg-white p-4"><p className="text-[#65706c]">Harga</p><p className="font-semibold text-[#0b3d2e]">{price ? `Rp ${Number(price.replace(/[^0-9]/g, '') || 0).toLocaleString('id-ID')}` : '—'}</p></div>
+                  <div className="rounded-lg bg-white p-4"><p className="text-[#65706c]">Tipe</p><p className="font-semibold text-[#0b3d2e]">{PROPERTY_TYPES.find((t) => t.value === propertyType)?.label}</p></div>
+                  <div className="rounded-lg bg-white p-4"><p className="text-[#65706c]">Lokasi</p><p className="font-semibold text-[#0b3d2e]">{[district, city, province].filter(Boolean).join(', ') || '—'}</p></div>
+                  {wantsSale && <div className="rounded-lg bg-white p-4"><p className="text-[#65706c]">Harga jual</p><p className="font-semibold text-[#0b3d2e]">{salePrice ? `Rp ${Number(salePrice.replace(/[^0-9]/g, '') || 0).toLocaleString('id-ID')}` : '—'}</p></div>}
+                  {wantsRent && <div className="rounded-lg bg-white p-4"><p className="text-[#65706c]">Sewa / bulan</p><p className="font-semibold text-[#0b3d2e]">{rentPrice ? `Rp ${Number(rentPrice.replace(/[^0-9]/g, '') || 0).toLocaleString('id-ID')}` : '—'}</p></div>}
+                  <div className="rounded-lg bg-white p-4"><p className="text-[#65706c]">Fasilitas</p><p className="font-semibold text-[#0b3d2e]">{amenities.length} item</p></div>
                   <div className="rounded-lg bg-white p-4"><p className="text-[#65706c]">Foto</p><p className="font-semibold text-[#0b3d2e]">{photos.length} foto</p></div>
+                </div>
+                <div className="mt-4 rounded-lg border border-[#e8dfd3] bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#c09b54]">Ringkasan yang dibaca AI</p>
+                  <p className="mt-2 text-sm leading-6 text-[#40584f]">{buildSummary(wantsRent && !wantsSale ? 'rent' : 'sale')}</p>
                 </div>
                 {notice && <p role="status" className="mt-6 rounded-xl bg-[#e2eee7] p-4 text-sm text-[#0b3d2e]">{notice}</p>}
                 {error && <p role="alert" className="mt-6 rounded-xl bg-[#fbe9e7] p-4 text-sm text-[#a3282c]">{error}</p>}
               </div>
             )}
 
-            {notice && step !== 5 && <p role="status" className="mt-6 rounded-xl bg-[#e2eee7] p-4 text-sm text-[#0b3d2e]">{notice}</p>}
-            {error && step !== 5 && <p role="alert" className="mt-6 rounded-xl bg-[#fbe9e7] p-4 text-sm text-[#a3282c]">{error}</p>}
+            {notice && step !== 6 && <p role="status" className="mt-6 rounded-xl bg-[#e2eee7] p-4 text-sm text-[#0b3d2e]">{notice}</p>}
+            {error && step !== 6 && <p role="alert" className="mt-6 rounded-xl bg-[#fbe9e7] p-4 text-sm text-[#a3282c]">{error}</p>}
 
             <div className="mt-10 flex justify-between border-t border-[#e8dfd3] pt-6">
               <Button type="button" variant="outline" disabled={step === 0 || submitting} onClick={() => setStep(Math.max(0, step - 1))} className="gap-2 border-[#d8ccbb] bg-white px-5 font-semibold text-[#33433d] hover:border-[#c9a961] hover:bg-white hover:text-[#0b3d2e]"><ArrowLeft data-icon="inline-start" /> Back</Button>
