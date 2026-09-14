@@ -6,7 +6,10 @@ export async function GET(request: Request) {
   const type = searchParams.get('listing_type')
   const city = searchParams.get('city')
   const supabase = await createClient()
-  let query = supabase.from('properties').select('id,title,description,listing_type,status,property_type,city,district,price,price_period,bedrooms,bathrooms,furnished,utilities_included,available_from,created_at').eq('status', 'published')
+  let query = supabase
+    .from('properties')
+    .select('id,title,description,listing_type,status,property_type,city,district,price,price_period,bedrooms,bathrooms,land_area,building_area,furnished,utilities_included,available_from,created_at,property_media(storage_path,media_type,sort_order)')
+    .eq('status', 'published')
   if (type === 'sale' || type === 'rent') query = query.eq('listing_type', type)
   if (city) query = query.ilike('city', `%${city}%`)
   const { data, error } = await query.order('created_at', { ascending: false }).limit(50)
