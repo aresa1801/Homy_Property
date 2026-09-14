@@ -1,14 +1,16 @@
 'use client'
 
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
   Check,
+  FileSignature,
   Home,
   ImagePlus,
   Loader2,
   MapPin,
+  ShieldCheck,
   Sparkles,
   Trash2,
 } from 'lucide-react'
@@ -34,6 +36,42 @@ export default function ListPage() {
   const [submitting, setSubmitting] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Gate: partners must sign the cooperation agreement (PPK) before publishing a listing.
+  const [agreementGate, setAgreementGate] = useState<'checking' | 'ok' | 'missing'>('checking')
+  const [partnerRole, setPartnerRole] = useState<'agent' | 'property_owner'>('property_owner')
+
+  useEffect(() => {
+    let active = true
+    const supabase = createClient() as any
+    supabase.auth
+      .getUser()
+      .then(async ({ data }: any) => {
+        const user = data?.user
+        if (!active) return
+        if (!user) {
+          window.location.replace('/auth/login?next=/list')
+          return
+        }
+        try {
+          const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', user.id)
+          const list = Array.isArray(roles) ? roles.map((r: { role: string }) => r.role) : []
+          if (list.includes('agent')) setPartnerRole('agent')
+          const { data: agreements } = await supabase.from('partner_agreements').select('role').eq('user_id', user.id).eq('status', 'active')
+          const signed = Array.isArray(agreements) ? agreements.map((a: { role: string }) => a.role) : []
+          if (!active) return
+          setAgreementGate(signed.length > 0 ? 'ok' : 'missing')
+        } catch {
+          if (active) setAgreementGate('missing')
+        }
+      })
+      .catch(() => {
+        if (active) setAgreementGate('missing')
+      })
+    return () => {
+      active = false
+    }
+  }, [])
 
   // Step 0 — listing kind
   const [listingKind, setListingKind] = useState<'sale' | 'rent' | 'both'>('sale')
@@ -109,6 +147,10 @@ export default function ListPage() {
   }
 
   async function submit() {
+    if (agreementGate !== 'ok') {
+      window.location.assign(`/agreement?role=${partnerRole}&next=/list`)
+      return
+    }
     setSubmitting(true)
     setError(null)
     setNotice(null)
@@ -194,6 +236,40 @@ export default function ListPage() {
     } else {
       setStep((current) => Math.min(steps.length - 1, current + 1))
     }
+  }
+
+  if (agreementGate === 'checking') {
+    return <main className="grid min-h-screen place-items-center bg-[#f7f3ec] text-[#0b3d2e]"><span className="flex items-center gap-2 text-sm"><Loader2 className="animate-spin" /> Memeriksa status perjanjian...</span></main>
+  }
+
+  if (agreementGate === 'missing') {
+    return (
+      <main className="min-h-screen bg-[#f7f3ec] px-5 py-16 text-[#1c1c1c]">
+        <div className="mx-auto max-w-2xl">
+          <a href="/" className="flex items-center gap-3 text-[#0b3d2e]"><span className="grid size-10 place-items-center rounded-xl bg-[#0b3d2e] text-[#c9a961]"><Home /></span><span className="font-serif text-2xl font-bold">Homy<span className="text-[#c9a961]">.</span></span></a>
+          <div className="mt-10 rounded-3xl border border-[#e8dfd3] bg-white p-8 sm:p-10">
+            <span className="grid size-14 place-items-center rounded-2xl bg-[#fff7e3] text-[#c09b54]"><FileSignature /></span>
+            <h1 className="mt-6 font-serif text-3xl text-[#0b3d2e] sm:text-4xl">Perjanjian kerja sama diperlukan</h1>
+            <p className="mt-4 leading-7 text-[#65706c]">
+              Sebelum memasang properti, Agen dan Pemilik Properti wajib mendaftar sebagai Mitra Homy, menandatangani
+              <strong className="text-[#0b3d2e]"> Surat Perjanjian Kerja Sama</strong>, menyetujui komisi penjualan
+              <strong className="text-[#0b3d2e]"> 0,5%</strong> dari harga jual, dan melaporkan setiap transaksi kepada Homy Property.
+            </p>
+            <ul className="mt-6 space-y-3 text-sm text-[#40584f]">
+              <li className="flex items-start gap-3"><ShieldCheck className="mt-0.5 size-5 text-[#4e866d]" /> Isi data Mitra (NIK, kontak, domisili).</li>
+              <li className="flex items-start gap-3"><ShieldCheck className="mt-0.5 size-5 text-[#4e866d]" /> Tanda tangani perjanjian secara digital.</li>
+              <li className="flex items-start gap-3"><ShieldCheck className="mt-0.5 size-5 text-[#4e866d]" /> Setujui komisi 0,5% dan kewajiban pelaporan transaksi.</li>
+            </ul>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <a href={`/agreement?role=${partnerRole}&next=/list`} className="inline-flex items-center gap-2 rounded-full bg-[#0b3d2e] px-6 py-3 text-sm font-semibold text-white hover:bg-[#14553f]">
+                <FileSignature className="size-4" /> Buka & tanda tangani perjanjian
+              </a>
+              <a href="/dashboard/user" className="inline-flex items-center gap-2 rounded-full border border-[#d8ccbb] px-6 py-3 text-sm font-semibold text-[#33433d] hover:border-[#c9a961]">Kembali ke dasbor</a>
+            </div>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   return (
