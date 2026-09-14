@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { ArrowLeft, BedDouble, Bath, Check, Heart, Home, MapPin, Ruler, Send, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { AiChat } from '@/components/ai/ai-chat'
 import { createClient } from '@/lib/supabase/client'
 import {
   FURNISHED_LABEL,
@@ -137,6 +138,15 @@ export default function PropertyDetailPage() {
               <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} className="mt-4 w-full rounded-lg border border-[#e8dfd3] p-3 text-sm outline-none focus:border-[#0b3d2e]" placeholder="Halo, apakah properti ini masih tersedia?" />
               <Button disabled={sending} onClick={() => { void sendInquiry() }} className="mt-3 w-full rounded-lg bg-[#0b3d2e] text-white hover:bg-[#14533f]">{sending ? 'Mengirim...' : 'Kirim pertanyaan'} <Send data-icon="inline-end" /></Button>
               {status && <p role="status" className="mt-3 rounded-lg bg-[#e2eee7] p-3 text-sm text-[#0b3d2e]">{status}</p>}
+            </div>
+            <div className="rounded-2xl bg-white p-6 shadow-[0_10px_35px_rgba(20,42,32,.07)]">
+              <AiChat
+                compact
+                propertyId={id}
+                intro="Dijawab dari data properti ini + pembanding area"
+                placeholder="Contoh: apakah harga ini wajar untuk area sini?"
+                suggestions={['Apakah harga ini wajar untuk area ini?', 'Apa saja fasilitas dan keunggulan properti ini?', 'Bagaimana perbandingannya dengan properti sejenis di sekitar?']}
+              />
             </div>
             <div className="rounded-2xl bg-[#0f2a44] p-6 text-white">
               <div className="flex items-center gap-2"><Sparkles className="text-[#c9a961]" /><p className="font-semibold">Insight Homy</p></div>

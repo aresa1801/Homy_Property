@@ -2,8 +2,8 @@ import { notFound } from 'next/navigation'
 import { DashboardSection, type SectionRole } from '@/components/dashboard/dashboard-section'
 
 const VALID: Record<SectionRole, string[]> = {
-  agent: ['listings', 'leads', 'analytics', 'billing', 'agreement', 'list'],
-  'property-owner': ['properties', 'inquiries', 'calendar', 'agreement', 'list'],
+  agent: ['listings', 'leads', 'analytics', 'billing', 'agreement', 'list', 'ai'],
+  'property-owner': ['properties', 'inquiries', 'calendar', 'agreement', 'list', 'ai'],
 }
 
 export function generateStaticParams() {

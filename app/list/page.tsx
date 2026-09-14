@@ -225,6 +225,126 @@ export default function ListPage() {
   }
 
   // Human-readable facts paragraph — this is what the AI assistant reads to answer buyer questions.
+  // ===== AI (DeepSeek) =====
+  type AiPrice = {
+    recommended: number | null
+    range_low: number | null
+    range_high: number | null
+    price_per_m2: number | null
+    confidence: string
+    rationale: string
+    factors: string[]
+    tips: string[]
+  }
+  const [aiPrice, setAiPrice] = useState<AiPrice | null>(null)
+  const [aiPriceStats, setAiPriceStats] = useState<{ scope: string; sampleSize: number; median: number | null; avgPerM2: number | null } | null>(null)
+  const [aiPriceBusy, setAiPriceBusy] = useState(false)
+  const [aiPriceError, setAiPriceError] = useState<string | null>(null)
+  const [aiDescBusy, setAiDescBusy] = useState(false)
+  const [aiDescError, setAiDescError] = useState<string | null>(null)
+  const [aiDescExtra, setAiDescExtra] = useState<{ highlights: string[]; faq: { q: string; a: string }[] } | null>(null)
+
+  const rupiahId = (value?: number | null) => (value == null ? '—' : `Rp ${Number(value).toLocaleString('id-ID')}`)
+  const aiType = listingKind === 'rent' ? 'rent' : 'sale'
+
+  async function suggestPrice() {
+    setAiPriceBusy(true)
+    setAiPriceError(null)
+    try {
+      const response = await fetch('/api/ai/price-suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          listing_type: aiType,
+          property_type: propertyType,
+          city: city || null,
+          district: district || null,
+          province: province || null,
+          land_area: Number(landArea) || null,
+          building_area: Number(buildingArea) || null,
+          bedrooms: Number(bedrooms) || null,
+          bathrooms: Number(bathrooms) || null,
+          furnished,
+          property_condition: propertyCondition,
+          certificate,
+          amenities,
+          min_lease_months: Number(minLeaseMonths) || null,
+          extra_notes: extraNotes || null,
+        }),
+      })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(payload?.error || 'AI gagal menghitung saran harga.')
+      setAiPrice(payload.suggestion as AiPrice)
+      setAiPriceStats({ scope: payload.scope, sampleSize: payload.sampleSize, median: payload.stats?.median ?? null, avgPerM2: payload.stats?.avgPerM2 ?? null })
+    } catch (error) {
+      setAiPriceError(error instanceof Error ? error.message : 'Gagal menghubungi AI')
+      setAiPrice(null)
+      setAiPriceStats(null)
+    } finally {
+      setAiPriceBusy(false)
+    }
+  }
+
+  function applyAiPrice() {
+    const value = aiPrice?.recommended
+    if (!value) return
+    const digits = String(Math.round(value))
+    if (listingKind !== 'rent') setSalePrice(digits)
+    if (listingKind !== 'sale') setRentPrice(digits)
+  }
+
+  async function generateDescription() {
+    setAiDescBusy(true)
+    setAiDescError(null)
+    try {
+      const response = await fetch('/api/ai/describe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: title || null,
+          listing_type: aiType,
+          property_type: propertyType,
+          city: city || null,
+          district: district || null,
+          province: province || null,
+          address: address || null,
+          land_area: Number(landArea) || null,
+          building_area: Number(buildingArea) || null,
+          bedrooms: Number(bedrooms) || null,
+          bathrooms: Number(bathrooms) || null,
+          furnished,
+          property_condition: propertyCondition,
+          certificate,
+          year_built: Number(yearBuilt) || null,
+          floors: Number(floors) || null,
+          carports: Number(carports) || null,
+          electricity_va: Number(electricity) || null,
+          water_source: waterSource || null,
+          amenities,
+          nearby,
+          price: numeric(listingKind === 'rent' ? rentPrice : salePrice),
+          price_period: listingKind === 'rent' ? 'month' : 'total',
+          negotiable: saleNegotiable === 'Yes',
+          min_lease_months: Number(minLeaseMonths) || null,
+          rent_payment_terms: rentPaymentTerms || null,
+          occupancy_status: occupancyStatus || null,
+          utilities_included: utilitiesIncluded,
+          available_from: availableFrom || null,
+          extra_notes: extraNotes || null,
+        }),
+      })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(payload?.error || 'AI gagal menulis deskripsi.')
+      if (payload.description) setDescription(String(payload.description))
+      if (!title && payload.title) setTitle(String(payload.title))
+      setAiDescExtra({ highlights: Array.isArray(payload.highlights) ? payload.highlights : [], faq: Array.isArray(payload.faq) ? payload.faq : [] })
+    } catch (error) {
+      setAiDescError(error instanceof Error ? error.message : 'Gagal menghubungi AI')
+    } finally {
+      setAiDescBusy(false)
+    }
+  }
+
   function buildSummary(kind: 'sale' | 'rent') {
     const typeLabel = PROPERTY_TYPES.find((t) => t.value === propertyType)?.label ?? propertyType
     const bits: string[] = []
@@ -583,6 +703,32 @@ export default function ListPage() {
                   <label className={`${labelCls} sm:col-span-2 xl:col-span-3`}>Deskripsi
                     <textarea value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-32 w-full rounded-lg border border-[#e8dfd3] p-4 font-normal outline-none focus:border-[#0b3d2e]" placeholder="Jelaskan keunggulan, keunikan, dan suasana properti ini..." />
                   </label>
+                  <div className="sm:col-span-2 xl:col-span-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button type="button" onClick={generateDescription} disabled={aiDescBusy} className="inline-flex items-center gap-2 rounded-lg border border-[#d8ccbb] bg-white px-4 py-2 text-sm font-semibold text-[#0b3d2e] hover:border-[#0b3d2e] disabled:opacity-60">
+                        {aiDescBusy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                        {aiDescBusy ? 'AI sedang menulis…' : 'Tulis deskripsi dengan AI'}
+                      </button>
+                      <span className="text-xs text-[#65706c]">AI memakai spesifikasi yang sudah Anda isi (tanpa menambah fakta baru).</span>
+                    </div>
+                    {aiDescError && <p className="mt-2 rounded-lg bg-[#fbeeec] px-3 py-2 text-xs text-[#a3282c]">{aiDescError}</p>}
+                    {aiDescExtra && (aiDescExtra.highlights.length > 0 || aiDescExtra.faq.length > 0) && (
+                      <div className="mt-3 grid gap-3 rounded-xl bg-[#f7f3ec] p-4 text-sm sm:grid-cols-2">
+                        {aiDescExtra.highlights.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[.14em] text-[#a18a61]">Poin unggulan (saran AI)</p>
+                            <ul className="mt-2 space-y-1 text-[#33433d]">{aiDescExtra.highlights.map((item) => <li key={item}>• {item}</li>)}</ul>
+                          </div>
+                        )}
+                        {aiDescExtra.faq.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[.14em] text-[#a18a61]">Prediksi pertanyaan calon pembeli</p>
+                            <ul className="mt-2 space-y-1 text-[#33433d]">{aiDescExtra.faq.slice(0, 4).map((item) => <li key={item.q}><strong className="font-semibold">{item.q}</strong> — <span className="text-[#65706c]">{item.a}</span></li>)}</ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </Fieldset>
               </div>
             )}
@@ -715,9 +861,39 @@ export default function ListPage() {
                 )}
 
                 <div className="rounded-xl bg-[#edf2ed] p-5 text-sm text-[#0b3d2e]">
-                  <Sparkles className="mb-2 size-4" />
-                  <strong>Saran Harga AI</strong>
-                  <p className="mt-1 text-[#65706c]">Lengkapi lokasi dan spesifikasi untuk melihat estimasi kisaran pasar.</p>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <Sparkles className="mb-1 size-4" />
+                      <strong>Saran Harga AI</strong>
+                      <p className="mt-1 text-[#65706c]">Dihitung dari harga rata-rata listing terbit di kecamatan/kota yang sama.</p>
+                    </div>
+                    <button type="button" onClick={suggestPrice} disabled={aiPriceBusy} className="inline-flex items-center gap-2 rounded-lg bg-[#0b3d2e] px-4 py-2 text-sm font-semibold text-white hover:bg-[#14553f] disabled:opacity-60">
+                      {aiPriceBusy ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+                      {aiPriceBusy ? 'Menghitung…' : 'Hitung saran harga'}
+                    </button>
+                  </div>
+                  {aiPriceError && <p className="mt-3 rounded-lg bg-white px-3 py-2 text-xs text-[#a3282c]">{aiPriceError}</p>}
+                  {aiPrice && (
+                    <div className="mt-4 space-y-3 rounded-xl bg-white p-4">
+                      <div className="flex flex-wrap items-end justify-between gap-2">
+                        <div>
+                          <p className="text-xs uppercase tracking-[.14em] text-[#a18a61]">Harga rekomendasi</p>
+                          <p className="font-serif text-2xl text-[#0b3d2e]">{rupiahId(aiPrice.recommended)}</p>
+                          <p className="text-xs text-[#65706c]">Rentang wajar {rupiahId(aiPrice.range_low)} – {rupiahId(aiPrice.range_high)} · keyakinan {aiPrice.confidence}</p>
+                        </div>
+                        <button type="button" onClick={applyAiPrice} className="rounded-lg border border-[#0b3d2e] px-3 py-2 text-xs font-semibold text-[#0b3d2e] hover:bg-[#edf2ed]">Pakai harga ini</button>
+                      </div>
+                      {aiPrice.rationale && <p className="text-[#33433d]">{aiPrice.rationale}</p>}
+                      {!!aiPrice.factors?.length && <ul className="space-y-1 text-[#33433d]">{aiPrice.factors.map((item) => <li key={item}>• {item}</li>)}</ul>}
+                      {!!aiPrice.tips?.length && (
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[.14em] text-[#a18a61]">Saran agar cepat terjual</p>
+                          <ul className="mt-1 space-y-1 text-[#33433d]">{aiPrice.tips.map((item) => <li key={item}>• {item}</li>)}</ul>
+                        </div>
+                      )}
+                      {aiPriceStats && <p className="text-xs text-[#8a9a92]">{aiPriceStats.sampleSize} listing pembanding · {aiPriceStats.scope}{aiPriceStats.avgPerM2 ? ` · ${rupiahId(aiPriceStats.avgPerM2)}/m²` : ''} · perkiraan AI, bukan appraisal resmi.</p>}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
