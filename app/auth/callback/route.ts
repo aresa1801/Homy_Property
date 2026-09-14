@@ -14,16 +14,28 @@ export async function GET(request: Request) {
       const email = data.user.email?.trim().toLowerCase()
       const destination = next
 
-      if (email === 'rahadhyan@gmail.com') {
-        await supabase.from('profiles').upsert(
-          {
-            id: data.user.id,
-            full_name: data.user.user_metadata?.full_name ?? 'Rahadhyan',
-            role: 'super_admin',
-          },
-          { onConflict: 'id' },
-        )
-      }
+      const meta = (data.user.user_metadata ?? {}) as Record<string, unknown>
+      const fullName = String(meta.full_name ?? meta.name ?? email?.split('@')[0] ?? 'Pengguna Homy')
+      const avatarUrl = String(meta.avatar_url ?? meta.picture ?? '') || null
+      const isSuperAdmin = email === 'rahadhyan@gmail.com'
+
+      // Capture the Google name + avatar on the profile so every dashboard shows the right identity.
+      await supabase.from('profiles').upsert(
+        {
+          id: data.user.id,
+          full_name: fullName,
+          avatar_url: avatarUrl,
+          role: isSuperAdmin ? 'super_admin' : 'user',
+        },
+        { onConflict: 'id' },
+      )
+
+      // Every account always holds the base "user" role; extra roles are added in onboarding.
+      const roles: string[] = ['user']
+      if (isSuperAdmin) roles.push('super_admin')
+      await (supabase as any)
+        .from('user_roles')
+        .upsert(roles.map((role) => ({ user_id: data.user!.id, role, status: 'active' })), { onConflict: 'user_id,role' })
 
       return NextResponse.redirect(new URL(destination, requestUrl.origin))
     }
