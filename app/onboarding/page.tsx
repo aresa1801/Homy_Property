@@ -145,7 +145,7 @@ export default function OnboardingPage() {
           )}
           <div className="mt-8 flex flex-col items-start justify-between gap-4 border-t border-[#e8dfd3] pt-6 sm:flex-row sm:items-center">
             <p className="text-sm text-[#65706c]">Peran terpilih: <strong className="text-[#0b3d2e]">{roleLabel}</strong>. Anda dapat menambah atau mengganti peran kapan saja.</p>
-            <Button disabled={submitting || !selected.length} className="rounded-full bg-[#0b3d2e] px-6 text-white hover:bg-[#14553f]">{submitting ? 'Menyimpan...' : needsApplication ? 'Submit application' : 'Continue to Homy'} <ArrowRight data-icon="inline-end" /></Button>
+            <Button type="submit" disabled={submitting || !selected.length} className="rounded-full bg-[#0b3d2e] px-6 text-white hover:bg-[#14553f]">{submitting ? 'Menyimpan...' : needsApplication ? 'Submit application' : 'Continue to Homy'} <ArrowRight data-icon="inline-end" /></Button>
           </div>
           {message && <p role="status" className="mt-5 rounded-xl bg-[#e2eee7] p-4 text-sm text-[#0b3d2e]">{message}</p>}
         </form>
