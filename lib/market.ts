@@ -78,6 +78,7 @@ export type MarketStats = {
   medianPerM2: number | null
   byDistrict: { district: string; count: number; avg: number; avgPerM2: number | null }[]
   byType: { type: string; count: number; avg: number }[]
+  byListingType: { listingType: string; count: number; avg: number | null; median: number | null; avgPerM2: number | null }[]
   scope: string
 }
 
@@ -157,6 +158,12 @@ export function computeStats(rows: MarketListing[], scope: string): MarketStats 
     })
     .filter((value): value is number => value != null && value > 0)
 
+  const listingTypeMap = new Map<string, MarketListing[]>()
+  rows.forEach((row) => {
+    const key = (row.listing_type || 'sale').trim()
+    listingTypeMap.set(key, [...(listingTypeMap.get(key) ?? []), row])
+  })
+
   const districtMap = new Map<string, number[]>()
   const typeMap = new Map<string, number[]>()
   rows.forEach((row) => {
@@ -189,6 +196,26 @@ export function computeStats(rows: MarketListing[], scope: string): MarketStats 
     .sort((a, b) => b.count - a.count)
     .slice(0, 8)
 
+  const byListingType = [...listingTypeMap.entries()]
+    .map(([listingType, list]) => {
+      const typePrices = list.map((row) => number(row.price)).filter((value): value is number => value != null && value > 0)
+      const typePerM2 = list
+        .map((row) => {
+          const price = number(row.price)
+          const area = listingArea(row)
+          return price != null && area && area > 0 ? price / area : null
+        })
+        .filter((value): value is number => value != null && value > 0)
+      return {
+        listingType,
+        count: list.length,
+        avg: typePrices.length ? Math.round(typePrices.reduce((sum, value) => sum + value, 0) / typePrices.length) : null,
+        median: median(typePrices),
+        avgPerM2: typePerM2.length ? Math.round(typePerM2.reduce((sum, value) => sum + value, 0) / typePerM2.length) : null,
+      }
+    })
+    .sort((a, b) => b.count - a.count)
+
   return {
     total: rows.length,
     avg: prices.length ? Math.round(prices.reduce((sum, value) => sum + value, 0) / prices.length) : null,
@@ -199,6 +226,7 @@ export function computeStats(rows: MarketListing[], scope: string): MarketStats 
     medianPerM2: median(perM2.map((value) => Math.round(value))),
     byDistrict,
     byType,
+    byListingType,
     scope,
   }
 }
@@ -259,6 +287,10 @@ export function statsBlock(stats: MarketStats) {
   ]
   if (stats.byDistrict.length) {
     lines.push('Per kecamatan/daerah: ' + stats.byDistrict.map((item) => `${item.district} (${item.count} listing, rata-rata ${rupiahText(item.avg)}${item.avgPerM2 ? `, ${rupiahText(item.avgPerM2)}/m2` : ''})`).join('; '))
+  }
+  if (stats.byListingType.length) {
+    const label: Record<string, string> = { sale: 'DIJUAL', rent: 'DISEWA' }
+    lines.push('Pisahkan jual vs sewa: ' + stats.byListingType.map((item) => `${label[item.listingType] ?? item.listingType} (${item.count} listing, rata-rata ${rupiahText(item.avg)} | median ${rupiahText(item.median)}${item.avgPerM2 ? ` | ${rupiahText(item.avgPerM2)}/m2` : ''})`).join('; '))
   }
   if (stats.byType.length) {
     lines.push('Per tipe: ' + stats.byType.map((item) => `${item.type} (${item.count} listing, rata-rata ${rupiahText(item.avg)})`).join('; '))

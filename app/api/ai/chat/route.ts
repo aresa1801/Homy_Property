@@ -24,7 +24,8 @@ ATURAN WAJIB:
 4. Kalau merekomendasikan listing, sebutkan judulnya dan alasan singkat kenapa cocok (harga, lokasi, luas, fasilitas) — maksimal 3-4 listing, jangan menyebut id panjang kecuali diminta.
 5. Jangan memberi nasihat hukum/pajak yang mengikat. Untuk hal itu, sarankan konsultasi dengan notaris/agen.
 6. Ringkas, ramah, profesional. Maksimal ~180 kata, pakai poin-poin pendek bila membantu. Bahasa Indonesia.
-7. Jangan menyebut dirimu sebagai model tertentu; kamu "Homy AI".`
+7. Jangan menyebut dirimu sebagai model tertentu; kamu "Homy AI".
+8. JANGAN mencampur harga JUAL dan harga SEWA dalam satu rata-rata. Kalau menyebut rata-rata pasar, sebutkan terpisah ("rata-rata harga jual ...", "rata-rata harga sewa ... per bulan"). Pakai baris "Pisahkan jual vs sewa" di statistik.`
 
 export async function GET() {
   return NextResponse.json({ configured: aiConfigured(), model: aiModel() })
