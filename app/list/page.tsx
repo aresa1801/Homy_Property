@@ -290,19 +290,24 @@ export default function ListPage() {
       },
       amenities,
       nearby,
-      pricing: {
-        sale_price: numeric(salePrice),
-        negotiable: saleNegotiable === 'Yes',
-        rent_price_monthly: numeric(rentPrice),
-        min_lease_months: numeric(minLeaseMonths),
-        rent_payment_terms: rentPaymentTerms,
-        deposit: numeric(deposit),
-        service_charge: numeric(serviceCharge),
-        maintenance_fee: numeric(maintenanceFee),
-        utilities_included: utilitiesIncluded,
-        available_from: availableFrom || null,
-        occupancy_status: occupancyStatus,
-      },
+      pricing: kind === 'sale'
+        ? {
+            sale_price: numeric(salePrice),
+            negotiable: saleNegotiable === 'Yes',
+            ...(listingKind === 'both' ? { also_rent_price_monthly: numeric(rentPrice) } : {}),
+          }
+        : {
+            rent_price_monthly: numeric(rentPrice),
+            min_lease_months: numeric(minLeaseMonths),
+            rent_payment_terms: rentPaymentTerms,
+            deposit: numeric(deposit),
+            service_charge: numeric(serviceCharge),
+            maintenance_fee: numeric(maintenanceFee),
+            utilities_included: utilitiesIncluded,
+            available_from: availableFrom || null,
+            occupancy_status: occupancyStatus,
+            ...(listingKind === 'both' ? { also_sale_price: numeric(salePrice), also_negotiable: saleNegotiable === 'Yes' } : {}),
+          },
       notes: extraNotes.trim() || null,
     }
   }
