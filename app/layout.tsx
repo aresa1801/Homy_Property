@@ -1,12 +1,14 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { LanguageProvider } from '@/components/language-provider'
+import { PwaRegister } from '@/components/pwa-register'
 import './globals.css'
 
 export const metadata: Metadata = {
   title: 'Homy Property — Temukan hunian terbaik',
   description: 'Temukan properti pilihan di Indonesia yang sesuai dengan gaya hidup Anda.',
   generator: 'v0.app',
+  manifest: '/manifest.webmanifest',
   icons: {
     icon: [
       {
@@ -39,6 +41,7 @@ export default function RootLayout({
   return (
     <html lang="id">
       <body className="antialiased">
+        <PwaRegister />
         <LanguageProvider>{children}</LanguageProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
