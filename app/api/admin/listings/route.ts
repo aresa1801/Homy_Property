@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { sendListingStatusEmail, type ListingStatus } from '@/lib/email'
 
 const ADMIN_ROLES = ['admin', 'super_admin']
 
@@ -59,6 +60,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
   }
 
+  const { data: before } = await admin
+    .from('properties')
+    .select('id,title,status,owner_id')
+    .eq('id', id)
+    .maybeSingle()
+  if (!before) return NextResponse.json({ error: 'Listing tidak ditemukan' }, { status: 404 })
+
   const now = new Date().toISOString()
   const status = action === 'approve' ? 'published' : action === 'reject' ? 'rejected' : 'pending'
   const patch: Record<string, unknown> = {
@@ -73,7 +81,7 @@ export async function POST(request: Request) {
     .from('properties')
     .update(patch)
     .eq('id', id)
-    .select('id,status,moderation_note,moderated_at')
+    .select('id,title,status,moderation_note,moderated_at,owner_id')
     .single()
   if (error) return NextResponse.json({ error: 'Unable to update listing' }, { status: 400 })
 
@@ -82,8 +90,23 @@ export async function POST(request: Request) {
     action: `listing.${status}`,
     entity_type: 'property',
     entity_id: id,
-    metadata: { note: note || null, previous_status: 'pending' },
+    metadata: { note: note || null, previous_status: before.status ?? null },
   })
 
-  return NextResponse.json({ data })
+  // Notifikasi email ke pemilik listing (approve/reject only).
+  let email: { ok: boolean; skipped?: boolean; error?: string } | null = null
+  if (status === 'published' || status === 'rejected') {
+    const ownerId = String(before.owner_id ?? data?.owner_id ?? '')
+    if (ownerId) {
+      const { data: ownerData } = await admin.auth.admin.getUserById(ownerId)
+      const owner = ownerData?.user
+      const to = (owner?.email ?? '').trim()
+      if (to) {
+        const ownerName = String((owner?.user_metadata as Record<string, unknown> | undefined)?.full_name ?? '')
+        email = await sendListingStatusEmail({ to, title: String(data?.title ?? before.title ?? ''), status: status as ListingStatus, note, ownerName, listingId: id })
+      }
+    }
+  }
+
+  return NextResponse.json({ data, email: email ?? { ok: false, skipped: true, reason: 'no recipient' } })
 }

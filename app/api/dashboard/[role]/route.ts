@@ -25,14 +25,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
   const base = { authenticated: true, role }
   if (role === 'agent') {
     const [properties, inquiries] = await Promise.all([
-      supabase.from('properties').select('id,title,city,status,listing_type,price,created_at').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(20),
+      supabase.from('properties').select('id,title,city,status,listing_type,price,created_at,moderation_note,property_type,province').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(20),
       supabase.from('inquiries').select('id,property_id,status,message,created_at').eq('agent_id', user.id).order('created_at', { ascending: false }).limit(20),
     ])
     return NextResponse.json({ ...base, metrics: { activeListings: properties.data?.filter((p) => p.status === 'published').length ?? 0, newLeads: inquiries.data?.filter((i) => i.status === 'open').length ?? 0 }, properties: properties.data ?? [], inquiries: inquiries.data ?? [] })
   }
   if (role === 'property-owner') {
     const [properties, inquiries] = await Promise.all([
-      supabase.from('properties').select('id,title,city,status,listing_type,price,created_at').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(50),
+      supabase.from('properties').select('id,title,city,status,listing_type,price,created_at,moderation_note,property_type,province').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(50),
       supabase.from('inquiries').select('id,property_id,status,message,created_at').eq('agent_id', user.id).order('created_at', { ascending: false }).limit(50),
     ])
     return NextResponse.json({ ...base, metrics: { properties: properties.data?.length ?? 0, publishedProperties: properties.data?.filter((p) => p.status === 'published').length ?? 0, inquiries: inquiries.data?.length ?? 0 }, properties: properties.data ?? [], inquiries: inquiries.data ?? [], visits: [] })
