@@ -445,7 +445,7 @@ export default function ListPage() {
             {error && step !== 5 && <p role="alert" className="mt-6 rounded-xl bg-[#fbe9e7] p-4 text-sm text-[#a3282c]">{error}</p>}
 
             <div className="mt-10 flex justify-between border-t border-[#e8dfd3] pt-6">
-              <Button type="button" variant="outline" disabled={step === 0 || submitting} onClick={() => setStep(Math.max(0, step - 1))}><ArrowLeft data-icon="inline-start" /> Back</Button>
+              <Button type="button" variant="outline" disabled={step === 0 || submitting} onClick={() => setStep(Math.max(0, step - 1))} className="gap-2 border-[#d8ccbb] bg-white px-5 font-semibold text-[#33433d] hover:border-[#c9a961] hover:bg-white hover:text-[#0b3d2e]"><ArrowLeft data-icon="inline-start" /> Back</Button>
               {step === steps.length - 1 ? (
                 notice ? (
                   <Button type="button" onClick={() => window.location.assign('/')} className="bg-[#0b3d2e] text-white hover:bg-[#14533f]">Selesai <ArrowRight data-icon="inline-end" /></Button>

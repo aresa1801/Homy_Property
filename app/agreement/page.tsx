@@ -172,8 +172,8 @@ export default function AgreementPage() {
   if (loading) return <main className="grid min-h-screen place-items-center bg-[#f7f3ec] text-[#0b3d2e]">Memuat perjanjian...</main>
 
   return (
-    <main className="min-h-screen bg-[#f7f3ec] px-5 py-10 text-[#1c1c1c] sm:px-8">
-      <div className="mx-auto max-w-4xl">
+    <main className="min-h-screen bg-[#f7f3ec] px-5 py-8 text-[#1c1c1c] sm:px-8 lg:px-12">
+      <div className="mx-auto w-full max-w-[1760px]">
         <a href="/" className="flex items-center gap-3 text-[#0b3d2e]">
           <span className="grid size-10 place-items-center rounded-xl bg-[#0b3d2e] text-[#c9a961]"><Home /></span>
           <span className="font-serif text-2xl font-bold">Homy<span className="text-[#c9a961]">.</span></span>
@@ -188,7 +188,7 @@ export default function AgreementPage() {
           <span className="ml-auto hidden rounded-full bg-[#edf2ed] px-3 py-1 text-xs font-semibold text-[#0b3d2e] sm:inline-flex">Akun Google</span>
         </div>
 
-        <div className="mt-10 max-w-2xl">
+        <div className="mt-8 max-w-5xl">
           <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c09b54]">Wajib sebelum listing</p>
           <h1 className="mt-3 font-serif text-5xl leading-tight text-[#0b3d2e]">Surat Perjanjian Kerja Sama</h1>
           <p className="mt-5 text-lg leading-8 text-[#65706c]">
@@ -233,7 +233,7 @@ export default function AgreementPage() {
           </div>
         )}
 
-        <form onSubmit={submit} className="mt-8 grid gap-8 lg:grid-cols-[1fr_1fr]">
+        <form onSubmit={submit} className="mt-8 grid gap-6 xl:grid-cols-[1.05fr_1fr] xl:gap-8">
           <section className="rounded-2xl border border-[#e8dfd3] bg-white p-6 sm:p-8">
             <h2 className="font-serif text-2xl text-[#0b3d2e]">Data Mitra</h2>
             <p className="mt-1 text-sm text-[#65706c]">Data ini dipakai pada dokumen perjanjian dan penagihan komisi.</p>
@@ -261,7 +261,7 @@ export default function AgreementPage() {
 
           <section className="rounded-2xl border border-[#e8dfd3] bg-white p-6 sm:p-8">
             <h2 className="font-serif text-2xl text-[#0b3d2e]">Isi Perjanjian</h2>
-            <div className="mt-4 max-h-72 space-y-4 overflow-auto rounded-xl bg-[#f7f3ec] p-5 text-sm leading-6 text-[#40584f]">
+            <div className="mt-4 max-h-[26rem] space-y-4 overflow-auto rounded-xl bg-[#f7f3ec] p-5 text-sm leading-6 text-[#40584f] xl:max-h-[38rem] 2xl:max-h-[46rem]">
               {CLAUSES.map((clause) => (
                 <div key={clause.title}>
                   <p className="font-semibold text-[#0b3d2e]">{clause.title}</p>
