@@ -135,7 +135,7 @@ export function NotificationBell({ variant = 'plain' }: { variant?: BellVariant 
       </button>
 
       {open && (
-        <div role="dialog" aria-label="Notifikasi" className="absolute right-0 top-12 z-40 flex max-h-[75vh] w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-2xl border border-[#e5dccd] bg-white shadow-[0_24px_60px_rgba(20,42,32,.18)]">
+        <div role="dialog" aria-label="Notifikasi" className="fixed left-3 right-3 top-16 z-50 flex max-h-[78vh] flex-col overflow-hidden rounded-2xl border border-[#e5dccd] bg-white shadow-[0_24px_60px_rgba(20,42,32,.18)] sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-96 sm:max-w-[calc(100vw-1.5rem)]">
           <div className="flex items-center justify-between gap-2 border-b border-[#eee7dc] px-4 py-3">
             <div className="flex items-center gap-2">
               <p className="font-serif text-base text-[#0b3d2e]">Notifikasi</p>
