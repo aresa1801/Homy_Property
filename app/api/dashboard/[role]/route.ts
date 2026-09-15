@@ -83,6 +83,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
   }
 
   if (role === 'admin' || role === 'super-admin') {
+    if (role === 'super-admin') {
+      const { data: superRoles } = await supabase.from('user_roles').select('role').eq('user_id', user.id).eq('role', 'super_admin')
+      if (!Array.isArray(superRoles) || superRoles.length === 0) {
+        return NextResponse.json({ ...base, forbidden: true, metrics: {} })
+      }
+    }
     const admin = await adminScopedClient(supabase, user.id)
     if (!admin) {
       return NextResponse.json({ ...base, forbidden: true, metrics: { pendingApprovals: 0, published: 0, rejected: 0, activeUsers: 0, openReports: 0 } })
