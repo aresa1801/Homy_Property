@@ -175,7 +175,7 @@ export default function AgreementPage() {
   return (
     <main className="min-h-screen bg-[#f7f3ec] px-5 py-8 text-[#1c1c1c] sm:px-8 lg:px-12">
       <div className="mx-auto w-full max-w-[1760px]">
-        <BrandMark className="text-[#0b3d2e]" />
+        <BrandMark height={40} />
 
         <div className="mt-10 flex items-center gap-3 rounded-2xl border border-[#e8dfd3] bg-white p-4">
           <UserAvatar name={name} email={email} avatarUrl={avatarUrl} size={48} />

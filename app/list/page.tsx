@@ -555,7 +555,7 @@ export default function ListPage() {
     return (
       <main className="min-h-screen bg-[#f7f3ec] px-5 py-16 text-[#1c1c1c]">
         <div className="mx-auto max-w-2xl">
-          <BrandMark className="text-[#0b3d2e]" />
+          <BrandMark height={40} />
           <div className="mt-10 rounded-3xl border border-[#e8dfd3] bg-white p-8 sm:p-10">
             <span className="grid size-14 place-items-center rounded-2xl bg-[#fff7e3] text-[#c09b54]"><FileSignature /></span>
             <h1 className="mt-6 font-serif text-3xl text-[#0b3d2e] sm:text-4xl">Perjanjian kerja sama diperlukan</h1>

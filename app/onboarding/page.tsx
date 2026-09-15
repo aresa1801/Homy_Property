@@ -112,7 +112,7 @@ export default function OnboardingPage() {
   return (
     <main className="min-h-screen bg-[#f7f3ec] px-5 py-10 text-[#1c1c1c] sm:px-8">
       <div className="mx-auto max-w-3xl">
-        <BrandMark className="text-[#0b3d2e]" />
+        <BrandMark height={40} />
         <div className="mt-12 flex items-center gap-3 rounded-2xl border border-[#e8dfd3] bg-white p-4">
           <UserAvatar name={name} email={email} avatarUrl={avatarUrl} size={48} />
           <div className="min-w-0"><p className="truncate font-semibold text-[#0b3d2e]">{name || 'Akun Google Anda'}</p><p className="truncate text-sm text-[#65706c]">{email || 'Belum masuk'}</p></div>
