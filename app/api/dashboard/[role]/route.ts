@@ -32,7 +32,7 @@ async function counterpartProfiles(ids: string[]) {
   return map
 }
 
-const empty = { metrics: {}, properties: [], inquiries: [], visits: [], rentals: [], payments: [], reports: [], audit: [], transactions: [] }
+const empty = { metrics: {}, properties: [], inquiries: [], visits: [], rentals: [], payments: [], reports: [], audit: [], transactions: [], partnerLeads: [], availability: [] }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ role: string }> }) {
   const { role } = await params
@@ -79,7 +79,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       ? { activeListings: rows.filter((p) => p.status === 'published').length, newLeads: openLeads, totalListings: rows.length, pendingListings: rows.filter((p) => p.status === 'pending').length, rejectedListings: rows.filter((p) => p.status === 'rejected').length, totalLeads: inquiriesEnriched.length, upcomingVisits, reports: transactions.data?.length ?? 0, commissionTotal }
       : { properties: rows.length, publishedProperties: rows.filter((p) => p.status === 'published').length, inquiries: inquiriesEnriched.length, pendingProperties: rows.filter((p) => p.status === 'pending').length, rejectedProperties: rows.filter((p) => p.status === 'rejected').length, openLeads, upcomingVisits, reports: transactions.data?.length ?? 0, commissionTotal }
 
-    return NextResponse.json({ ...base, metrics, properties: rows, inquiries: inquiriesEnriched, visits: visitsEnriched, transactions: transactions.data ?? [], agreements: agreements.data ?? [], payments: [] })
+    const { data: availabilityRows } = await supabase
+      .from('partner_availability')
+      .select('weekday,is_active,start_time,end_time,slot_minutes,mode,location,notes')
+      .eq('user_id', user.id)
+      .order('weekday', { ascending: true })
+
+    return NextResponse.json({ ...base, metrics, properties: rows, inquiries: inquiriesEnriched, visits: visitsEnriched, transactions: transactions.data ?? [], agreements: agreements.data ?? [], availability: availabilityRows ?? [], payments: [] })
   }
 
   if (role === 'admin' || role === 'super-admin') {
@@ -93,7 +99,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     if (!admin) {
       return NextResponse.json({ ...base, forbidden: true, metrics: { pendingApprovals: 0, published: 0, rejected: 0, activeUsers: 0, openReports: 0 } })
     }
-    const [rows, media, adminReports, profiles, roleRows, transactions, audit, flags, settings] = await Promise.all([
+    const [rows, media, adminReports, profiles, roleRows, transactions, audit, flags, settings, partnerLeads] = await Promise.all([
       admin.from('properties').select('id,title,address,city,province,district,listing_type,property_type,price,price_period,status,owner_id,created_at,moderation_note,verified_at,ai_summary').order('created_at', { ascending: false }).limit(200),
       admin.from('property_media').select('property_id').limit(3000),
       admin.from('moderation_reports').select('id,property_id,reported_user_id,reason,status,resolution_note,created_at').order('created_at', { ascending: false }).limit(50),
@@ -103,6 +109,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       admin.from('audit_logs').select('id,actor_id,action,entity_type,entity_id,metadata,created_at').order('created_at', { ascending: false }).limit(80),
       role === 'super-admin' ? admin.from('feature_flags').select('key,label,description,enabled,rollout,updated_at').order('key') : Promise.resolve({ data: [] as unknown[] }),
       role === 'super-admin' ? admin.from('platform_settings').select('key,label,value,updated_at').order('key') : Promise.resolve({ data: [] as unknown[] }),
+      admin.from('partner_leads').select('id,kind,full_name,email,phone,company,position,city,province,website,branches,license_no,message,status,review_note,reviewed_at,created_at').order('created_at', { ascending: false }).limit(200),
     ])
 
     const list = rows.data ?? []
@@ -183,6 +190,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       commissionVerified,
       commissionPending,
       pendingCommissionCount: transactionsEnriched.filter((row) => row.status === 'reported').length,
+      partnersTotal: (partnerLeads.data ?? []).length,
+      partnersPending: (partnerLeads.data ?? []).filter((row) => row.status === 'new' || row.status === 'reviewing').length,
+      partnersInstitution: (partnerLeads.data ?? []).filter((row) => row.kind === 'agency' || row.kind === 'institution').length,
+      contactMessages: (partnerLeads.data ?? []).filter((row) => row.kind === 'contact').length,
       aiEvents: auditEnriched.filter((a) => String(a.action ?? '').startsWith('ai.')).length,
       aiCoverage: published.length ? Math.round((published.filter((p) => p.ai_summary).length / published.length) * 100) : 0,
     }
@@ -200,6 +211,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       roleCounts: Object.entries(roleCounts).map(([r, count]) => ({ role: r, count })).sort((a, b) => b.count - a.count),
       flags: flags.data ?? [],
       settings: settings.data ?? [],
+      partnerLeads: partnerLeads.data ?? [],
       ai: {
         configured: true,
         model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',

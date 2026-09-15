@@ -108,6 +108,28 @@ export type DashboardAudit = {
 export type DashboardFavorite = { property_id?: string; created_at?: string; property?: DashboardProperty | null }
 export type DashboardPayment = { id?: string; amount?: number | string | null; currency?: string | null; payment_type?: string | null; status?: string | null; due_at?: string | null; paid_at?: string | null }
 
+export type DashboardAvailability = { weekday?: number | string; is_active?: boolean; start_time?: string; end_time?: string; slot_minutes?: number | string; mode?: string; location?: string | null; notes?: string | null }
+
+export type DashboardLead = {
+  id: string
+  kind?: string
+  full_name?: string | null
+  email?: string | null
+  phone?: string | null
+  company?: string | null
+  position?: string | null
+  city?: string | null
+  province?: string | null
+  website?: string | null
+  branches?: number | null
+  license_no?: string | null
+  message?: string | null
+  status?: string
+  review_note?: string | null
+  reviewed_at?: string | null
+  created_at?: string
+}
+
 export type DashboardFlag = { key: string; label: string; description?: string | null; enabled: boolean; rollout: number; updated_at?: string }
 export type DashboardSetting = { key: string; label?: string | null; value: unknown; updated_at?: string }
 export type DashboardTransactionAdmin = DashboardTransaction & { user?: { name?: string; email?: string } | null; role?: string | null; review_note?: string | null; verified_at?: string | null }
@@ -133,6 +155,8 @@ export type DashboardPayload = {
   roleCounts?: DashboardRoleCount[]
   favorites?: DashboardFavorite[]
   payments?: DashboardPayment[]
+  availability?: DashboardAvailability[]
+  partnerLeads?: DashboardLead[]
   ai?: { configured?: boolean; model?: string; listingsWithSummary?: number; listingsWithoutMedia?: number; amenitiesCoverage?: number }
 }
 

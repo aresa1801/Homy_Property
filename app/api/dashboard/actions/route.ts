@@ -73,6 +73,45 @@ export async function POST(request: Request) {
     return NextResponse.json({ data })
   }
 
+  if (kind === 'availability.save') {
+    const days = Array.isArray((body as { days?: unknown }).days) ? ((body as { days?: unknown }).days as Array<Record<string, unknown>>) : []
+    if (!days.length) return NextResponse.json({ error: 'Tidak ada jadwal yang dikirim' }, { status: 400 })
+    const MODES = ['onsite', 'online', 'both']
+    const SLOTS = [30, 45, 60, 90, 120]
+    const nowIso = new Date().toISOString()
+    const rows = days.map((day) => {
+      const weekday = Number(day.weekday)
+      const slot = Number(day.slot_minutes ?? 60)
+      const mode = String(day.mode ?? 'both')
+      const toTime = (value: unknown, fallback: string) => {
+        const text = String(value ?? '')
+        return /^[0-2][0-9]:[0-5][0-9]/.test(text) ? text.slice(0, 5) : fallback
+      }
+      return {
+        user_id: user.id,
+        weekday: Number.isInteger(weekday) && weekday >= 0 && weekday <= 6 ? weekday : 0,
+        is_active: day.is_active !== false,
+        start_time: toTime(day.start_time, '09:00'),
+        end_time: toTime(day.end_time, '17:00'),
+        slot_minutes: SLOTS.includes(slot) ? slot : 60,
+        mode: MODES.includes(mode) ? mode : 'both',
+        location: typeof day.location === 'string' && day.location.trim() ? day.location.trim().slice(0, 200) : null,
+        notes: typeof day.notes === 'string' && day.notes.trim() ? day.notes.trim().slice(0, 500) : null,
+        updated_at: nowIso,
+      }
+    })
+    const unique = new Map<number, Record<string, unknown>>()
+    for (const row of rows) unique.set(Number(row.weekday), row)
+    const { data, error } = await supabase
+      .from('partner_availability')
+      .upsert(Array.from(unique.values()), { onConflict: 'user_id,weekday' })
+      .select('weekday,is_active,start_time,end_time,slot_minutes,mode,location,notes')
+    if (error) return NextResponse.json({ error: 'Gagal menyimpan ketersediaan: ' + error.message }, { status: 403 })
+    const admin = serviceClient()
+    if (admin) await admin.from('audit_logs').insert({ actor_id: user.id, action: 'availability.updated', entity_type: 'partner_availability', entity_id: user.id, metadata: { days: unique.size } })
+    return NextResponse.json({ data: data ?? [] })
+  }
+
   if (kind === 'transaction.report') {
     const salePrice = Number(body.salePrice ?? 0)
     if (!salePrice || salePrice <= 0) return NextResponse.json({ error: 'Harga jual wajib diisi' }, { status: 400 })

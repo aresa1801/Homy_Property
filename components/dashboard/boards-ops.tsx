@@ -8,15 +8,19 @@ import type { BoardProps } from '@/components/dashboard/boards-listing'
 
 const ROLE_KEY = { agent: 'agent', 'property-owner': 'property_owner' } as const
 
+/** Komisi platform: Agen 0,5% dari harga jual, Pemilik Properti 2%. */
+const COMMISSION = { agent: 0.5, 'property-owner': 2 } as const
+
 /** Halaman "Penagihan": lapor transaksi + komisi 0,5% untuk Homy. */
 export function BillingBoard({ data, loading, reload, type }: BoardProps & { type: 'agent' | 'property-owner' }) {
+  const rate = COMMISSION[type]
   const reports = data.transactions ?? []
   const totalValue = reports.reduce((sum, row) => sum + Number(row.sale_price ?? 0), 0)
   const totalCommission = reports.reduce((sum, row) => sum + Number(row.commission_amount ?? 0), 0)
   const [form, setForm] = useState({ propertyId: '', propertyTitle: '', buyerName: '', buyerContact: '', salePrice: '', soldAt: '', notes: '' })
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
-  const preview = Math.round((Number(form.salePrice || 0) * 0.5) / 100)
+  const preview = Math.round((Number(form.salePrice || 0) * rate) / 100)
 
   async function submit() {
     setBusy(true)
@@ -38,7 +42,7 @@ export function BillingBoard({ data, loading, reload, type }: BoardProps & { typ
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Transaksi dilaporkan" value={String(reports.length)} change="Wajib lapor ≤3 hari kerja" icon="wallet" />
         <MetricCard label="Nilai transaksi" value={rupiah(totalValue)} change="Akumulasi harga jual" icon="chart" />
-        <MetricCard label="Komisi Homy (0,5%)" value={rupiah(totalCommission)} change="Dihitung otomatis" icon="sparkles" />
+        <MetricCard label={'Komisi Homy (' + String(rate).replace('.', ',') + '%)'} value={rupiah(totalCommission)} change="Dihitung otomatis dari harga jual" icon="sparkles" />
         <MetricCard label="Terverifikasi" value={String(reports.filter((row) => row.status === 'verified').length)} change={`${reports.filter((row) => row.status === 'reported').length} menunggu verifikasi`} icon="shield" />
       </div>
 
@@ -47,7 +51,7 @@ export function BillingBoard({ data, loading, reload, type }: BoardProps & { typ
       <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
         <div className={ui.card}>
           <div className="flex items-center gap-2"><WalletCards className="size-5 text-[#0b3d2e]" /><h3 className="font-serif text-2xl text-[#0b3d2e]">Lapor transaksi baru</h3></div>
-          <p className="mt-2 text-sm text-[#718078]">Sesuai Pasal 4 perjanjian kerja sama, setiap transaksi wajib dilaporkan ke Homy maksimal 3 hari kerja. Komisi 0,5% dari harga jual dihitung otomatis.</p>
+          <p className="mt-2 text-sm text-[#718078]">{'Sesuai Pasal 4 perjanjian kerja sama, setiap transaksi wajib dilaporkan ke Homy maksimal 3 hari kerja. Komisi ' + String(rate).replace('.', ',') + '% dari harga jual dihitung otomatis (' + (type === 'agent' ? 'Agen' : 'Pemilik Properti') + ').'}</p>
           <div className="mt-4 space-y-3">
             <select value={form.propertyId} onChange={(event) => { const item = (data.properties ?? []).find((row) => row.id === event.target.value); setForm({ ...form, propertyId: event.target.value, propertyTitle: item?.title ?? '' }) }} className={ui.input}>
               <option value="">Pilih properti (opsional)</option>
@@ -61,7 +65,7 @@ export function BillingBoard({ data, loading, reload, type }: BoardProps & { typ
             </div>
             <textarea value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} rows={2} placeholder="Catatan (opsional)" className={ui.input} />
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-[#f7f3ec] px-4 py-3">
-              <p className="text-sm text-[#718078]">Komisi Homy (0,5%)</p>
+              <p className="text-sm text-[#718078]">{'Komisi Homy (' + String(rate).replace('.', ',') + '%)'}</p>
               <p className="font-serif text-xl text-[#0b3d2e]">{rupiah(preview)}</p>
             </div>
             <button type="button" disabled={busy || !Number(form.salePrice)} onClick={submit} className={ui.btn}>{busy ? 'Mengirim…' : 'Kirim laporan transaksi'}</button>
@@ -192,7 +196,7 @@ export function AgreementBoard({ data, loading, type }: BoardProps & { type: 'ag
   const signHref = `/agreement?role=${key}&next=/dashboard/${type}/listings`
   const obligations = [
     'Menjual/menyewakan properti dengan data yang benar dan tidak menyesatkan.',
-    'Menyetujui komisi penjualan 0,5% dari harga jual untuk Homy Property (Pasal 3).',
+    'Menyetujui komisi penjualan ' + String(COMMISSION[type]).replace('.', ',') + '% dari harga jual untuk Homy Property (Pasal 3).',
     'Melaporkan setiap transaksi ke Homy maksimal 3 hari kerja setelah kesepakatan (Pasal 4).',
     'Menjaga kerahasiaan data calon pembeli dan tidak memindahkan transaksi ke luar platform.',
     'Mematuhi aturan moderasi listing Homy (foto asli, lokasi akurat, harga transparan).',
@@ -221,7 +225,7 @@ export function AgreementBoard({ data, loading, type }: BoardProps & { type: 'ag
           {!loading && !active && (
             <div className="mt-4 space-y-3">
               <span className="inline-flex rounded-full bg-[#fff7e3] px-3 py-1 text-xs font-semibold text-[#9b762a]">Belum ditandatangani</span>
-              <p className="text-sm leading-6 text-[#718078]">Wajib sebelum memasang properti: daftar sebagai Mitra, tanda tangani perjanjian kerja sama, setujui komisi penjualan 0,5%, dan laporkan setiap transaksi kepada Homy.</p>
+              <p className="text-sm leading-6 text-[#718078]">{'Wajib sebelum memasang properti: daftar sebagai Mitra, tanda tangani perjanjian kerja sama, setujui komisi penjualan ' + String(COMMISSION[type]).replace('.', ',') + '%, dan laporkan setiap transaksi kepada Homy.'}</p>
               <a href={signHref} className={ui.btn}>Tanda tangani perjanjian</a>
             </div>
           )}
@@ -274,7 +278,7 @@ export function ListLauncher({ data, loading, reload, type }: BoardProps & { typ
             <FileSignature className={`mt-0.5 size-5 ${agreementActive ? 'text-[#4e866d]' : 'text-[#9b762a]'}`} />
             <div>
               <p className="text-sm font-semibold text-[#20332c]">Perjanjian kerja sama {agreementActive ? 'aktif ✓' : 'belum ditandatangani'}</p>
-              <p className="mt-1 text-xs text-[#718078]">Wajib: perjanjian mitra + komisi penjualan 0,5% + kewajiban lapor transaksi.</p>
+              <p className="mt-1 text-xs text-[#718078]">{'Wajib: perjanjian mitra + komisi penjualan ' + String(COMMISSION[type]).replace('.', ',') + '% + kewajiban lapor transaksi.'}</p>
               {!agreementActive && <a href={signHref} className="mt-2 inline-flex text-xs font-semibold text-[#0b3d2e] underline">Tanda tangani sekarang</a>}
             </div>
           </div>
@@ -312,6 +316,157 @@ export function ListLauncher({ data, loading, reload, type }: BoardProps & { typ
                   <span className={`${ui.badge} ${meta.className}`}>{meta.label}</span>
                   {item.status === 'rejected' && <button type="button" disabled={busy === item.id} onClick={() => onResubmit(item.id)} className={ui.btn}><RefreshCw className={`size-3.5 ${busy === item.id ? 'animate-spin' : ''}`} />Ajukan ulang</button>}
                 </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
+const WEEKDAYS = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu']
+const SLOTS = [30, 45, 60, 90, 120]
+const MODE_LABEL: Record<string, string> = { onsite: 'Di lokasi', online: 'Online', both: 'Lokasi & online' }
+
+type DaySlot = { weekday: number; is_active: boolean; start_time: string; end_time: string; slot_minutes: number; mode: string; location: string; notes: string }
+
+function defaultDays(rows: Array<Record<string, unknown>>): DaySlot[] {
+  return Array.from({ length: 7 }, (_, weekday) => {
+    const row = rows.find((item) => Number(item.weekday) === weekday)
+    return {
+      weekday,
+      is_active: row ? row.is_active !== false : weekday >= 1 && weekday <= 5,
+      start_time: String(row?.start_time ?? '09:00').slice(0, 5),
+      end_time: String(row?.end_time ?? '17:00').slice(0, 5),
+      slot_minutes: Number(row?.slot_minutes ?? 60),
+      mode: String(row?.mode ?? 'both'),
+      location: String(row?.location ?? ''),
+      notes: String(row?.notes ?? ''),
+    }
+  })
+}
+
+function minutesOf(time: string) {
+  const [hour, minute] = time.split(':').map(Number)
+  return (Number.isFinite(hour) ? hour : 9) * 60 + (Number.isFinite(minute) ? minute : 0)
+}
+
+/** Halaman "Ketersediaan": atur hari & jam siap menerima meeting/kunjungan calon pembeli. */
+export function AvailabilityBoard({ data, loading, reload }: BoardProps & { type: 'agent' | 'property-owner' }) {
+  const stored = (data.availability ?? []) as unknown as Array<Record<string, unknown>>
+  const [days, setDays] = useState<DaySlot[]>(() => defaultDays(stored))
+  const [hydrated, setHydrated] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
+
+  if (!hydrated && !loading) {
+    setHydrated(true)
+    if (stored.length) setDays(defaultDays(stored))
+  }
+
+  const activeDays = days.filter((day) => day.is_active)
+  const weeklyMinutes = activeDays.reduce((total, day) => total + Math.max(0, minutesOf(day.end_time) - minutesOf(day.start_time)), 0)
+  const slotCount = activeDays.reduce((total, day) => {
+    const span = Math.max(0, minutesOf(day.end_time) - minutesOf(day.start_time))
+    return total + Math.floor(span / (day.slot_minutes || 60))
+  }, 0)
+  const openDays = activeDays.map((day) => WEEKDAYS[day.weekday]).join(', ') || 'Belum ada hari aktif'
+
+  const patch = (weekday: number, changes: Partial<DaySlot>) => setDays((current) => current.map((day) => (day.weekday === weekday ? { ...day, ...changes } : day)))
+
+  const applyTemplate = (targets: number[], source?: DaySlot) => {
+    const base = source ?? days.find((day) => day.is_active) ?? days[1]
+    setDays((current) => current.map((day) => (targets.includes(day.weekday) ? { ...day, is_active: true, start_time: base.start_time, end_time: base.end_time, slot_minutes: base.slot_minutes, mode: base.mode } : day)))
+    setMessage({ tone: 'ok', text: 'Template jam diterapkan. Jangan lupa simpan.' })
+  }
+
+  async function save() {
+    setBusy(true)
+    setMessage(null)
+    try {
+      await runAction({ kind: 'availability.save', days })
+      setMessage({ tone: 'ok', text: 'Ketersediaan tersimpan. Calon pembeli akan melihat slot ini saat menjadwalkan kunjungan.' })
+      reload()
+    } catch (error) {
+      setMessage({ tone: 'err', text: error instanceof Error ? error.message : 'Gagal menyimpan ketersediaan' })
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Hari aktif" value={String(activeDays.length)} change="Dari 7 hari" icon="calendar" />
+        <MetricCard label="Jam tersedia / minggu" value={String(Math.floor(weeklyMinutes / 60))} change="Total jam buka" icon="file" />
+        <MetricCard label="Slot kunjungan / minggu" value={String(slotCount)} change="Otomatis dari durasi slot" icon="message" />
+        <MetricCard label="Mode dominan" value={MODE_LABEL[activeDays[0]?.mode ?? 'both'] ?? 'Lokasi & online'} change="Bisa diubah per hari" icon="home" />
+      </div>
+
+      {message && <p className={'rounded-xl px-4 py-3 text-sm font-medium ' + (message.tone === 'ok' ? 'bg-[#edf2ed] text-[#0b3d2e]' : 'bg-[#fbeeec] text-[#b45c50]')}>{message.text}</p>}
+
+      <div className={ui.card}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="font-serif text-2xl text-[#0b3d2e]">Jam siap menerima kunjungan</h3>
+            <p className="mt-1 text-sm text-[#718078]">Hari aktif: {openDays}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => applyTemplate([1, 2, 3, 4, 5])} className={ui.ghost}>Salin jam ke Senin–Jumat</button>
+            <button type="button" onClick={() => applyTemplate([0, 1, 2, 3, 4, 5, 6])} className={ui.ghost}>Terapkan ke semua hari</button>
+            <button type="button" onClick={() => { setDays((current) => current.map((day) => ({ ...day, is_active: true }))); setMessage({ tone: 'ok', text: 'Semua hari diaktifkan. Simpan untuk menerapkan.' }) }} className={ui.ghost}>Aktifkan semua</button>
+            <button type="button" onClick={() => { setDays((current) => current.map((day) => ({ ...day, is_active: false }))); setMessage({ tone: 'ok', text: 'Semua hari dinonaktifkan. Simpan untuk menerapkan.' }) }} className={ui.ghost}>Nonaktifkan semua</button>
+          </div>
+        </div>
+
+        {loading && <div className="mt-4 h-40 animate-pulse rounded-xl bg-[#f7f3ec]" />}
+
+        {!loading && (
+          <div className="mt-4 space-y-3">
+            {days.map((day) => (
+              <div key={day.weekday} className={'rounded-xl border p-4 ' + (day.is_active ? 'border-[#e5dccd] bg-white' : 'border-[#f0e9df] bg-[#faf7f2]')}>
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="flex w-32 items-center gap-2 font-semibold text-[#20332c]">
+                    <input type="checkbox" checked={day.is_active} onChange={(event) => patch(day.weekday, { is_active: event.target.checked })} className="size-4 accent-[#0b3d2e]" />
+                    {WEEKDAYS[day.weekday]}
+                  </label>
+                  <label className="flex items-center gap-2 text-xs text-[#718078]">Mulai<input type="time" value={day.start_time} disabled={!day.is_active} onChange={(event) => patch(day.weekday, { start_time: event.target.value })} className={ui.input + ' h-9 w-28 py-0'} /></label>
+                  <label className="flex items-center gap-2 text-xs text-[#718078]">Selesai<input type="time" value={day.end_time} disabled={!day.is_active} onChange={(event) => patch(day.weekday, { end_time: event.target.value })} className={ui.input + ' h-9 w-28 py-0'} /></label>
+                  <label className="flex items-center gap-2 text-xs text-[#718078]">Durasi slot<select value={day.slot_minutes} disabled={!day.is_active} onChange={(event) => patch(day.weekday, { slot_minutes: Number(event.target.value) })} className={ui.input + ' h-9 w-24 py-0'}>{SLOTS.map((slot) => <option key={slot} value={slot}>{slot} mnt</option>)}</select></label>
+                  <label className="flex items-center gap-2 text-xs text-[#718078]">Mode<select value={day.mode} disabled={!day.is_active} onChange={(event) => patch(day.weekday, { mode: event.target.value })} className={ui.input + ' h-9 w-36 py-0'}><option value="onsite">Di lokasi</option><option value="online">Online</option><option value="both">Lokasi &amp; online</option></select></label>
+                </div>
+                {day.is_active && (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <input value={day.location} onChange={(event) => patch(day.weekday, { location: event.target.value })} placeholder="Lokasi meeting (mis. kantor pemasaran, properti, Zoom)" className={ui.input} />
+                    <input value={day.notes} onChange={(event) => patch(day.weekday, { notes: event.target.value })} placeholder="Catatan (mis. hanya dengan janji 1 hari sebelumnya)" className={ui.input} />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <button type="button" disabled={busy || loading || !activeDays.length} onClick={save} className={ui.btn}>{busy ? 'Menyimpan…' : 'Simpan ketersediaan'}</button>
+          <button type="button" onClick={() => setDays(defaultDays(stored))} className={ui.ghost}>Kembalikan ke data tersimpan</button>
+          <p className="text-xs text-[#718078]">Opsi lain: durasi slot 30/45/60/90/120 menit, mode lokasi/online/keduanya, catatan per hari, dan template cepat Senin–Jumat.</p>
+        </div>
+      </div>
+
+      <div className={ui.card}>
+        <h3 className="font-serif text-2xl text-[#0b3d2e]">Ringkasan slot yang dilihat calon pembeli</h3>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {activeDays.length === 0 && <p className={ui.soft + ' text-sm text-[#718078]'}>Belum ada hari aktif. Aktifkan minimal satu hari lalu simpan.</p>}
+          {activeDays.map((day) => {
+            const span = Math.max(0, minutesOf(day.end_time) - minutesOf(day.start_time))
+            const count = Math.floor(span / (day.slot_minutes || 60))
+            return (
+              <div key={day.weekday} className="rounded-xl bg-[#f7f3ec] p-4">
+                <p className="font-semibold text-[#0b3d2e]">{WEEKDAYS[day.weekday]}</p>
+                <p className="mt-1 text-sm text-[#33433d]">{day.start_time}–{day.end_time} · {MODE_LABEL[day.mode] ?? 'Lokasi & online'}</p>
+                <p className="mt-1 text-xs text-[#718078]">{count} slot × {day.slot_minutes} menit{day.location ? ' · ' + day.location : ''}</p>
               </div>
             )
           })}

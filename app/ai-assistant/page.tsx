@@ -1,5 +1,7 @@
 'use client'
 
+import { SiteFooter } from '@/components/site-footer'
+import { SiteHeader } from '@/components/site-header'
 import { useState } from 'react'
 import Link from 'next/link'
 import { Bot, Calculator, Home, Search, Sparkles } from 'lucide-react'
@@ -14,17 +16,7 @@ export default function AiAssistantPage() {
 
   return (
     <main className="min-h-screen bg-[#f7f3ec] text-[#1c1c1c]">
-      <header className="border-b border-[#e8dfd3] bg-[#0b3d2e] text-white">
-        <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center justify-between px-6">
-          <Link href="/" className="font-serif text-2xl tracking-wide">Homy<span className="text-[#c9a961]">.</span></Link>
-          <nav className="flex items-center gap-5 text-sm">
-            <Link href="/buy" className="text-white/75 hover:text-white">Beli</Link>
-            <Link href="/rent" className="text-white/75 hover:text-white">Sewa</Link>
-            <Link href="/dashboard/user" className="text-white/75 hover:text-white">Dashboard</Link>
-            <Link href="/ai-assistant" className="inline-flex items-center gap-2 rounded-full bg-[#c9a961] px-4 py-1.5 font-semibold text-[#0b3d2e]"><Sparkles className="size-4" /> Homy AI</Link>
-          </nav>
-        </div>
-      </header>
+      <SiteHeader />
 
       <section className="mx-auto w-full max-w-[1400px] px-6 py-10">
         <div className="mb-7">
@@ -108,6 +100,7 @@ export default function AiAssistantPage() {
           <CuratePanel />
         )}
       </section>
+          <SiteFooter />
     </main>
   )
 }

@@ -1,5 +1,7 @@
 'use client'
 
+import { SiteFooter } from '@/components/site-footer'
+import { SiteHeader } from '@/components/site-header'
 import { useEffect, useMemo, useState } from 'react'
 import { BedDouble, Building2, Check, Heart, Home, Map, MapPin, Search, SlidersHorizontal } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -69,13 +71,7 @@ export default function BuyPage() {
 
   return (
     <main className="min-h-screen bg-[#f7f3ec] text-[#1c1c1c]">
-      <header className="border-b border-[#e8dfd3] bg-[#0b3d2e] text-white">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 lg:px-8">
-          <a href="/" className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-[#c9a961] text-[#0b3d2e]"><Home /></span><span className="font-serif text-2xl font-bold">Homy<span className="text-[#c9a961]">.</span></span></a>
-          <nav className="hidden gap-8 text-sm text-white/75 md:flex"><a className="text-[#c9a961]" href="/buy">Jual</a><a href="/rent">Sewa</a><a href="/list">Pasang Properti</a><a href="/message">Pesan</a></nav>
-          <Button className="rounded-full bg-[#c9a961] text-[#0b3d2e] hover:bg-[#e1c67e]" onClick={() => window.location.assign('/auth/login')}>Masuk</Button>
-        </div>
-      </header>
+      <SiteHeader />
       <section className="mx-auto max-w-7xl px-5 pb-8 pt-12 lg:px-8">
         <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c09b54]">Properti untuk dijual</p>
         <div className="mt-2 flex flex-wrap items-end justify-between gap-5"><div><h1 className="font-serif text-5xl text-[#0b3d2e]">Temukan hunian impian Anda.</h1><p className="mt-3 text-[#65706c]">Jelajahi hunian pilihan yang sesuai dengan gaya hidup dan tujuan Anda.</p></div><Button variant="outline" className="border-[#d8ccbb]"><Map data-icon="inline-start" /> Tampilan peta</Button></div>
@@ -120,6 +116,7 @@ export default function BuyPage() {
           <Button className="mt-7 w-full rounded-lg bg-[#c9a961] text-[#0f2a44] hover:bg-[#e1c67e]">Bandingkan properti</Button>
         </aside>
       </section>
+          <SiteFooter />
     </main>
   )
 }

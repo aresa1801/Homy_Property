@@ -19,6 +19,9 @@ export type PropertyRecord = {
   furnished?: string | null
   utilities_included?: boolean | null
   available_from?: string | null
+  min_lease_months?: number | null
+  rent_payment_terms?: string | null
+  property_condition?: string | null
   created_at?: string | null
   property_media?: { storage_path: string; media_type?: string | null; sort_order?: number | null }[] | null
   media?: { storage_path: string; sort_order?: number | null }[] | null

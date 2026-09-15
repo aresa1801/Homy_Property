@@ -1,5 +1,6 @@
 'use client'
 
+import { SiteHeader } from '@/components/site-header'
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeft,
@@ -582,15 +583,7 @@ export default function ListPage() {
 
   return (
     <main className="min-h-screen bg-[#f7f3ec] text-[#1c1c1c]">
-      <header className="border-b border-[#e8dfd3] bg-[#0b3d2e] text-white">
-        <div className="flex h-20 w-full items-center justify-between px-5 lg:px-12">
-          <a href="/" className="flex items-center gap-3">
-            <span className="grid size-10 place-items-center rounded-xl bg-[#c9a961] text-[#0b3d2e]"><Home /></span>
-            <span className="font-serif text-2xl font-bold">Homy<span className="text-[#c9a961]">.</span></span>
-          </a>
-          <a href="/" className="text-sm text-white/70 hover:text-white">Simpan draf dan keluar</a>
-        </div>
-      </header>
+      <SiteHeader cta={{ label: 'Simpan draf dan keluar', href: '/' }} />
 
       <div className="w-full px-5 py-10 lg:px-12">
         <div className="flex flex-wrap items-end justify-between gap-4">

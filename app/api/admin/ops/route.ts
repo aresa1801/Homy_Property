@@ -56,6 +56,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, status, id })
   }
 
+  // ---------- Partnership & kontak (moderasi calon mitra) ----------
+  if (kind === 'partnership.review') {
+    const id = String(body.id ?? '')
+    if (!id) return NextResponse.json({ error: 'ID pengajuan wajib' }, { status: 400 })
+    const status = String(body.status ?? '')
+    if (!['reviewing', 'contacted', 'approved', 'rejected'].includes(status)) {
+      return NextResponse.json({ error: 'Status pengajuan tidak valid' }, { status: 400 })
+    }
+    const { data: before } = await admin.from('partner_leads').select('id,kind,full_name,status').eq('id', id).maybeSingle()
+    if (!before) return NextResponse.json({ error: 'Pengajuan kemitraan tidak ditemukan' }, { status: 404 })
+    const { error } = await admin.from('partner_leads').update({ status, review_note: note || null, reviewed_by: actor.id, reviewed_at: now, updated_at: now }).eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    const action = status === 'approved' ? 'partnership.approved' : status === 'rejected' ? 'partnership.rejected' : 'partnership.' + status
+    await audit(action, 'partner_lead', id, { previous_status: before.status, kind: before.kind, note })
+    return NextResponse.json({ ok: true, status, id })
+  }
+
   // ---------- Laporan & penipuan ----------
   if (kind === 'report.resolve' || kind === 'report.investigate' || kind === 'report.dismiss') {
     const id = String(body.id ?? '')

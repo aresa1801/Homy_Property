@@ -1,5 +1,7 @@
 'use client'
 
+import { SiteFooter } from '@/components/site-footer'
+import { SiteHeader } from '@/components/site-header'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { ArrowLeft, BedDouble, Bath, Check, Heart, Home, MapPin, Ruler, Send, Sparkles } from 'lucide-react'
@@ -78,12 +80,7 @@ export default function PropertyDetailPage() {
 
   return (
     <main className="min-h-screen bg-[#f7f3ec] text-[#1c1c1c]">
-      <header className="border-b border-[#e8dfd3] bg-[#0b3d2e] text-white">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-5 lg:px-8">
-          <a href="/" className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-[#c9a961] text-[#0b3d2e]"><Home /></span><span className="font-serif text-2xl font-bold">Homy<span className="text-[#c9a961]">.</span></span></a>
-          <a href="/buy" className="inline-flex items-center gap-2 text-sm text-white/75 hover:text-white"><ArrowLeft className="size-4" /> Kembali</a>
-        </div>
-      </header>
+      <SiteHeader />
 
       <section className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
         <div className="grid gap-8 lg:grid-cols-[1.5fr_1fr]">
@@ -155,6 +152,7 @@ export default function PropertyDetailPage() {
           </aside>
         </div>
       </section>
+          <SiteFooter />
     </main>
   )
 }

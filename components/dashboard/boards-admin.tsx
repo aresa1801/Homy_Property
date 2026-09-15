@@ -648,3 +648,148 @@ export function AdminOverviewBoard({ type }: { type: AdminType }) {
     </div>
   )
 }
+
+
+const LEAD_KIND: Record<string, { label: string; className: string }> = {
+  agent: { label: 'Agen Properti', className: 'bg-[#eef3fa] text-[#3f6b9c]' },
+  owner: { label: 'Pemilik Properti', className: 'bg-[#edf2ed] text-[#4e866d]' },
+  agency: { label: 'Agensi / Broker', className: 'bg-[#f1ecfa] text-[#6a4fa3]' },
+  institution: { label: 'Institusi Korporat', className: 'bg-[#fdeee6] text-[#b4661f]' },
+  contact: { label: 'Pesan Kontak', className: 'bg-[#f2f0ea] text-[#718078]' },
+}
+
+const LEAD_STATUS: Record<string, { label: string; className: string }> = {
+  new: { label: 'Baru', className: 'bg-[#fff7e3] text-[#9b762a]' },
+  reviewing: { label: 'Ditinjau', className: 'bg-[#eef3fa] text-[#3f6b9c]' },
+  contacted: { label: 'Dihubungi', className: 'bg-[#f1ecfa] text-[#6a4fa3]' },
+  approved: { label: 'Disetujui', className: 'bg-[#edf2ed] text-[#4e866d]' },
+  rejected: { label: 'Ditolak', className: 'bg-[#fbeeec] text-[#b45c50]' },
+}
+
+/** Halaman "Partnership": moderasi calon mitra (agen/pemilik/agensi/institusi) + pesan kontak. */
+export function PartnershipBoard({ data, loading, reload }: BoardProps) {
+  const leads = (data.partnerLeads ?? []) as unknown as Array<Record<string, unknown>>
+  const [kind, setKind] = useState('all')
+  const [status, setStatus] = useState('all')
+  const [busy, setBusy] = useState<string | null>(null)
+  const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
+  const [notes, setNotes] = useState<Record<string, string>>({})
+
+  const filtered = useMemo(() => leads.filter((lead) => {
+    if (kind !== 'all' && String(lead.kind) !== kind) return false
+    if (status !== 'all' && String(lead.status) !== status) return false
+    return true
+  }), [leads, kind, status])
+
+  const pending = leads.filter((lead) => ['new', 'reviewing'].includes(String(lead.status))).length
+  const institutions = leads.filter((lead) => ['agency', 'institution'].includes(String(lead.kind))).length
+  const contacts = leads.filter((lead) => String(lead.kind) === 'contact').length
+
+  async function review(id: string, next: string) {
+    setBusy(id)
+    setMessage(null)
+    try {
+      await adminAction({ kind: 'partnership.review', id, status: next, note: notes[id] ?? '' })
+      setMessage({ tone: 'ok', text: 'Pengajuan diperbarui menjadi "' + (LEAD_STATUS[next]?.label ?? next) + '".' })
+      reload()
+    } catch (error) {
+      setMessage({ tone: 'err', text: error instanceof Error ? error.message : 'Gagal memperbarui pengajuan' })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Total pengajuan" value={String(leads.length)} change="Dari halaman Open Partnership & Kontak" icon="users" />
+        <MetricCard label="Perlu ditindak" value={String(pending)} change="Status baru / ditinjau" icon="flag" />
+        <MetricCard label="Agensi & institusi" value={String(institutions)} change="Skema komisi khusus" icon="chart" />
+        <MetricCard label="Pesan kontak" value={String(contacts)} change="Dari halaman Kontak" icon="message" />
+      </div>
+
+      <Toast message={message} />
+
+      <div className={ui.card}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-serif text-2xl text-[#0b3d2e]">Calon mitra &amp; pesan masuk</h3>
+          <div className="flex flex-wrap gap-2">
+            <select value={kind} onChange={(event) => setKind(event.target.value)} className={ui.input + ' h-9 w-44 py-0'}>
+              <option value="all">Semua jenis</option>
+              <option value="agent">Agen Properti</option>
+              <option value="owner">Pemilik Properti</option>
+              <option value="agency">Agensi / Broker</option>
+              <option value="institution">Institusi Korporat</option>
+              <option value="contact">Pesan Kontak</option>
+            </select>
+            <select value={status} onChange={(event) => setStatus(event.target.value)} className={ui.input + ' h-9 w-40 py-0'}>
+              <option value="all">Semua status</option>
+              <option value="new">Baru</option>
+              <option value="reviewing">Ditinjau</option>
+              <option value="contacted">Dihubungi</option>
+              <option value="approved">Disetujui</option>
+              <option value="rejected">Ditolak</option>
+            </select>
+          </div>
+        </div>
+
+        {loading && <div className="mt-4 h-24 animate-pulse rounded-xl bg-[#f7f3ec]" />}
+        {!loading && !filtered.length && <div className="mt-4"><Empty text="Belum ada pengajuan kemitraan dengan filter ini." /></div>}
+
+        <div className="mt-4 space-y-3">
+          {filtered.map((lead) => {
+            const id = String(lead.id)
+            const kindMeta = LEAD_KIND[String(lead.kind)] ?? LEAD_KIND.contact
+            const statusMeta = LEAD_STATUS[String(lead.status)] ?? LEAD_STATUS.new
+            const isContact = String(lead.kind) === 'contact'
+            return (
+              <div key={id} className="rounded-xl border border-[#eee7dc] p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-[#20332c]">{String(lead.full_name ?? 'Tanpa nama')}</p>
+                      <span className={ui.badge + ' ' + kindMeta.className}>{kindMeta.label}</span>
+                      {lead.company ? <span className="text-xs text-[#718078]">{String(lead.company)}</span> : null}
+                    </div>
+                    <p className="mt-1 text-xs text-[#718078]">
+                      {[lead.email, lead.phone].filter(Boolean).map(String).join(' · ') || 'Kontak tidak dicatat'}
+                    </p>
+                    <p className="mt-0.5 text-xs text-[#718078]">
+                      {[lead.position, lead.city, lead.province].filter(Boolean).map(String).join(' · ')}
+                      {lead.branches ? ' · ' + String(lead.branches) + ' cabang' : ''}
+                      {lead.license_no ? ' · Izin: ' + String(lead.license_no) : ''}
+                    </p>
+                    {lead.website ? <a href={String(lead.website).startsWith('http') ? String(lead.website) : 'https://' + String(lead.website)} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-[#0b3d2e] underline">{String(lead.website)}</a> : null}
+                  </div>
+                  <span className={ui.badge + ' h-fit shrink-0 ' + statusMeta.className}>{statusMeta.label}</span>
+                </div>
+                {lead.message ? <p className="mt-2 rounded-lg bg-[#f7f3ec] p-3 text-sm text-[#33433d]">{String(lead.message)}</p> : null}
+                <p className="mt-2 text-xs text-[#a18a61]">Masuk {shortDate(String(lead.created_at ?? ''))}{lead.reviewed_at ? ' · ditinjau ' + shortDate(String(lead.reviewed_at)) : ''}</p>
+                {lead.review_note ? <p className="mt-1 text-xs text-[#718078]">Catatan: {String(lead.review_note)}</p> : null}
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <input value={notes[id] ?? ''} onChange={(event) => setNotes({ ...notes, [id]: event.target.value })} placeholder={isContact ? 'Catatan balasan (opsional)' : 'Catatan verifikasi (opsional)'} className={ui.input + ' h-9 max-w-xs py-0'} />
+                  {!isContact && String(lead.status) !== 'reviewing' && <button type="button" disabled={busy === id} onClick={() => review(id, 'reviewing')} className={ui.ghost}>Tandai ditinjau</button>}
+                  {!isContact && String(lead.status) !== 'contacted' && <button type="button" disabled={busy === id} onClick={() => review(id, 'contacted')} className={ui.ghost}>Sudah dihubungi</button>}
+                  {!isContact && String(lead.status) !== 'approved' && <button type="button" disabled={busy === id} onClick={() => review(id, 'approved')} className={ui.btn}>Setujui mitra</button>}
+                  {String(lead.status) !== 'rejected' && <button type="button" disabled={busy === id} onClick={() => review(id, 'rejected')} className={ui.ghost}>{isContact ? 'Tandai selesai' : 'Tolak'}</button>}
+                  <a href={'mailto:' + String(lead.email ?? '')} className={ui.ghost}>Balas email</a>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className={ui.card}>
+        <h3 className="font-serif text-2xl text-[#0b3d2e]">Prosedur follow-up partnership</h3>
+        <ul className="mt-3 space-y-2 text-sm leading-6 text-[#33443d]">
+          <li>1. Verifikasi identitas &amp; legalitas (KTP/izin usaha) sebelum menandai <strong>Disetujui</strong>.</li>
+          <li>2. Untuk agensi/institusi, catat skema komisi bertingkat pada catatan verifikasi.</li>
+          <li>3. Setelah disetujui, minta mitra menandatangani Surat Perjanjian Kerja Sama di halaman <a href="/agreement?role=agent&next=/list" className="font-semibold text-[#0b3d2e] underline">Perjanjian</a>.</li>
+          <li>4. Komisi wajib: Agen 0,5% dan Pemilik Properti 2% dari harga transaksi final.</li>
+          <li>5. Semua tindakan moderasi tercatat otomatis di <strong>Log Audit</strong>.</li>
+        </ul>
+      </div>
+    </div>
+  )
+}
