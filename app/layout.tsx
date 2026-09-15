@@ -4,10 +4,23 @@ import { LanguageProvider } from '@/components/language-provider'
 import { PwaRegister } from '@/components/pwa-register'
 import './globals.css'
 
+const SITE_URL = (process.env.HOMY_APP_URL || 'https://homyproperty.id').replace(/\/$/, '')
+
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: 'Homy Property — Temukan hunian terbaik',
   description: 'Temukan properti pilihan di Indonesia yang sesuai dengan gaya hidup Anda.',
+  applicationName: 'Homy Property',
   generator: 'v0.app',
+  alternates: { canonical: '/' },
+  openGraph: {
+    type: 'website',
+    siteName: 'Homy Property',
+    locale: 'id_ID',
+    url: SITE_URL,
+    title: 'Homy Property — Temukan hunian terbaik',
+    description: 'Temukan properti pilihan di Indonesia yang sesuai dengan gaya hidup Anda.',
+  },
   manifest: '/manifest.webmanifest',
   icons: {
     icon: [

@@ -4,7 +4,7 @@
  * Env:
  *  - RESEND_API_KEY   (wajib untuk benar-benar mengirim; kalau kosong → skip, tidak error)
  *  - HOMY_EMAIL_FROM  (opsional, default `Homy Property <notifikasi@homy.id>`)
- *  - HOMY_APP_URL     (opsional, default https://homy-coral.vercel.app)
+ *  - HOMY_APP_URL     (opsional, default https://homyproperty.id)
  */
 
 const RESEND_ENDPOINT = 'https://api.resend.com/emails'
@@ -22,7 +22,7 @@ export type ListingMailInput = {
 }
 
 function appUrl() {
-  return (process.env.HOMY_APP_URL || 'https://homy-coral.vercel.app').replace(/\/$/, '')
+  return (process.env.HOMY_APP_URL || 'https://homyproperty.id').replace(/\/$/, '')
 }
 
 function escapeHtml(value: string) {
