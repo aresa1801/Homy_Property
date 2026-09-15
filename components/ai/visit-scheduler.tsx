@@ -100,7 +100,7 @@ export function VisitScheduler({ propertyId }: { propertyId?: string }) {
   const current = days.find((day) => day.date === activeDay) ?? days[0] ?? null
 
   return (
-    <div data-visit-scheduler className="rounded-2xl bg-white p-4 sm:p-6 shadow-[0_10px_35px_rgba(20,42,32,.07)]">
+    <div data-visit-scheduler className="min-w-0 rounded-2xl bg-white p-4 sm:p-6 shadow-[0_10px_35px_rgba(20,42,32,.07)]">
       <div className="flex items-center gap-2">
         <CalendarClock className="size-5 text-[#0b3d2e]" />
         <h2 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Jadwalkan kunjungan</h2>
@@ -132,7 +132,7 @@ export function VisitScheduler({ propertyId }: { propertyId?: string }) {
       ) : (
         <>
           {data?.weekly && <p className="mt-3 rounded-lg bg-[#f7f3ec] px-3 py-2 text-xs leading-5 text-[#65706c]">Ketersediaan rutin: {data.weekly}</p>}
-          <div className="mt-3 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+          <div className="mt-3 -mx-1 flex max-w-full min-w-0 gap-2 overflow-x-auto px-1 pb-1">
             {days.map((day) => (
               <button
                 key={day.date}

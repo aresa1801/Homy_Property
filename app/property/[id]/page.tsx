@@ -141,7 +141,7 @@ export default function PropertyDetailPage() {
             </div>
           </div>
 
-          <aside className="h-fit space-y-4 lg:sticky lg:top-6">
+          <aside className="h-fit min-w-0 space-y-4 lg:sticky lg:top-6">
             <div className="rounded-2xl bg-white p-4 sm:p-6 shadow-[0_10px_35px_rgba(20,42,32,.07)]">
               <h2 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Tanya pemilik</h2>
               <p className="mt-2 text-sm text-[#65706c]">Kirim pertanyaan tentang properti ini. Pemilik atau agen akan menghubungi Anda.</p>
