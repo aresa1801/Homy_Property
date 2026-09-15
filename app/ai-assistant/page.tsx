@@ -18,10 +18,10 @@ export default function AiAssistantPage() {
     <main className="min-h-screen bg-[#f7f3ec] text-[#1c1c1c]">
       <SiteHeader />
 
-      <section className="mx-auto w-full max-w-[1400px] px-6 py-10">
+      <section className="mx-auto w-full max-w-[1400px] px-6 py-7 sm:py-10">
         <div className="mb-7">
           <p className="text-xs font-semibold uppercase tracking-[.16em] text-[#a18a61]">Asisten AI</p>
-          <h1 className="mt-1 font-serif text-4xl text-[#0b3d2e]">Homy AI — tanya apa saja soal properti</h1>
+          <h1 className="mt-1 font-serif text-2xl sm:text-4xl text-[#0b3d2e]">Homy AI — tanya apa saja soal properti</h1>
           <p className="mt-2 max-w-3xl text-sm text-[#718078]">
             Homy AI membaca langsung database listing Homy Property: harga, luas, kamar, fasilitas, dan statistik harga per daerah.
             Pakai untuk membandingkan properti, cek kewajaran harga, atau minta rekomendasi sesuai budget. Untuk mitra agen &amp; pemilik,
@@ -39,8 +39,8 @@ export default function AiAssistantPage() {
         </div>
 
         {tab === 'tanya' ? (
-          <div className="grid gap-6 lg:grid-cols-[1.35fr_1fr]">
-            <div className="rounded-2xl border border-[#e5dccd] bg-white p-5 shadow-[0_10px_30px_rgba(20,42,32,.04)]">
+          <div className="grid gap-4 sm:gap-6 lg:grid-cols-[1.35fr_1fr]">
+            <div className="rounded-2xl border border-[#e5dccd] bg-white p-4 sm:p-5 shadow-[0_10px_30px_rgba(20,42,32,.04)]">
               <AiChat
                 filters={filters}
                 suggestions={[
@@ -54,7 +54,7 @@ export default function AiAssistantPage() {
             </div>
 
             <div className="space-y-4">
-              <div className="rounded-2xl border border-[#e5dccd] bg-white p-5 shadow-[0_10px_30px_rgba(20,42,32,.04)]">
+              <div className="rounded-2xl border border-[#e5dccd] bg-white p-4 sm:p-5 shadow-[0_10px_30px_rgba(20,42,32,.04)]">
                 <p className="mb-3 flex items-center gap-2 text-sm font-semibold text-[#0b3d2e]"><Search className="size-4" /> Fokus pencarian AI (opsional)</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <label className="space-y-1"><span className="text-xs font-semibold uppercase tracking-[.14em] text-[#a18a61]">Tujuan</span>
@@ -86,7 +86,7 @@ export default function AiAssistantPage() {
                 <p className="mt-3 text-xs text-[#718078]">Filter ini membatasi listing yang dibaca AI supaya jawabannya sesuai kebutuhan Anda.</p>
               </div>
 
-              <div className="rounded-2xl border border-[#e5dccd] bg-[#0b3d2e] p-5 text-white">
+              <div className="rounded-2xl border border-[#e5dccd] bg-[#0b3d2e] p-4 sm:p-5 text-white">
                 <p className="flex items-center gap-2 text-sm font-semibold"><Home className="size-4 text-[#c9a961]" /> Untuk agen &amp; pemilik properti</p>
                 <p className="mt-2 text-sm text-white/75">Dashboard Anda punya panel <strong>Saran Harga AI</strong>: masukkan spesifikasi, AI menghitung harga wajar dari data harga rata-rata kecamatan/kota Anda.</p>
                 <div className="mt-3 flex flex-wrap gap-2 text-sm">

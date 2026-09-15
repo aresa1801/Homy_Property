@@ -110,24 +110,24 @@ export default function OnboardingPage() {
   if (loading) return <main className="grid min-h-screen place-items-center bg-[#f7f3ec] text-[#0b3d2e]">Memuat profil Anda...</main>
 
   return (
-    <main className="min-h-screen bg-[#f7f3ec] px-5 py-10 text-[#1c1c1c] sm:px-8">
+    <main className="min-h-screen bg-[#f7f3ec] px-5 py-7 sm:py-10 text-[#1c1c1c] sm:px-8">
       <div className="mx-auto max-w-3xl">
         <BrandMark height={40} />
-        <div className="mt-12 flex items-center gap-3 rounded-2xl border border-[#e8dfd3] bg-white p-4">
+        <div className="mt-8 sm:mt-12 flex items-center gap-3 rounded-2xl border border-[#e8dfd3] bg-white p-4">
           <UserAvatar name={name} email={email} avatarUrl={avatarUrl} size={48} />
           <div className="min-w-0"><p className="truncate font-semibold text-[#0b3d2e]">{name || 'Akun Google Anda'}</p><p className="truncate text-sm text-[#65706c]">{email || 'Belum masuk'}</p></div>
         </div>
-        <div className="mt-10 max-w-2xl">
+        <div className="mt-6 sm:mt-10 max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c09b54]">Hampir selesai</p>
-          <h1 className="mt-3 font-serif text-5xl leading-tight text-[#0b3d2e] sm:text-6xl">Bagaimana Anda akan menggunakan Homy?</h1>
-          <p className="mt-5 max-w-xl text-lg leading-8 text-[#65706c]">Pilih satu atau beberapa peran sekaligus. Anda bisa menjadi Agen dan Pemilik Properti dalam satu akun — setiap dasbor memakai foto, nama, dan email Google Anda.</p>
+          <h1 className="mt-3 font-serif text-3xl sm:text-5xl leading-tight text-[#0b3d2e] md:text-6xl">Bagaimana Anda akan menggunakan Homy?</h1>
+          <p className="mt-5 max-w-xl text-base sm:text-lg leading-8 text-[#65706c]">Pilih satu atau beberapa peran sekaligus. Anda bisa menjadi Agen dan Pemilik Properti dalam satu akun — setiap dasbor memakai foto, nama, dan email Google Anda.</p>
         </div>
-        <form onSubmit={submit} className="mt-12">
+        <form onSubmit={submit} className="mt-8 sm:mt-12">
           <div className="grid gap-4 md:grid-cols-3">
             {ROLE_OPTIONS.map(({ value, title, description, icon: Icon }) => {
               const active = selected.includes(value)
               return (
-                <button type="button" key={value} onClick={() => toggle(value)} aria-pressed={active} className={`rounded-2xl border p-5 text-left transition ${active ? 'border-[#0b3d2e] bg-[#0b3d2e] text-white shadow-xl' : 'border-[#e8dfd3] bg-white hover:border-[#c9a961]'}`}>
+                <button type="button" key={value} onClick={() => toggle(value)} aria-pressed={active} className={`rounded-2xl border p-4 sm:p-5 text-left transition ${active ? 'border-[#0b3d2e] bg-[#0b3d2e] text-white shadow-xl' : 'border-[#e8dfd3] bg-white hover:border-[#c9a961]'}`}>
                   <span className={`grid size-11 place-items-center rounded-xl ${active ? 'bg-[#c9a961] text-[#0b3d2e]' : 'bg-[#edf2ed] text-[#0b3d2e]'}`}><Icon /></span>
                   <span className="mt-5 block font-serif text-xl">{title}</span>
                   <span className={`mt-2 block text-sm leading-6 ${active ? 'text-white/70' : 'text-[#65706c]'}`}>{description}</span>
@@ -137,7 +137,7 @@ export default function OnboardingPage() {
             })}
           </div>
           {needsApplication && (
-            <div className="mt-8 grid gap-5 rounded-2xl border border-[#e8dfd3] bg-white p-6 sm:grid-cols-2">
+            <div className="mt-8 grid gap-5 rounded-2xl border border-[#e8dfd3] bg-white p-4 sm:p-6 sm:grid-cols-2">
               <label className="text-sm font-semibold text-[#33433d]">Full name<input required value={name} onChange={(e) => setName(e.target.value)} className="mt-2 h-12 w-full rounded-lg border border-[#ddd3c5] px-4 font-normal outline-none focus:border-[#0b3d2e]" /></label>
               <label className="text-sm font-semibold text-[#33433d]">Phone number<input required value={phone} onChange={(e) => setPhone(e.target.value)} className="mt-2 h-12 w-full rounded-lg border border-[#ddd3c5] px-4 font-normal outline-none focus:border-[#0b3d2e]" /></label>
               <label className="text-sm font-semibold text-[#33433d] sm:col-span-2">Company or agency <span className="font-normal text-[#65706c]">(optional)</span><input value={company} onChange={(e) => setCompany(e.target.value)} className="mt-2 h-12 w-full rounded-lg border border-[#ddd3c5] px-4 font-normal outline-none focus:border-[#0b3d2e]" /></label>

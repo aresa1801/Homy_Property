@@ -40,9 +40,9 @@ function Empty({ text }: { text: string }) {
 /* ============================ MODERASI LISTING ============================ */
 export function ModerationBoard() {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className={ui.card}>
-        <h3 className="font-serif text-2xl text-[#0b3d2e]">Antrean moderasi listing</h3>
+        <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Antrean moderasi listing</h3>
         <p className="mt-2 text-sm text-[#718078]">Setiap listing baru masuk sebagai <strong>menunggu moderasi</strong>. Setujui untuk menayangkannya di halaman publik, atau tolak dengan catatan agar pemilik bisa memperbaiki dan mengajukan ulang. Keputusan tercatat di log audit dan memicu email ke pemilik (bila email aktif).</p>
       </div>
       <ModerationQueue />
@@ -83,7 +83,7 @@ export function UsersBoard({ data, loading, reload, type }: BoardProps & { type:
   const admins = users.filter((u) => (u.roles ?? []).some((r) => ['admin', 'super_admin'].includes(r))).length
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Total akun" value={String(users.length)} change="Pengguna terdaftar" icon="users" />
         <MetricCard label="Mitra (agen/pemilik)" value={String(mitra)} change="Punya perjanjian kerja sama" icon="shield" />
@@ -94,7 +94,7 @@ export function UsersBoard({ data, loading, reload, type }: BoardProps & { type:
       <div className={ui.card}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="font-serif text-2xl text-[#0b3d2e]">Pengguna & mitra Homy</h3>
+            <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Pengguna & mitra Homy</h3>
             <p className="mt-1 text-sm text-[#718078]">{canManage ? 'Cari akun, lihat peran, dan atur akses peran (super admin).' : 'Cari akun dan pantau peran serta jumlah listing-nya.'}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -177,7 +177,7 @@ export function PlatformBillingBoard({ data, loading, reload, type }: BoardProps
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Laporan transaksi" value={String(rows.length)} change={`${metrics.pendingCommissionCount ?? 0} menunggu verifikasi`} icon="wallet" />
         <MetricCard label="Nilai transaksi mitra" value={rupiah(totalSale)} change="Akumulasi harga jual dilaporkan" icon="chart" />
@@ -188,7 +188,7 @@ export function PlatformBillingBoard({ data, loading, reload, type }: BoardProps
       <div className={ui.card}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="font-serif text-2xl text-[#0b3d2e]">Verifikasi laporan transaksi mitra</h3>
+            <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Verifikasi laporan transaksi mitra</h3>
             <p className="mt-1 text-sm text-[#718078]">Agen & pemilik wajib melaporkan transaksi (Pasal 4 perjanjian) dengan komisi 0,5%. Verifikasi di sini — status langsung terlihat di dashboard Penagihan mereka{type === 'super-admin' ? ' dan menjadi dasar laporan pendapatan platform.' : '.'}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -270,7 +270,7 @@ export function ReportsBoard({ data, loading, reload }: BoardProps) {
   const open = reports.filter((r) => ['open', 'investigating'].includes(String(r.status)))
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Laporan terbuka" value={String(open.length)} change={`${reports.length} total laporan`} icon="flag" />
         <MetricCard label="Listing tanpa foto" value={String(data.ai?.listingsWithoutMedia ?? 0)} change="Perlu ditindaklanjuti saat tayang" icon="home" />
@@ -280,7 +280,7 @@ export function ReportsBoard({ data, loading, reload }: BoardProps) {
       {message && <Toast message={message} />}
 
       <div className={ui.card}>
-        <h3 className="font-serif text-2xl text-[#0b3d2e]">Laporan dari pengguna</h3>
+        <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Laporan dari pengguna</h3>
         <p className="mt-1 text-sm text-[#718078]">Tindak lanjuti laporan penyalahgunaan: tandai sedang diselidiki, selesaikan, atau abaikan bila tidak terbukti.</p>
         <div className="mt-4 space-y-3">
           {reports.map((report) => (
@@ -345,7 +345,7 @@ export function ReportsBoard({ data, loading, reload }: BoardProps) {
 export function AiMonitorBoard({ data }: BoardProps) {
   const ai = data.ai ?? {}
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Status Homy AI" value={ai.configured ? 'Aktif' : 'Nonaktif'} change={'Model ' + (ai.model ?? 'deepseek-chat')} icon="sparkles" />
         <MetricCard label="Listing tayang" value={String(data.metrics?.published ?? 0)} change="Sumber jawaban Homy AI" icon="home" />
@@ -354,14 +354,14 @@ export function AiMonitorBoard({ data }: BoardProps) {
       </div>
       <div className="grid gap-4 xl:grid-cols-[1.05fr_1fr]">
         <div className={ui.card}>
-          <h3 className="font-serif text-2xl text-[#0b3d2e]">Uji Homy AI langsung</h3>
+          <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Uji Homy AI langsung</h3>
           <p className="mt-1 text-sm text-[#718078]">Kirim pertanyaan seperti calon pembeli untuk memastikan AI menjawab dari data listing yang tayang.</p>
           <div className="mt-4">
             <AiChat compact intro="Uji kualitas jawaban Homy AI (data live)" suggestions={['Rumah apa saja yang tersedia?', 'Berapa rata-rata harga sewa apartemen?', 'Listing mana yang paling dekat kampus?']} />
           </div>
         </div>
         <div className={ui.card}>
-          <h3 className="font-serif text-2xl text-[#0b3d2e]">Log aktivitas AI</h3>
+          <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Log aktivitas AI</h3>
           <p className="mt-1 text-sm text-[#718078]">Jejak audit yang berkaitan dengan fitur AI dan moderasi otomatis.</p>
           <div className="mt-3 space-y-2">
             {(data.audit ?? []).filter((row) => String(row.action ?? '').startsWith('ai.') || String(row.action ?? '').includes('suggest')).map((row) => (
@@ -388,7 +388,7 @@ export function AuditBoard({ data, loading }: BoardProps) {
   const [query, setQuery] = useState('')
   const filtered = audit.filter((row) => !query || `${row.action ?? ''} ${row.entity_type ?? ''} ${row.actor?.email ?? ''}`.toLowerCase().includes(query.toLowerCase()))
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Event terbaru" value={String(audit.length)} change="80 event terakhir" icon="flag" />
         <MetricCard label="Verifikasi komisi" value={String(audit.filter((r) => String(r.action ?? '').startsWith('transaction.')).length)} change="transaction.verified / rejected" icon="wallet" />
@@ -398,7 +398,7 @@ export function AuditBoard({ data, loading }: BoardProps) {
       <div className={ui.card}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="font-serif text-2xl text-[#0b3d2e]">Log audit platform</h3>
+            <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Log audit platform</h3>
             <p className="mt-1 text-sm text-[#718078]">Semua tindakan penting: moderasi, verifikasi komisi, perubahan peran, konfigurasi, dan flag.</p>
           </div>
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari aksi / pelaku" className={ui.input + ' sm:w-64'} />
@@ -436,7 +436,7 @@ export function RolesBoard({ data, reload, type }: BoardProps & { type: AdminTyp
     { role: 'super_admin', title: 'Super Admin', detail: 'Semua akses admin plus peran & izin, konfigurasi platform, dan feature flag.' },
   ]
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Total akun" value={String(data.users?.length ?? 0)} change="Semua peran" icon="users" />
         {counts.slice(0, 3).map((item) => (
@@ -490,7 +490,7 @@ export function SettingsBoard({ data, reload }: BoardProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {message && <Toast message={message} />}
       <div className="grid gap-4 xl:grid-cols-2">
         {settings.map((setting) => (
@@ -531,7 +531,7 @@ export function FlagsBoard({ data, reload }: BoardProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {message && <Toast message={message} />}
       <div className="space-y-3">
         {flags.map((flag) => (
@@ -582,7 +582,7 @@ export function AdminOverviewBoard({ type }: { type: AdminType }) {
       ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {type === 'admin' ? (
           <>
@@ -614,7 +614,7 @@ export function AdminOverviewBoard({ type }: { type: AdminType }) {
       <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
         <div className={ui.card}>
           <div className="flex items-center justify-between">
-            <h3 className="font-serif text-2xl text-[#0b3d2e]">Aktivitas terbaru</h3>
+            <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Aktivitas terbaru</h3>
             <button type="button" onClick={reload} className={ui.ghost}>Muat ulang</button>
           </div>
           <div className="mt-3 space-y-2">
@@ -631,7 +631,7 @@ export function AdminOverviewBoard({ type }: { type: AdminType }) {
           </div>
         </div>
         <div className={ui.card}>
-          <h3 className="font-serif text-2xl text-[#0b3d2e]">Komisi menunggu verifikasi</h3>
+          <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Komisi menunggu verifikasi</h3>
           <p className="mt-1 text-sm text-[#718078]">Laporan transaksi mitra yang belum divalidasi.</p>
           <div className="mt-3 space-y-2">
             {pendingTx.map((row) => (
@@ -700,7 +700,7 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Total pengajuan" value={String(leads.length)} change="Dari halaman Open Partnership & Kontak" icon="users" />
         <MetricCard label="Perlu ditindak" value={String(pending)} change="Status baru / ditinjau" icon="flag" />
@@ -712,7 +712,7 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
 
       <div className={ui.card}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-serif text-2xl text-[#0b3d2e]">Calon mitra &amp; pesan masuk</h3>
+          <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Calon mitra &amp; pesan masuk</h3>
           <div className="flex flex-wrap gap-2">
             <select value={kind} onChange={(event) => setKind(event.target.value)} className={ui.input + ' h-9 w-44 py-0'}>
               <option value="all">Semua jenis</option>
@@ -781,7 +781,7 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
       </div>
 
       <div className={ui.card}>
-        <h3 className="font-serif text-2xl text-[#0b3d2e]">Prosedur follow-up partnership</h3>
+        <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Prosedur follow-up partnership</h3>
         <ul className="mt-3 space-y-2 text-sm leading-6 text-[#33443d]">
           <li>1. Verifikasi identitas &amp; legalitas (KTP/izin usaha) sebelum menandai <strong>Disetujui</strong>.</li>
           <li>2. Untuk agensi/institusi, catat skema komisi bertingkat pada catatan verifikasi.</li>

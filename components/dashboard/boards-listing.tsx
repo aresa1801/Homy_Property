@@ -49,7 +49,7 @@ export function ListingBoard({ data, loading, reload, type }: BoardProps & { typ
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label={type === 'agent' ? 'Total listing' : 'Total properti'} value={String(listings.length)} change={`${listings.filter((p) => p.status === 'published').length} tayang`} icon="home" />
         <MetricCard label="Menunggu moderasi" value={String(listings.filter((p) => p.status === 'pending').length)} change="Perlu ditinjau admin" icon="shield" />
@@ -159,12 +159,12 @@ export function LeadsBoard({ data, loading, reload, type }: BoardProps & { type:
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {counts.map(([stage, total]) => (
           <div key={stage} className={ui.card}>
             <p className="text-sm text-[#718078]">{STAGE_LABEL[stage].label}</p>
-            <p className="mt-2 font-serif text-3xl text-[#0b3d2e]">{total}</p>
+            <p className="mt-2 font-serif text-2xl sm:text-3xl text-[#0b3d2e]">{total}</p>
           </div>
         ))}
       </div>
@@ -232,7 +232,7 @@ export function AnalyticsBoard({ data, loading, type }: BoardProps & { type: 'ag
   const cities = listings.reduce<Record<string, number>>((acc, item) => { const key = item.city ?? 'Lainnya'; acc[key] = (acc[key] ?? 0) + 1; return acc }, {})
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Listing aktif" value={String(listings.filter((item) => item.status === 'published').length)} change={`dari ${listings.length} listing`} icon="home" />
         <MetricCard label="Harga rata-rata" value={rupiah(avgPrice)} change="Semua listing Anda" icon="chart" />
@@ -242,7 +242,7 @@ export function AnalyticsBoard({ data, loading, type }: BoardProps & { type: 'ag
 
       <div className="grid gap-4 xl:grid-cols-2">
         <div className={ui.card}>
-          <h3 className="font-serif text-2xl text-[#0b3d2e]">Prospek per tahap</h3>
+          <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Prospek per tahap</h3>
           <div className="mt-4 space-y-3">
             {Object.entries(STAGE_LABEL).map(([stage, meta]) => {
               const total = leads.filter((lead) => (lead.status ?? 'open') === stage).length
@@ -256,7 +256,7 @@ export function AnalyticsBoard({ data, loading, type }: BoardProps & { type: 'ag
           </div>
         </div>
         <div className={ui.card}>
-          <h3 className="font-serif text-2xl text-[#0b3d2e]">Sebaran kota</h3>
+          <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Sebaran kota</h3>
           {Object.keys(cities).length === 0 && <p className="mt-3 text-sm text-[#718078]">Belum ada data lokasi.</p>}
           <div className="mt-4 space-y-3">
             {Object.entries(cities).sort((a, b) => b[1] - a[1]).map(([city, total]) => (
@@ -270,7 +270,7 @@ export function AnalyticsBoard({ data, loading, type }: BoardProps & { type: 'ag
       </div>
 
       <div className={ui.card}>
-        <h3 className="font-serif text-2xl text-[#0b3d2e]">Kinerja per {type === 'agent' ? 'listing' : 'properti'}</h3>
+        <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Kinerja per {type === 'agent' ? 'listing' : 'properti'}</h3>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead className="text-xs uppercase tracking-wide text-[#a18a61]">

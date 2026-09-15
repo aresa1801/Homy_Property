@@ -177,7 +177,7 @@ export default function AgreementPage() {
       <div className="mx-auto w-full max-w-[1760px]">
         <BrandMark height={40} />
 
-        <div className="mt-10 flex items-center gap-3 rounded-2xl border border-[#e8dfd3] bg-white p-4">
+        <div className="mt-6 sm:mt-10 flex items-center gap-3 rounded-2xl border border-[#e8dfd3] bg-white p-4">
           <UserAvatar name={name} email={email} avatarUrl={avatarUrl} size={48} />
           <div className="min-w-0">
             <p className="truncate font-semibold text-[#0b3d2e]">{name || 'Akun Google Anda'}</p>
@@ -188,8 +188,8 @@ export default function AgreementPage() {
 
         <div className="mt-8 max-w-5xl">
           <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c09b54]">Wajib sebelum listing</p>
-          <h1 className="mt-3 font-serif text-5xl leading-tight text-[#0b3d2e]">Surat Perjanjian Kerja Sama</h1>
-          <p className="mt-5 text-lg leading-8 text-[#65706c]">
+          <h1 className="mt-3 font-serif text-3xl sm:text-5xl leading-tight text-[#0b3d2e]">Surat Perjanjian Kerja Sama</h1>
+          <p className="mt-5 text-base sm:text-lg leading-8 text-[#65706c]">
             Untuk memasang properti, Agen dan Pemilik Properti wajib mendaftar sebagai Mitra Homy, menandatangani perjanjian kerja sama,
             menyetujui komisi penjualan <strong className="text-[#0b3d2e]">0,5%</strong> dari harga jual, dan melaporkan setiap transaksi kepada Homy Property.
           </p>
@@ -231,9 +231,9 @@ export default function AgreementPage() {
           </div>
         )}
 
-        <form onSubmit={submit} className="mt-8 grid gap-6 xl:grid-cols-[1.05fr_1fr] xl:gap-8">
-          <section className="rounded-2xl border border-[#e8dfd3] bg-white p-6 sm:p-8">
-            <h2 className="font-serif text-2xl text-[#0b3d2e]">Data Mitra</h2>
+        <form onSubmit={submit} className="mt-8 grid gap-4 sm:gap-6 xl:grid-cols-[1.05fr_1fr] xl:gap-8">
+          <section className="rounded-2xl border border-[#e8dfd3] bg-white p-4 sm:p-6 lg:p-8">
+            <h2 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Data Mitra</h2>
             <p className="mt-1 text-sm text-[#65706c]">Data ini dipakai pada dokumen perjanjian dan penagihan komisi.</p>
             <div className="mt-6 grid gap-5 sm:grid-cols-2">
               <label className="text-sm font-semibold text-[#33433d] sm:col-span-2">Nama lengkap sesuai identitas
@@ -257,9 +257,9 @@ export default function AgreementPage() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-[#e8dfd3] bg-white p-6 sm:p-8">
-            <h2 className="font-serif text-2xl text-[#0b3d2e]">Isi Perjanjian</h2>
-            <div className="mt-4 max-h-[26rem] space-y-4 overflow-auto rounded-xl bg-[#f7f3ec] p-5 text-sm leading-6 text-[#40584f] xl:max-h-[38rem] 2xl:max-h-[46rem]">
+          <section className="rounded-2xl border border-[#e8dfd3] bg-white p-4 sm:p-6 lg:p-8">
+            <h2 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Isi Perjanjian</h2>
+            <div className="mt-4 max-h-[26rem] space-y-4 overflow-auto rounded-xl bg-[#f7f3ec] p-4 sm:p-5 text-sm leading-6 text-[#40584f] xl:max-h-[38rem] 2xl:max-h-[46rem]">
               {CLAUSES.map((clause) => (
                 <div key={clause.title}>
                   <p className="font-semibold text-[#0b3d2e]">{clause.title}</p>
@@ -267,7 +267,7 @@ export default function AgreementPage() {
                 </div>
               ))}
             </div>
-            <div className="mt-5 rounded-xl border border-[#f0dcae] bg-[#fff7e3] p-5 text-sm text-[#7a5a12]">
+            <div className="mt-5 rounded-xl border border-[#f0dcae] bg-[#fff7e3] p-4 sm:p-5 text-sm text-[#7a5a12]">
               <p className="font-semibold">Ringkasan kewajiban Mitra</p>
               <ul className="mt-2 list-disc space-y-1 pl-5">
                 <li>Komisi penjualan <strong>0,5%</strong> dari harga jual properti.</li>
@@ -276,8 +276,8 @@ export default function AgreementPage() {
             </div>
           </section>
 
-          <section className="rounded-2xl border border-[#e8dfd3] bg-white p-6 sm:p-8 lg:col-span-2">
-            <h2 className="flex items-center gap-2 font-serif text-2xl text-[#0b3d2e]"><FileSignature className="size-6 text-[#c9a961]" /> Persetujuan & Tanda Tangan</h2>
+          <section className="rounded-2xl border border-[#e8dfd3] bg-white p-4 sm:p-6 lg:p-8 lg:col-span-2">
+            <h2 className="flex items-center gap-2 font-serif text-xl sm:text-2xl text-[#0b3d2e]"><FileSignature className="size-6 text-[#c9a961]" /> Persetujuan & Tanda Tangan</h2>
             <div className="mt-5 space-y-3">
               <label className="flex items-start gap-3 rounded-xl border border-[#e8dfd3] p-4 text-sm">
                 <input type="checkbox" checked={agreeTerms} onChange={(e) => setAgreeTerms(e.target.checked)} className="mt-0.5 size-5" />
@@ -298,7 +298,7 @@ export default function AgreementPage() {
                 required
                 value={signature}
                 onChange={(e) => setSignature(e.target.value)}
-                className={`mt-2 h-12 w-full rounded-lg border px-4 font-serif text-lg italic outline-none ${signature && !signatureMatches ? 'border-[#e0a3a3] bg-[#fdf3f3]' : 'border-[#ddd3c5] focus:border-[#0b3d2e]'}`}
+                className={`mt-2 h-12 w-full rounded-lg border px-4 font-serif text-base sm:text-lg italic outline-none ${signature && !signatureMatches ? 'border-[#e0a3a3] bg-[#fdf3f3]' : 'border-[#ddd3c5] focus:border-[#0b3d2e]'}`}
                 placeholder={name || 'Nama lengkap Anda'}
               />
             </label>

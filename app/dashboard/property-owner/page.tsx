@@ -21,7 +21,7 @@ export default function PropertyOwnerDashboard() {
 
   return (
     <DashboardShell role="Property Owner" showSummary={false}>
-      <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+      <div className="mb-5 sm:mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <DashboardGreeting welcome="Selamat datang kembali, {name}" headline="Portofolio properti Anda." description="Pantau properti, pertanyaan, jadwal kunjungan, dan status moderasi dari satu tempat." />
         <a href="/dashboard/property-owner/list" className="inline-flex items-center gap-2 rounded-xl bg-[#0b3d2e] px-5 py-3 text-sm font-semibold text-white hover:bg-[#14553f]"><Plus className="size-4" />Pasang properti</a>
       </div>
@@ -35,7 +35,7 @@ export default function PropertyOwnerDashboard() {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {TILES.map((tile) => (
-          <a key={tile.href} href={tile.href} className="group rounded-2xl border border-[#e5dccd] bg-white p-5 shadow-[0_10px_30px_rgba(20,42,32,.04)] transition hover:border-[#c9a961]">
+          <a key={tile.href} href={tile.href} className="group rounded-2xl border border-[#e5dccd] bg-white p-4 sm:p-5 shadow-[0_10px_30px_rgba(20,42,32,.04)] transition hover:border-[#c9a961]">
             <span className="grid size-11 place-items-center rounded-xl bg-[#edf2ed] text-[#0b3d2e]"><tile.icon /></span>
             <p className="mt-4 font-serif text-xl text-[#0b3d2e]">{tile.title}</p>
             <p className="mt-1 text-sm leading-6 text-[#718078]">{tile.body}</p>
@@ -44,9 +44,9 @@ export default function PropertyOwnerDashboard() {
         ))}
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-2">
+      <div className="mt-6 grid gap-4 sm:gap-6 xl:grid-cols-2">
         <section className={ui.card}>
-          <div className="flex items-center justify-between"><h3 className="font-serif text-2xl text-[#0b3d2e]">Properti terbaru</h3><a href="/dashboard/property-owner/properties" className="text-sm font-semibold text-[#0b3d2e] hover:underline">Lihat semua <ArrowRight className="inline size-3" /></a></div>
+          <div className="flex items-center justify-between"><h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Properti terbaru</h3><a href="/dashboard/property-owner/properties" className="text-sm font-semibold text-[#0b3d2e] hover:underline">Lihat semua <ArrowRight className="inline size-3" /></a></div>
           <div className="mt-4 space-y-3">
             {loading && <div className="h-16 animate-pulse rounded-xl bg-[#f7f3ec]" />}
             {!loading && !listings.length && <p className={ui.soft + ' text-sm text-[#718078]'}>Belum ada properti. <a href="/dashboard/property-owner/list" className="font-semibold text-[#0b3d2e] underline">Pasang sekarang</a></p>}
@@ -63,7 +63,7 @@ export default function PropertyOwnerDashboard() {
         </section>
 
         <section className={ui.card}>
-          <div className="flex items-center justify-between"><h3 className="font-serif text-2xl text-[#0b3d2e]">Perlu tindakan</h3><a href="/dashboard/property-owner/inquiries" className="text-sm font-semibold text-[#0b3d2e] hover:underline">Buka pertanyaan</a></div>
+          <div className="flex items-center justify-between"><h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Perlu tindakan</h3><a href="/dashboard/property-owner/inquiries" className="text-sm font-semibold text-[#0b3d2e] hover:underline">Buka pertanyaan</a></div>
           <div className="mt-4 space-y-3">
             {leads.map((lead) => (
               <div key={lead.id} className="rounded-xl border border-[#eee7dc] p-3">

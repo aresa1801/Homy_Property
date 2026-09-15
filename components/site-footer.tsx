@@ -16,8 +16,8 @@ const LINKS = [
 export function SiteFooter() {
   const year = new Date().getFullYear()
   return (
-    <footer className="bg-[#071f18] py-10 text-white/60">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 text-sm lg:px-8">
+    <footer className="bg-[#071f18] py-7 sm:py-10 text-white/60">
+      <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:gap-6 px-5 text-sm lg:px-8">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
           <BrandMark tone="light" height={30} />
           <p>© {year} Homy Property. Rumah, dengan cara yang lebih baik.</p>

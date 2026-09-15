@@ -10,15 +10,15 @@ export function LegalPage({ eyebrow, title, intro, updated, sections }: { eyebro
       <SiteHeader />
       <section className="mx-auto max-w-4xl px-5 pb-6 pt-12 lg:px-8">
         <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c09b54]">{eyebrow}</p>
-        <h1 className="mt-2 font-serif text-5xl text-[#0b3d2e]">{title}</h1>
+        <h1 className="mt-2 font-serif text-3xl sm:text-5xl text-[#0b3d2e]">{title}</h1>
         <p className="mt-4 max-w-3xl leading-7 text-[#65706c]">{intro}</p>
         <p className="mt-3 text-xs text-[#8a928e]">Terakhir diperbarui: {updated}</p>
       </section>
       <section className="mx-auto max-w-4xl px-5 pb-16 lg:px-8">
-        <div className="space-y-5 rounded-2xl bg-white p-6 shadow-[0_10px_35px_rgba(20,42,32,.06)] sm:p-9">
+        <div className="space-y-5 rounded-2xl bg-white p-4 sm:p-6 shadow-[0_10px_35px_rgba(20,42,32,.06)] lg:p-9">
           {sections.map((section, index) => (
             <article key={section.heading} className="border-b border-[#f0e9df] pb-5 last:border-0 last:pb-0">
-              <h2 className="font-serif text-2xl text-[#0b3d2e]">{index + 1}. {section.heading}</h2>
+              <h2 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">{index + 1}. {section.heading}</h2>
               {section.paragraphs.map((paragraph) => (
                 <p key={paragraph.slice(0, 40)} className="mt-3 leading-7 text-[#33433d]">{paragraph}</p>
               ))}

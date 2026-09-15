@@ -114,7 +114,7 @@ export function AiBoard({ data }: BoardProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className={ui.card}>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -200,7 +200,7 @@ export function AiBoard({ data }: BoardProps) {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className={ui.card}>
               <p className={ui.eyebrow}>Harga rekomendasi</p>
-              <p className="mt-1 text-2xl font-semibold text-[#0b3d2e]">{rupiah(result.suggestion.recommended)}</p>
+              <p className="mt-1 text-xl sm:text-2xl font-semibold text-[#0b3d2e]">{rupiah(result.suggestion.recommended)}</p>
               <span className={`${ui.badge} mt-2 inline-block ${CONFIDENCE[result.suggestion.confidence] ?? CONFIDENCE.sedang}`}>Keyakinan {result.suggestion.confidence}</span>
             </div>
             <div className={ui.card}>
@@ -210,7 +210,7 @@ export function AiBoard({ data }: BoardProps) {
             </div>
             <div className={ui.card}>
               <p className={ui.eyebrow}>Data pembanding</p>
-              <p className="mt-1 text-2xl font-semibold text-[#0b3d2e]">{result.sampleSize}</p>
+              <p className="mt-1 text-xl sm:text-2xl font-semibold text-[#0b3d2e]">{result.sampleSize}</p>
               <p className="mt-2 text-xs text-[#718078]">{result.scope}</p>
             </div>
             <div className={ui.card}>
@@ -292,7 +292,7 @@ export function AiBoard({ data }: BoardProps) {
 /** Papan rekomendasi AI untuk pembeli/penyewa (dashboard Pengguna). */
 export function CurateBoard(_props: BoardProps) {
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <CuratePanel />
       <div className={ui.card}>
         <AiChat

@@ -39,31 +39,31 @@ export default function PartnershipPage() {
   return (
     <main className="min-h-screen bg-[#f7f3ec] text-[#1c1c1c]">
       <SiteHeader />
-      <section className="relative bg-[#0b3d2e] py-16 text-white sm:py-20">
+      <section className="relative bg-[#0b3d2e] py-10 sm:py-16 text-white md:py-20">
         <div className="mx-auto max-w-7xl px-5 lg:px-8">
           <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c9a961]">Open Partnership</p>
-          <h1 className="mt-3 max-w-3xl font-serif text-4xl leading-tight sm:text-6xl">Tumbuh bersama Homy Property.</h1>
+          <h1 className="mt-3 max-w-3xl font-serif text-2xl sm:text-4xl leading-tight md:text-6xl">Tumbuh bersama Homy Property.</h1>
           <p className="mt-5 max-w-2xl leading-8 text-white/75">Bergabung sebagai agen, pemilik, agensi, atau institusi properti. Satu platform untuk listing, prospek, komisi, dan pelaporan — dengan biaya bergabung Rp 0.</p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a href="#daftar" className="inline-flex items-center gap-2 rounded-full bg-[#c9a961] px-6 py-3 text-sm font-semibold text-[#0b3d2e] transition hover:bg-[#e1c67e]">Daftar sekarang <ArrowRight className="size-4" /></a>
             <a href="#institusi" className="inline-flex items-center gap-2 rounded-full border border-white/25 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10">Kerjasama institusi</a>
           </div>
-          <div className="mt-12 grid gap-4 border-t border-white/15 pt-8 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-8 sm:mt-12 grid gap-4 border-t border-white/15 pt-8 sm:grid-cols-2 xl:grid-cols-4">
             {[['Rp 0', 'Biaya bergabung'], ['1×24 jam', 'Verifikasi mitra'], ['0,5% / 2%', 'Komisi agen / pemilik'], ['3 hari kerja', 'Batas lapor transaksi']].map(([value, text]) => (
-              <div key={text}><p className="font-serif text-3xl text-[#c9a961]">{value}</p><p className="mt-1 text-sm text-white/70">{text}</p></div>
+              <div key={text}><p className="font-serif text-2xl sm:text-3xl text-[#c9a961]">{value}</p><p className="mt-1 text-sm text-white/70">{text}</p></div>
             ))}
           </div>
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-5 py-14 lg:px-8">
+      <section className="mx-auto max-w-7xl px-5 py-9 sm:py-14 lg:px-8">
         <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c09b54]">Jenis kemitraan</p>
-        <h2 className="mt-2 font-serif text-4xl text-[#0b3d2e]">Pilih jalur yang paling sesuai.</h2>
+        <h2 className="mt-2 font-serif text-2xl sm:text-4xl text-[#0b3d2e]">Pilih jalur yang paling sesuai.</h2>
         <div className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {TYPES.map(({ icon: Icon, title, commission, body, points }) => (
-            <article key={title} className="flex flex-col rounded-2xl bg-white p-6 shadow-[0_10px_35px_rgba(20,42,32,.06)]">
+            <article key={title} className="flex flex-col rounded-2xl bg-white p-4 sm:p-6 shadow-[0_10px_35px_rgba(20,42,32,.06)]">
               <span className="grid size-12 place-items-center rounded-xl bg-[#edf2ed] text-[#0b3d2e]"><Icon /></span>
-              <h3 className="mt-5 font-serif text-2xl text-[#0b3d2e]">{title}</h3>
+              <h3 className="mt-5 font-serif text-xl sm:text-2xl text-[#0b3d2e]">{title}</h3>
               <span className="mt-2 w-fit rounded-full bg-[#fff7e3] px-3 py-1 text-xs font-semibold text-[#9b762a]">{commission}</span>
               <p className="mt-3 text-sm leading-6 text-[#65706c]">{body}</p>
               <ul className="mt-4 space-y-2 border-t border-[#f0e9df] pt-4">
@@ -74,22 +74,22 @@ export default function PartnershipPage() {
         </div>
       </section>
 
-      <section id="institusi" className="border-y border-[#e8dfd3] bg-[#fbf8f3] py-14">
+      <section id="institusi" className="border-y border-[#e8dfd3] bg-[#fbf8f3] py-9 sm:py-14">
         <div className="mx-auto max-w-7xl px-5 lg:px-8">
-          <div className="grid gap-10 lg:grid-cols-[1fr_1.1fr]">
+          <div className="grid gap-6 sm:gap-10 lg:grid-cols-[1fr_1.1fr]">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c09b54]">Kerjasama institusi</p>
-              <h2 className="mt-2 font-serif text-4xl text-[#0b3d2e]">Untuk agensi properti &amp; institusi.</h2>
+              <h2 className="mt-2 font-serif text-2xl sm:text-4xl text-[#0b3d2e]">Untuk agensi properti &amp; institusi.</h2>
               <p className="mt-4 leading-7 text-[#65706c]">Kami membuka kerja sama dengan jaringan agensi properti nasional maupun internasional — Ray White, LJ Hooker, Century 21, ERA, RE/MAX, dan sejenisnya — hingga institusi korporat seperti developer, bank, dan koperasi.</p>
               <p className="mt-4 leading-7 text-[#65706c]">Skema komisi institusi dibahas terpisah (bertingkat sesuai volume), dengan dukungan account manager khusus, onboarding tim, dan pelaporan komisi per cabang.</p>
-              <div className="mt-7 flex flex-wrap gap-2">
+              <div className="mt-5 sm:mt-7 flex flex-wrap gap-2">
                 {INSTITUTIONS.map((name) => <span key={name} className="rounded-full border border-[#e5dccd] bg-white px-4 py-2 text-sm font-semibold text-[#0b3d2e]">{name}</span>)}
               </div>
               <p className="mt-4 text-xs text-[#8a928e]">Contoh jaringan yang umum beroperasi di Indonesia. Homy Property tidak berafiliasi dengan merek tersebut.</p>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               {FEATURES.map(({ icon: Icon, title, body }) => (
-                <div key={title} className="rounded-2xl bg-white p-5 shadow-[0_10px_30px_rgba(20,42,32,.05)]">
+                <div key={title} className="rounded-2xl bg-white p-4 sm:p-5 shadow-[0_10px_30px_rgba(20,42,32,.05)]">
                   <span className="grid size-10 place-items-center rounded-lg bg-[#edf2ed] text-[#0b3d2e]"><Icon /></span>
                   <p className="mt-4 font-semibold text-[#0b3d2e]">{title}</p>
                   <p className="mt-2 text-sm leading-6 text-[#65706c]">{body}</p>
@@ -100,12 +100,12 @@ export default function PartnershipPage() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-5 py-14 lg:px-8">
+      <section className="mx-auto max-w-7xl px-5 py-9 sm:py-14 lg:px-8">
         <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c09b54]">Alur kemitraan</p>
-        <h2 className="mt-2 font-serif text-4xl text-[#0b3d2e]">Empat langkah, tanpa ribet.</h2>
+        <h2 className="mt-2 font-serif text-2xl sm:text-4xl text-[#0b3d2e]">Empat langkah, tanpa ribet.</h2>
         <div className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {STEPS.map(({ icon: Icon, title, body }) => (
-            <div key={title} className="rounded-2xl bg-white p-6 shadow-[0_10px_30px_rgba(20,42,32,.05)]">
+            <div key={title} className="rounded-2xl bg-white p-4 sm:p-6 shadow-[0_10px_30px_rgba(20,42,32,.05)]">
               <span className="grid size-11 place-items-center rounded-full bg-[#0b3d2e] text-[#c9a961]"><Icon /></span>
               <h3 className="mt-4 font-semibold text-[#0b3d2e]">{title}</h3>
               <p className="mt-2 text-sm leading-6 text-[#65706c]">{body}</p>
@@ -114,15 +114,15 @@ export default function PartnershipPage() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-6 px-5 pb-16 lg:grid-cols-[1.1fr_1fr] lg:px-8">
-        <div className="space-y-6">
-          <div className="rounded-2xl bg-[#0f2a44] p-6 text-white sm:p-8">
-            <h3 className="font-serif text-2xl">Skema komisi &amp; kewajiban</h3>
+      <section className="mx-auto grid max-w-7xl gap-4 sm:gap-6 px-5 pb-16 lg:grid-cols-[1.1fr_1fr] lg:px-8">
+        <div className="space-y-4 sm:space-y-6">
+          <div className="rounded-2xl bg-[#0f2a44] p-4 sm:p-6 text-white md:p-8">
+            <h3 className="font-serif text-xl sm:text-2xl">Skema komisi &amp; kewajiban</h3>
             <div className="mt-5 space-y-3">
               {[['Agen Properti', '0,5%', 'dari harga transaksi final'], ['Pemilik Properti', '2%', 'dari harga transaksi final'], ['Agensi / Institusi', 'Bertingkat', 'dibahas saat onboarding']].map(([role, rate, note]) => (
                 <div key={role} className="flex items-center justify-between gap-4 rounded-xl bg-white/10 px-4 py-3">
                   <div><p className="font-semibold">{role}</p><p className="text-xs text-white/60">{note}</p></div>
-                  <p className="font-serif text-2xl text-[#f6e2a8]">{rate}</p>
+                  <p className="font-serif text-xl sm:text-2xl text-[#f6e2a8]">{rate}</p>
                 </div>
               ))}
             </div>
@@ -130,8 +130,8 @@ export default function PartnershipPage() {
               {['Menandatangani Surat Perjanjian Kerja Sama digital', 'Menyajikan data properti yang benar & tidak menyesatkan', 'Melaporkan setiap transaksi maksimal 3 hari kerja', 'Menjaga kerahasiaan data calon pembeli/penyewa'].map((item) => <li key={item} className="flex gap-2"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[#c9a961]" />{item}</li>)}
             </ul>
           </div>
-          <div className="rounded-2xl bg-white p-6 shadow-[0_10px_30px_rgba(20,42,32,.05)] sm:p-8">
-            <h3 className="font-serif text-2xl text-[#0b3d2e]">Pertanyaan umum</h3>
+          <div className="rounded-2xl bg-white p-4 sm:p-6 shadow-[0_10px_30px_rgba(20,42,32,.05)] md:p-8">
+            <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Pertanyaan umum</h3>
             <div className="mt-4 space-y-4">
               {FAQ.map((item) => (
                 <div key={item.q} className="border-b border-[#f0e9df] pb-4 last:border-0 last:pb-0">

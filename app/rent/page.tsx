@@ -103,7 +103,7 @@ export default function RentPage() {
         <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c09b54]">Properti untuk disewa</p>
         <div className="mt-2 flex flex-wrap items-end justify-between gap-5">
           <div>
-            <h1 className="font-serif text-5xl text-[#0b3d2e]">Sewa hunian tanpa drama.</h1>
+            <h1 className="font-serif text-3xl sm:text-5xl text-[#0b3d2e]">Sewa hunian tanpa drama.</h1>
             <p className="mt-3 max-w-2xl text-[#65706c]">Pilih durasi sewa, tipe properti, dan kondisi furnitur. Semua biaya awal ditampilkan transparan sebelum Anda menghubungi pemilik.</p>
           </div>
           <div className="flex items-center gap-2 rounded-full bg-white p-1 shadow-sm">
@@ -126,19 +126,19 @@ export default function RentPage() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-8 px-5 pb-16 lg:grid-cols-[1fr_300px] lg:px-8">
+      <section className="mx-auto grid max-w-7xl gap-5 sm:gap-8 px-5 pb-16 lg:grid-cols-[1fr_300px] lg:px-8">
         <div>
           <div className="mb-5 flex items-center justify-between">
             <p className="text-sm text-[#65706c]"><strong className="text-[#0b3d2e]">{loading ? '…' : shown.length}</strong> properti sewa ditemukan</p>
             <Button variant="outline" className="border-[#d8ccbb]"><SlidersHorizontal data-icon="inline-start" /> Filter lanjutan</Button>
           </div>
-          {loading && <div className="grid gap-6 sm:grid-cols-2">{[0, 1].map((i) => <div key={i} className="h-80 animate-pulse rounded-2xl bg-white" />)}</div>}
+          {loading && <div className="grid gap-4 sm:gap-6 sm:grid-cols-2">{[0, 1].map((i) => <div key={i} className="h-80 animate-pulse rounded-2xl bg-white" />)}</div>}
           {!loading && shown.length === 0 && (
-            <div className="rounded-2xl bg-white p-6 text-sm text-[#65706c]">
+            <div className="rounded-2xl bg-white p-4 sm:p-6 text-sm text-[#65706c]">
               Belum ada properti sewa yang cocok dengan filter ini. Coba ubah durasi (Bulanan/Tahunan), longgarkan budget, atau gunakan <a className="font-semibold text-[#0b3d2e] underline" href="/ai-assistant">Asisten AI</a> untuk rekomendasi.
             </div>
           )}
-          <div className="grid gap-6 sm:grid-cols-2">
+          <div className="grid gap-4 sm:gap-6 sm:grid-cols-2">
             {shown.map((home, i) => {
               const image = firstMediaUrl(home, supabaseUrl) ?? DEMO_PROPERTY_IMAGES[i % DEMO_PROPERTY_IMAGES.length]
               const isSaved = saved.includes(home.id)
@@ -149,10 +149,10 @@ export default function RentPage() {
                     <div className="absolute left-4 top-4 rounded-full bg-[#0b3d2e] px-3 py-1.5 text-xs font-semibold text-[#f6e2a8]">{home.price_period === 'yearly' ? 'Sewa Tahunan' : 'Sewa Bulanan'}</div>
                     <button aria-label={'Simpan ' + home.title} onClick={() => setSaved((s) => (isSaved ? s.filter((x) => x !== home.id) : [...s, home.id]))} className="absolute right-4 top-4 grid size-9 place-items-center rounded-full bg-white/90 text-[#0b3d2e]"><Heart className={isSaved ? 'fill-[#a3282c] text-[#a3282c]' : ''} /></button>
                   </div>
-                  <div className="p-5">
-                    <h2 className="font-serif text-2xl text-[#0b3d2e]">{home.title}</h2>
+                  <div className="p-4 sm:p-5">
+                    <h2 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">{home.title}</h2>
                     <p className="mt-1 flex items-center gap-1 text-sm text-[#65706c]"><MapPin /> {propertyLocation(home)}</p>
-                    <p className="mt-4 text-lg font-bold text-[#0b3d2e]">{formatPriceWithPeriod(home.price, home.price_period)}</p>
+                    <p className="mt-4 text-base sm:text-lg font-bold text-[#0b3d2e]">{formatPriceWithPeriod(home.price, home.price_period)}</p>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs">
                       {home.furnished && <span className="rounded-full bg-[#e2eee7] px-3 py-1 font-semibold text-[#0b3d2e]">{FURNISHED_LABEL[home.furnished] ?? home.furnished}</span>}
                       {home.bedrooms ? <span className="rounded-full bg-[#f2f0ea] px-3 py-1 text-[#33433d]">{home.bedrooms} KT</span> : null}
@@ -173,7 +173,7 @@ export default function RentPage() {
         </div>
 
         <aside className="space-y-4">
-          <div className="h-fit rounded-2xl bg-[#0f2a44] p-6 text-white">
+          <div className="h-fit rounded-2xl bg-[#0f2a44] p-4 sm:p-6 text-white">
             <div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-full bg-[#c9a961] text-[#0f2a44]"><Building2 /></span><div><p className="font-semibold">Rekomendasi AI</p><p className="text-xs text-white/60">Berdasarkan listing sewa tersedia</p></div></div>
             <p className="mt-6 leading-7 text-white/85">{shown.length ? 'Ada ' + shown.length + ' properti sewa yang cocok. Termurah: ' + (cheapest?.title ?? '-') + ' di ' + (cheapest ? propertyLocation(cheapest) : '-') + '.' : 'Belum ada listing sewa yang cocok dengan filter Anda saat ini.'}</p>
             <div className="mt-5 flex items-start gap-2 text-sm text-white/65"><Check className="mt-1 text-[#c9a961]" /> Durasi {duration === 'monthly' ? 'bulanan' : 'tahunan'}</div>
@@ -181,7 +181,7 @@ export default function RentPage() {
             <div className="mt-3 flex items-start gap-2 text-sm text-white/65"><BadgeCheck className="mt-1 text-[#c9a961]" /> Listing sudah melewati moderasi</div>
           </div>
 
-          <div className="rounded-2xl bg-white p-6 shadow-[0_10px_30px_rgba(20,42,32,.05)]">
+          <div className="rounded-2xl bg-white p-4 sm:p-6 shadow-[0_10px_30px_rgba(20,42,32,.05)]">
             <div className="flex items-center gap-2 text-[#0b3d2e]"><Sparkles className="size-5" /><p className="font-semibold">Estimasi biaya awal</p></div>
             <p className="mt-2 text-xs text-[#718078]">Contoh untuk properti termurah pada filter Anda: sewa periode pertama + deposit (1 bulan) + estimasi service charge 5%.</p>
             <div className="mt-4 space-y-2 text-sm text-[#33433d]">

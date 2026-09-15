@@ -37,8 +37,8 @@ export function PartnershipForm() {
   }
 
   return (
-    <form id="daftar" onSubmit={submit} className="space-y-4 rounded-2xl bg-white p-6 shadow-[0_10px_35px_rgba(20,42,32,.06)] sm:p-8">
-      <div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-xl bg-[#c9a961] text-[#0b3d2e]"><Handshake /></span><div><h2 className="font-serif text-2xl text-[#0b3d2e]">Ajukan kemitraan</h2><p className="text-sm text-[#718078]">Gratis, tanpa biaya pendaftaran.</p></div></div>
+    <form id="daftar" onSubmit={submit} className="space-y-4 rounded-2xl bg-white p-4 sm:p-6 shadow-[0_10px_35px_rgba(20,42,32,.06)] md:p-8">
+      <div className="flex items-center gap-3"><span className="grid size-11 place-items-center rounded-xl bg-[#c9a961] text-[#0b3d2e]"><Handshake /></span><div><h2 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Ajukan kemitraan</h2><p className="text-sm text-[#718078]">Gratis, tanpa biaya pendaftaran.</p></div></div>
       <label className={label}>Jenis kemitraan *<select required value={form.kind} onChange={(e) => setForm({ ...form, kind: e.target.value })} className={field}>{KINDS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className={label}>Nama lengkap PIC *<input required value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className={field} placeholder="Nama penanggung jawab" /></label>

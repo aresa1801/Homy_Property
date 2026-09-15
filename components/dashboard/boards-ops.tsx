@@ -38,7 +38,7 @@ export function BillingBoard({ data, loading, reload, type }: BoardProps & { typ
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Transaksi dilaporkan" value={String(reports.length)} change="Wajib lapor ≤3 hari kerja" icon="wallet" />
         <MetricCard label="Nilai transaksi" value={rupiah(totalValue)} change="Akumulasi harga jual" icon="chart" />
@@ -50,7 +50,7 @@ export function BillingBoard({ data, loading, reload, type }: BoardProps & { typ
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
         <div className={ui.card}>
-          <div className="flex items-center gap-2"><WalletCards className="size-5 text-[#0b3d2e]" /><h3 className="font-serif text-2xl text-[#0b3d2e]">Lapor transaksi baru</h3></div>
+          <div className="flex items-center gap-2"><WalletCards className="size-5 text-[#0b3d2e]" /><h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Lapor transaksi baru</h3></div>
           <p className="mt-2 text-sm text-[#718078]">{'Sesuai Pasal 4 perjanjian kerja sama, setiap transaksi wajib dilaporkan ke Homy maksimal 3 hari kerja. Komisi ' + String(rate).replace('.', ',') + '% dari harga jual dihitung otomatis (' + (type === 'agent' ? 'Agen' : 'Pemilik Properti') + ').'}</p>
           <div className="mt-4 space-y-3">
             <select value={form.propertyId} onChange={(event) => { const item = (data.properties ?? []).find((row) => row.id === event.target.value); setForm({ ...form, propertyId: event.target.value, propertyTitle: item?.title ?? '' }) }} className={ui.input}>
@@ -73,7 +73,7 @@ export function BillingBoard({ data, loading, reload, type }: BoardProps & { typ
         </div>
 
         <div className={ui.card}>
-          <h3 className="font-serif text-2xl text-[#0b3d2e]">Riwayat laporan</h3>
+          <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Riwayat laporan</h3>
           <div className="mt-4 space-y-3">
             {loading && <div className="h-16 animate-pulse rounded-xl bg-[#f7f3ec]" />}
             {!loading && !reports.length && <p className={ui.soft + ' text-sm text-[#718078]'}>Belum ada transaksi dilaporkan.</p>}
@@ -130,7 +130,7 @@ export function CalendarBoard({ data, loading, reload }: BoardProps & { type: 'a
 
   const group = (title: string, items: DashboardVisit[]) => (
     <div className={ui.card}>
-      <div className="flex items-center gap-2"><CalendarDays className="size-5 text-[#0b3d2e]" /><h3 className="font-serif text-2xl text-[#0b3d2e]">{title}</h3><span className="rounded-full bg-[#f2f0ea] px-2.5 py-1 text-xs font-semibold text-[#718078]">{items.length}</span></div>
+      <div className="flex items-center gap-2"><CalendarDays className="size-5 text-[#0b3d2e]" /><h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">{title}</h3><span className="rounded-full bg-[#f2f0ea] px-2.5 py-1 text-xs font-semibold text-[#718078]">{items.length}</span></div>
       <div className="mt-4 space-y-3">
         {!items.length && <p className={ui.soft + ' text-sm text-[#718078]'}>Tidak ada jadwal di bagian ini.</p>}
         {items.map((visit) => {
@@ -168,7 +168,7 @@ export function CalendarBoard({ data, loading, reload }: BoardProps & { type: 'a
   )
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Kunjungan hari ini" value={String(todayVisits.length)} change="Siapkan properti" icon="calendar" />
         <MetricCard label="Akan datang" value={String(upcoming.length)} change="Terjadwal" icon="calendar" />
@@ -203,10 +203,10 @@ export function AgreementBoard({ data, loading, type }: BoardProps & { type: 'ag
   ]
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
         <div className={ui.card}>
-          <div className="flex items-center gap-2"><FileSignature className="size-5 text-[#0b3d2e]" /><h3 className="font-serif text-2xl text-[#0b3d2e]">Surat Perjanjian Kerja Sama</h3></div>
+          <div className="flex items-center gap-2"><FileSignature className="size-5 text-[#0b3d2e]" /><h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Surat Perjanjian Kerja Sama</h3></div>
           {loading && <div className="mt-4 h-16 animate-pulse rounded-xl bg-[#f7f3ec]" />}
           {!loading && active && (
             <div className="mt-4 space-y-3">
@@ -232,7 +232,7 @@ export function AgreementBoard({ data, loading, type }: BoardProps & { type: 'ag
         </div>
 
         <div className={ui.card}>
-          <div className="flex items-center gap-2"><BadgeCheck className="size-5 text-[#0b3d2e]" /><h3 className="font-serif text-2xl text-[#0b3d2e]">Kewajiban Anda</h3></div>
+          <div className="flex items-center gap-2"><BadgeCheck className="size-5 text-[#0b3d2e]" /><h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Kewajiban Anda</h3></div>
           <ul className="mt-4 space-y-3">
             {obligations.map((item) => (
               <li key={item} className="flex gap-2 text-sm leading-6 text-[#33433d]"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[#4e866d]" />{item}</li>
@@ -270,9 +270,9 @@ export function ListLauncher({ data, loading, reload, type }: BoardProps & { typ
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className={ui.card}>
-        <h3 className="font-serif text-2xl text-[#0b3d2e]">Prasyarat publikasi</h3>
+        <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Prasyarat publikasi</h3>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <div className={`flex items-start gap-3 rounded-xl p-4 ${agreementActive ? 'bg-[#edf2ed]' : 'bg-[#fff7e3]'}`}>
             <FileSignature className={`mt-0.5 size-5 ${agreementActive ? 'text-[#4e866d]' : 'text-[#9b762a]'}`} />
@@ -297,7 +297,7 @@ export function ListLauncher({ data, loading, reload, type }: BoardProps & { typ
 
       <div className={ui.card}>
         <div className="flex items-center justify-between">
-          <h3 className="font-serif text-2xl text-[#0b3d2e]">Perlu diselesaikan</h3>
+          <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Perlu diselesaikan</h3>
           <span className="rounded-full bg-[#f2f0ea] px-2.5 py-1 text-xs font-semibold text-[#718078]">{drafts.length} listing</span>
         </div>
         <div className="mt-4 space-y-3">
@@ -397,7 +397,7 @@ export function AvailabilityBoard({ data, loading, reload }: BoardProps & { type
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Hari aktif" value={String(activeDays.length)} change="Dari 7 hari" icon="calendar" />
         <MetricCard label="Jam tersedia / minggu" value={String(Math.floor(weeklyMinutes / 60))} change="Total jam buka" icon="file" />
@@ -410,7 +410,7 @@ export function AvailabilityBoard({ data, loading, reload }: BoardProps & { type
       <div className={ui.card}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h3 className="font-serif text-2xl text-[#0b3d2e]">Jam siap menerima kunjungan</h3>
+            <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Jam siap menerima kunjungan</h3>
             <p className="mt-1 text-sm text-[#718078]">Hari aktif: {openDays}</p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -456,7 +456,7 @@ export function AvailabilityBoard({ data, loading, reload }: BoardProps & { type
       </div>
 
       <div className={ui.card}>
-        <h3 className="font-serif text-2xl text-[#0b3d2e]">Ringkasan slot yang dilihat calon pembeli</h3>
+        <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Ringkasan slot yang dilihat calon pembeli</h3>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {activeDays.length === 0 && <p className={ui.soft + ' text-sm text-[#718078]'}>Belum ada hari aktif. Aktifkan minimal satu hari lalu simpan.</p>}
           {activeDays.map((day) => {

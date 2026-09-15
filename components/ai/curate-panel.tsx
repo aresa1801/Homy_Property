@@ -69,7 +69,7 @@ export function CuratePanel({ compact = false }: { compact?: boolean }) {
 
   return (
     <div className={compact ? '' : 'space-y-5'}>
-      <div className="rounded-2xl border border-[#e5dccd] bg-white p-5 shadow-[0_10px_30px_rgba(20,42,32,.04)]">
+      <div className="rounded-2xl border border-[#e5dccd] bg-white p-4 sm:p-5 shadow-[0_10px_30px_rgba(20,42,32,.04)]">
         <div className="mb-4 flex items-center gap-2">
           <span className="grid size-8 place-items-center rounded-full bg-[#0b3d2e] text-[#c9a961]"><Sparkles className="size-4" /></span>
           <div>

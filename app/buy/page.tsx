@@ -74,7 +74,7 @@ export default function BuyPage() {
       <SiteHeader />
       <section className="mx-auto max-w-7xl px-5 pb-8 pt-12 lg:px-8">
         <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c09b54]">Properti untuk dijual</p>
-        <div className="mt-2 flex flex-wrap items-end justify-between gap-5"><div><h1 className="font-serif text-5xl text-[#0b3d2e]">Temukan hunian impian Anda.</h1><p className="mt-3 text-[#65706c]">Jelajahi hunian pilihan yang sesuai dengan gaya hidup dan tujuan Anda.</p></div><Button variant="outline" className="border-[#d8ccbb]"><Map data-icon="inline-start" /> Tampilan peta</Button></div>
+        <div className="mt-2 flex flex-wrap items-end justify-between gap-5"><div><h1 className="font-serif text-3xl sm:text-5xl text-[#0b3d2e]">Temukan hunian impian Anda.</h1><p className="mt-3 text-[#65706c]">Jelajahi hunian pilihan yang sesuai dengan gaya hidup dan tujuan Anda.</p></div><Button variant="outline" className="border-[#d8ccbb]"><Map data-icon="inline-start" /> Tampilan peta</Button></div>
         <div className="mt-8 grid gap-3 rounded-2xl bg-white p-3 shadow-sm md:grid-cols-[1.4fr_1fr_1fr_auto]">
           <label className="flex flex-col gap-1 text-xs font-semibold text-[#65706c]">Location<input value={city} onChange={(e) => setCity(e.target.value)} className="h-11 rounded-lg border border-[#e8dfd3] px-3 text-sm" placeholder="Kota, area" /></label>
           <label className="flex flex-col gap-1 text-xs font-semibold text-[#65706c]">Property type<select value={type} onChange={(e) => setType(e.target.value)} className="h-11 rounded-lg border border-[#e8dfd3] px-3 text-sm"><option value="">All property types</option><option value="house">House</option><option value="apartment">Apartment</option><option value="villa">Villa</option><option value="land">Land</option><option value="shopHouse">Ruko</option></select></label>
@@ -82,11 +82,11 @@ export default function BuyPage() {
           <Button className="h-11 rounded-lg bg-[#0b3d2e] text-white hover:bg-[#14533f]" onClick={() => setApplied({ city, type, priceBand })}><Search data-icon="inline-start" /> Search</Button>
         </div>
       </section>
-      <section className="mx-auto grid max-w-7xl gap-8 px-5 pb-16 lg:grid-cols-[1fr_300px] lg:px-8">
+      <section className="mx-auto grid max-w-7xl gap-5 sm:gap-8 px-5 pb-16 lg:grid-cols-[1fr_300px] lg:px-8">
         <div>
           <div className="mb-5 flex items-center justify-between"><p className="text-sm text-[#65706c]"><strong className="text-[#0b3d2e]">{loading ? '…' : filtered.length}</strong> properti ditemukan</p><Button variant="outline" className="border-[#d8ccbb]"><SlidersHorizontal data-icon="inline-start" /> Advanced filters</Button></div>
-          {!loading && filtered.length === 0 && <p className="rounded-2xl bg-white p-6 text-sm text-[#65706c]">Belum ada properti untuk filter ini.</p>}
-          <div className="grid gap-6 sm:grid-cols-2">
+          {!loading && filtered.length === 0 && <p className="rounded-2xl bg-white p-4 sm:p-6 text-sm text-[#65706c]">Belum ada properti untuk filter ini.</p>}
+          <div className="grid gap-4 sm:gap-6 sm:grid-cols-2">
             {filtered.map((home, i) => {
               const image = firstMediaUrl(home, supabaseUrl) ?? DEMO_PROPERTY_IMAGES[i % DEMO_PROPERTY_IMAGES.length]
               const isSaved = saved.includes(home.id)
@@ -96,10 +96,10 @@ export default function BuyPage() {
                     <img src={image} alt={home.title} className="size-full object-cover transition duration-500 hover:scale-105" />
                     <button aria-label={`Save ${home.title}`} onClick={() => setSaved((s) => isSaved ? s.filter((x) => x !== home.id) : [...s, home.id])} className="absolute right-4 top-4 grid size-9 place-items-center rounded-full bg-white/90 text-[#0b3d2e]"><Heart className={isSaved ? 'fill-[#a3282c] text-[#a3282c]' : ''} /></button>
                   </div>
-                  <div className="p-5">
-                    <h2 className="font-serif text-2xl text-[#0b3d2e]">{home.title}</h2>
+                  <div className="p-4 sm:p-5">
+                    <h2 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">{home.title}</h2>
                     <p className="mt-1 flex items-center gap-1 text-sm text-[#65706c]"><MapPin /> {propertyLocation(home)}</p>
-                    <p className="mt-4 text-lg font-bold text-[#0b3d2e]">{formatPriceWithPeriod(home.price, home.price_period)}</p>
+                    <p className="mt-4 text-base sm:text-lg font-bold text-[#0b3d2e]">{formatPriceWithPeriod(home.price, home.price_period)}</p>
                     <p className="mt-2 text-sm text-[#65706c]">{propertyMeta(home)}</p>
                     <Button className="mt-5 w-full rounded-lg bg-[#c9a961] text-[#0b3d2e] hover:bg-[#b7964f]" onClick={() => window.location.assign(`/property/${home.id}`)}>Lihat detail</Button>
                   </div>
@@ -108,12 +108,12 @@ export default function BuyPage() {
             })}
           </div>
         </div>
-        <aside className="h-fit rounded-2xl bg-[#0f2a44] p-6 text-white">
+        <aside className="h-fit rounded-2xl bg-[#0f2a44] p-4 sm:p-6 text-white">
           <div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-full bg-[#c9a961] text-[#0f2a44]"><Building2 /></span><div><p className="font-semibold">Rekomendasi AI</p><p className="text-xs text-white/60">Transparan & personal</p></div></div>
           <p className="mt-6 leading-7 text-white/85">Berdasarkan pencarian Anda, properti ini cocok dengan minat Anda pada hunian luas dan siap huni.</p>
           <div className="mt-5 flex items-start gap-2 text-sm text-white/65"><Check className="mt-1 text-[#c9a961]" /> Preferensi lokasi</div>
           <div className="mt-3 flex items-start gap-2 text-sm text-white/65"><BedDouble className="mt-1 text-[#c9a961]" /> Kesesuaian kamar & luas</div>
-          <Button className="mt-7 w-full rounded-lg bg-[#c9a961] text-[#0f2a44] hover:bg-[#e1c67e]">Bandingkan properti</Button>
+          <Button className="mt-5 sm:mt-7 w-full rounded-lg bg-[#c9a961] text-[#0f2a44] hover:bg-[#e1c67e]">Bandingkan properti</Button>
         </aside>
       </section>
           <SiteFooter />

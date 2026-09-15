@@ -25,9 +25,9 @@ export function SiteHeader({ cta }: { cta?: { label: string; href: string } }) {
 
   return (
     <header className="border-b border-[#e8dfd3] bg-[#0b3d2e] text-white">
-      <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-4 px-5 lg:px-8">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-5 sm:h-20 lg:px-8">
         <BrandMark tone="light" height={40} />
-        <nav className="hidden items-center gap-8 text-sm md:flex" aria-label="Navigasi utama">
+        <nav className="hidden items-center gap-5 sm:gap-8 text-sm md:flex" aria-label="Navigasi utama">
           {NAV.map((item) => (
             <Link key={item.href} href={item.href} aria-current={isActive(item.href) ? 'page' : undefined} className={isActive(item.href) ? 'font-semibold text-[#c9a961]' : 'text-white/75 transition hover:text-white'}>{item.label}</Link>
           ))}
@@ -43,7 +43,7 @@ export function SiteHeader({ cta }: { cta?: { label: string; href: string } }) {
           )}
         </div>
       </div>
-      <nav className="flex items-center gap-6 overflow-x-auto border-t border-white/10 px-5 py-3 text-sm md:hidden" aria-label="Navigasi utama (mobile)">
+      <nav className="flex items-center gap-4 sm:gap-6 overflow-x-auto border-t border-white/10 px-5 py-3 text-sm md:hidden" aria-label="Navigasi utama (mobile)">
         {NAV.map((item) => (
           <Link key={item.href} href={item.href} className={isActive(item.href) ? 'shrink-0 font-semibold text-[#c9a961]' : 'shrink-0 text-white/75'}>{item.label}</Link>
         ))}

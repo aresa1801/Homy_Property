@@ -71,8 +71,8 @@ const selectCls = 'h-12 w-full rounded-lg border border-[#e8dfd3] px-4 font-norm
 
 function Fieldset({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-[#eee5d8] bg-[#fffdfa] p-5 sm:p-6">
-      <p className="font-serif text-lg text-[#0b3d2e]">{title}</p>
+    <div className="rounded-2xl border border-[#eee5d8] bg-[#fffdfa] p-4 sm:p-5 lg:p-6">
+      <p className="font-serif text-base sm:text-lg text-[#0b3d2e]">{title}</p>
       {hint && <p className="mt-1 text-xs text-[#65706c]">{hint}</p>}
       <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">{children}</div>
     </div>
@@ -553,12 +553,12 @@ export default function ListPage() {
 
   if (agreementGate === 'missing') {
     return (
-      <main className="min-h-screen bg-[#f7f3ec] px-5 py-16 text-[#1c1c1c]">
+      <main className="min-h-screen bg-[#f7f3ec] px-5 py-10 sm:py-16 text-[#1c1c1c]">
         <div className="mx-auto max-w-2xl">
           <BrandMark height={40} />
-          <div className="mt-10 rounded-3xl border border-[#e8dfd3] bg-white p-8 sm:p-10">
-            <span className="grid size-14 place-items-center rounded-2xl bg-[#fff7e3] text-[#c09b54]"><FileSignature /></span>
-            <h1 className="mt-6 font-serif text-3xl text-[#0b3d2e] sm:text-4xl">Perjanjian kerja sama diperlukan</h1>
+          <div className="mt-6 sm:mt-10 rounded-2xl sm:rounded-3xl border border-[#e8dfd3] bg-white p-5 sm:p-8 lg:p-10">
+            <span className="grid size-12 sm:size-14 place-items-center rounded-2xl bg-[#fff7e3] text-[#c09b54]"><FileSignature /></span>
+            <h1 className="mt-6 font-serif text-2xl sm:text-3xl text-[#0b3d2e] md:text-4xl">Perjanjian kerja sama diperlukan</h1>
             <p className="mt-4 leading-7 text-[#65706c]">
               Sebelum memasang properti, Agen dan Pemilik Properti wajib mendaftar sebagai Mitra Homy, menandatangani
               <strong className="text-[#0b3d2e]"> Surat Perjanjian Kerja Sama</strong>, menyetujui komisi penjualan
@@ -585,17 +585,17 @@ export default function ListPage() {
     <main className="min-h-screen bg-[#f7f3ec] text-[#1c1c1c]">
       <SiteHeader cta={{ label: 'Simpan draf dan keluar', href: '/' }} />
 
-      <div className="w-full px-5 py-10 lg:px-12">
+      <div className="w-full px-5 py-7 sm:py-10 lg:px-12">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c09b54]">Untuk pemilik dan agen</p>
-            <h1 className="mt-2 font-serif text-5xl text-[#0b3d2e]">Pasang properti Anda.</h1>
+            <h1 className="mt-2 font-serif text-3xl sm:text-5xl text-[#0b3d2e]">Pasang properti Anda.</h1>
             <p className="mt-3 text-[#65706c]">Ceritakan properti Anda sedetail mungkin. Data ini akan dipakai AI Homy untuk menjawab pertanyaan calon pembeli & penyewa.</p>
           </div>
           <div className="flex items-center gap-2 rounded-full bg-[#edf2ed] px-4 py-2 text-sm text-[#0b3d2e]"><Sparkles className="size-4" /> AI assistance included</div>
         </div>
 
-        <form onSubmit={onSubmit} className="mt-10 grid gap-6 xl:grid-cols-[240px_1fr]">
+        <form onSubmit={onSubmit} className="mt-6 sm:mt-10 grid gap-4 sm:gap-6 xl:grid-cols-[240px_1fr]">
           <aside className="flex gap-2 overflow-auto xl:flex-col">
             {steps.map((name, i) => (
               <button type="button" key={name} onClick={() => setStep(i)} className={`flex shrink-0 items-center gap-3 rounded-lg p-3 text-left text-sm ${step === i ? 'bg-[#0b3d2e] text-white' : 'text-[#65706c] hover:bg-white'}`}>
@@ -605,11 +605,11 @@ export default function ListPage() {
             ))}
           </aside>
 
-          <section className="rounded-2xl bg-white p-6 shadow-[0_10px_35px_rgba(20,42,32,.07)] sm:p-8 xl:p-10">
+          <section className="rounded-2xl bg-white p-4 sm:p-6 shadow-[0_10px_35px_rgba(20,42,32,.07)] md:p-8 xl:p-10">
             <div className="flex items-center justify-between border-b border-[#e8dfd3] pb-6">
               <div>
                 <p className="text-sm text-[#65706c]">Step {step + 1} of {steps.length}</p>
-                <h2 className="mt-1 font-serif text-3xl text-[#0b3d2e]">{steps[step]}</h2>
+                <h2 className="mt-1 font-serif text-2xl sm:text-3xl text-[#0b3d2e]">{steps[step]}</h2>
               </div>
               <div className="hidden items-center gap-2 rounded-full bg-[#edf2ed] px-4 py-2 text-sm text-[#0b3d2e] lg:flex">
                 {listingKind === 'sale' ? <><Tag className="size-4" /> Dijual</> : listingKind === 'rent' ? <><KeyRound className="size-4" /> Disewakan</> : <><Building2 className="size-4" /> Dijual & Disewakan</>}
@@ -619,8 +619,8 @@ export default function ListPage() {
             {step === 0 && (
               <div className="mt-8 grid gap-4 sm:grid-cols-3">
                 {([['sale', 'Jual', 'Jangkau pembeli berkualitas', Tag], ['rent', 'Sewa', 'Temukan penyewa terbaik', KeyRound], ['both', 'Jual & Sewa', 'Tawarkan keduanya sekaligus', Building2]] as const).map(([value, label, hint, Icon]) => (
-                  <button type="button" key={value} onClick={() => setListingKind(value)} className={`rounded-xl border-2 p-6 text-left transition ${listingKind === value ? 'border-[#c9a961] bg-[#fbf8f3]' : 'border-[#e8dfd3] hover:border-[#d8ccbb]'}`}>
-                    <Icon className="mb-8 text-[#0b3d2e]" />
+                  <button type="button" key={value} onClick={() => setListingKind(value)} className={`rounded-xl border-2 p-4 sm:p-6 text-left transition ${listingKind === value ? 'border-[#c9a961] bg-[#fbf8f3]' : 'border-[#e8dfd3] hover:border-[#d8ccbb]'}`}>
+                    <Icon className="mb-5 sm:mb-8 text-[#0b3d2e]" />
                     <p className="font-semibold text-[#0b3d2e]">{label}</p>
                     <p className="mt-2 text-sm text-[#65706c]">{hint}</p>
                   </button>
@@ -634,7 +634,7 @@ export default function ListPage() {
             )}
 
             {step === 1 && (
-              <div className="mt-8 space-y-6">
+              <div className="mt-8 space-y-4 sm:space-y-6">
                 <Fieldset title="Identitas properti">
                   <label className={`${labelCls} sm:col-span-2 xl:col-span-3`}>Judul listing
                     <input required value={title} onChange={(e) => setTitle(e.target.value)} className={inputCls} placeholder="Contoh: Rumah Tropis Modern 3KT di Kebayoran" />
@@ -727,7 +727,7 @@ export default function ListPage() {
             )}
 
             {step === 2 && (
-              <div className="mt-8 space-y-6">
+              <div className="mt-8 space-y-4 sm:space-y-6">
                 <Fieldset title="Alamat lengkap">
                   <label className={`${labelCls} sm:col-span-2 xl:col-span-3`}>Alamat lengkap
                     <input required value={address} onChange={(e) => setAddress(e.target.value)} className={inputCls} placeholder="Jalan, nomor, RT/RW, kelurahan" />
@@ -745,7 +745,7 @@ export default function ListPage() {
                     <input value={postalCode} onChange={(e) => setPostalCode(e.target.value)} className={inputCls} placeholder="12190" />
                   </label>
                 </Fieldset>
-                <div className="grid min-h-32 place-items-center rounded-xl border-2 border-dashed border-[#c9a961] bg-[#fbf8f3] p-6 text-center">
+                <div className="grid min-h-32 place-items-center rounded-xl border-2 border-dashed border-[#c9a961] bg-[#fbf8f3] p-4 sm:p-6 text-center">
                   <MapPin className="text-[#c09b54]" />
                   <p className="mt-3 font-semibold text-[#0b3d2e]">Koordinat akan diverifikasi admin</p>
                   <p className="text-sm text-[#65706c]">Titik peta dilengkapi tim Homy saat moderasi listing.</p>
@@ -754,7 +754,7 @@ export default function ListPage() {
             )}
 
             {step === 3 && (
-              <div className="mt-8 space-y-6">
+              <div className="mt-8 space-y-4 sm:space-y-6">
                 <Fieldset title="Fasilitas" hint="Klik semua fasilitas yang tersedia. AI memakai ini untuk menjawab pertanyaan pembeli.">
                   <div className="sm:col-span-2 xl:col-span-3 flex flex-wrap gap-2">
                     {AMENITIES.map((item) => {
@@ -801,7 +801,7 @@ export default function ListPage() {
             )}
 
             {step === 4 && (
-              <div className="mt-8 space-y-6">
+              <div className="mt-8 space-y-4 sm:space-y-6">
                 {wantsSale && (
                   <Fieldset title="Harga jual" hint="Harga penawaran properti untuk pembelian.">
                     <label className={labelCls}>Harga jual (Rp)
@@ -853,7 +853,7 @@ export default function ListPage() {
                   </Fieldset>
                 )}
 
-                <div className="rounded-xl bg-[#edf2ed] p-5 text-sm text-[#0b3d2e]">
+                <div className="rounded-xl bg-[#edf2ed] p-4 sm:p-5 text-sm text-[#0b3d2e]">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <Sparkles className="mb-1 size-4" />
@@ -871,7 +871,7 @@ export default function ListPage() {
                       <div className="flex flex-wrap items-end justify-between gap-2">
                         <div>
                           <p className="text-xs uppercase tracking-[.14em] text-[#a18a61]">Harga rekomendasi</p>
-                          <p className="font-serif text-2xl text-[#0b3d2e]">{rupiahId(aiPrice.recommended)}</p>
+                          <p className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">{rupiahId(aiPrice.recommended)}</p>
                           <p className="text-xs text-[#65706c]">Rentang wajar {rupiahId(aiPrice.range_low)} – {rupiahId(aiPrice.range_high)} · keyakinan {aiPrice.confidence}</p>
                         </div>
                         <button type="button" onClick={applyAiPrice} className="rounded-lg border border-[#0b3d2e] px-3 py-2 text-xs font-semibold text-[#0b3d2e] hover:bg-[#edf2ed]">Pakai harga ini</button>
@@ -918,8 +918,8 @@ export default function ListPage() {
             )}
 
             {step === 6 && (
-              <div className="mt-8 rounded-xl bg-[#fbf8f3] p-6">
-                <h3 className="font-serif text-2xl text-[#0b3d2e]">Siap dikirim?</h3>
+              <div className="mt-8 rounded-xl bg-[#fbf8f3] p-4 sm:p-6">
+                <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Siap dikirim?</h3>
                 <p className="mt-2 text-[#65706c]">Listing Anda akan ditinjau tim moderasi sebelum tayang. Ringkasan di bawah juga yang dibaca AI Homy.</p>
                 <div className="mt-6 grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-3">
                   <div className="rounded-lg bg-white p-4"><p className="text-[#65706c]">Jenis</p><p className="font-semibold text-[#0b3d2e]">{listingKind === 'both' ? 'Jual & Sewa' : listingKind === 'sale' ? 'Jual' : 'Sewa'}</p></div>
@@ -943,7 +943,7 @@ export default function ListPage() {
             {notice && step !== 6 && <p role="status" className="mt-6 rounded-xl bg-[#e2eee7] p-4 text-sm text-[#0b3d2e]">{notice}</p>}
             {error && step !== 6 && <p role="alert" className="mt-6 rounded-xl bg-[#fbe9e7] p-4 text-sm text-[#a3282c]">{error}</p>}
 
-            <div className="mt-10 flex justify-between border-t border-[#e8dfd3] pt-6">
+            <div className="mt-6 sm:mt-10 flex justify-between border-t border-[#e8dfd3] pt-6">
               <Button type="button" variant="outline" disabled={step === 0 || submitting} onClick={() => setStep(Math.max(0, step - 1))} className="gap-2 border-[#d8ccbb] bg-white px-5 font-semibold text-[#33433d] hover:border-[#c9a961] hover:bg-white hover:text-[#0b3d2e]"><ArrowLeft data-icon="inline-start" /> Back</Button>
               {step === steps.length - 1 ? (
                 notice ? (

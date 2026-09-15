@@ -33,8 +33,8 @@ export function ContactForm() {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-4 rounded-2xl bg-white p-6 shadow-[0_10px_35px_rgba(20,42,32,.06)] sm:p-8">
-      <h2 className="font-serif text-2xl text-[#0b3d2e]">Kirim pesan</h2>
+    <form onSubmit={submit} className="space-y-4 rounded-2xl bg-white p-4 sm:p-6 shadow-[0_10px_35px_rgba(20,42,32,.06)] md:p-8">
+      <h2 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Kirim pesan</h2>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="flex flex-col gap-1.5"><span className={label}>Nama lengkap *</span><input required value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className={field} placeholder="Nama Anda" /></label>
         <label className="flex flex-col gap-1.5"><span className={label}>Email *</span><input required type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={field} placeholder="nama@email.com" /></label>

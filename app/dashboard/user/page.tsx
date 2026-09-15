@@ -22,7 +22,7 @@ export default function UserDashboard() {
 
   return (
     <DashboardShell role="User">
-      <div className="mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+      <div className="mb-5 sm:mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <DashboardGreeting welcome="Selamat pagi, {name}" headline="Perjalanan hunian Anda." description="Pantau hunian dan percakapan penting bagi Anda." />
         <a href="/onboarding" className="inline-flex items-center justify-center rounded-full bg-[#0b3d2e] px-5 py-3 text-sm font-semibold text-white hover:bg-[#14543f]">Daftar sebagai Agen atau Pemilik</a>
       </div>
@@ -34,7 +34,7 @@ export default function UserDashboard() {
         <MetricCard label="Pembayaran tertunda" value={String(metrics.pendingPayments ?? 0)} change={rupiah(pendingAmount)} icon="wallet" />
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[1.3fr_.7fr]">
+      <div className="mt-6 grid gap-4 sm:gap-6 xl:grid-cols-[1.3fr_.7fr]">
         <SectionCard title="Pertanyaan terbaru" action="Lihat semua" id="inquiries">
           <div className="flex flex-col gap-4">
             {loading && <div className="h-16 animate-pulse rounded-xl bg-[#f7f3ec]" />}
@@ -73,7 +73,7 @@ export default function UserDashboard() {
         </SectionCard>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-2">
+      <div className="mt-6 grid gap-4 sm:gap-6 xl:grid-cols-2">
         <SectionCard title="Favorit" action="Cari properti" id="favorites">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-xl border border-[#eee7dc] p-4">
@@ -98,7 +98,7 @@ export default function UserDashboard() {
 
         <SectionCard title="Pembayaran" action="Riwayat" id="payments">
           <p className="text-sm text-[#718078]">{payments.length ? payments.length + ' tagihan tercatat' : 'Belum ada tagihan'}</p>
-          <p className="mt-2 font-serif text-3xl text-[#0b3d2e]">{rupiah(pendingAmount)}{pendingAmount > 0 && <span className="font-sans text-sm text-[#718078]"> belum dibayar</span>}</p>
+          <p className="mt-2 font-serif text-2xl sm:text-3xl text-[#0b3d2e]">{rupiah(pendingAmount)}{pendingAmount > 0 && <span className="font-sans text-sm text-[#718078]"> belum dibayar</span>}</p>
           <div className="mt-4 h-2 rounded-full bg-[#edf2ed]"><div className="h-2 rounded-full bg-[#c9a961]" style={{ width: paidRatio + '%' }} /></div>
           <p className="mt-2 text-xs text-[#718078]">{payments.length ? paidPayments + ' dari ' + payments.length + ' tagihan sudah dibayar' : 'Tagihan akan tampil di sini setelah ada transaksi.'}</p>
         </SectionCard>

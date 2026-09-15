@@ -74,7 +74,7 @@ export default function PropertyDetailPage() {
   }
 
   if (loading) return <main className="grid min-h-screen place-items-center bg-[#f7f3ec] text-[#0b3d2e]">Memuat properti...</main>
-  if (notFound || !property) return <main className="grid min-h-screen place-items-center bg-[#f7f3ec] px-5 text-center text-[#0b3d2e]"><div><h1 className="font-serif text-4xl">Properti tidak ditemukan</h1><a href="/buy" className="mt-6 inline-block rounded-full bg-[#0b3d2e] px-6 py-3 text-white">Kembali ke marketplace</a></div></main>
+  if (notFound || !property) return <main className="grid min-h-screen place-items-center bg-[#f7f3ec] px-5 text-center text-[#0b3d2e]"><div><h1 className="font-serif text-2xl sm:text-4xl">Properti tidak ditemukan</h1><a href="/buy" className="mt-6 inline-block rounded-full bg-[#0b3d2e] px-6 py-3 text-white">Kembali ke marketplace</a></div></main>
 
   const hero = mediaUrls[0]
 
@@ -82,8 +82,8 @@ export default function PropertyDetailPage() {
     <main className="min-h-screen bg-[#f7f3ec] text-[#1c1c1c]">
       <SiteHeader />
 
-      <section className="mx-auto max-w-7xl px-5 py-10 lg:px-8">
-        <div className="grid gap-8 lg:grid-cols-[1.5fr_1fr]">
+      <section className="mx-auto max-w-7xl px-5 py-7 sm:py-10 lg:px-8">
+        <div className="grid gap-5 sm:gap-8 lg:grid-cols-[1.5fr_1fr]">
           <div>
             <div className="overflow-hidden rounded-2xl bg-white shadow-[0_10px_35px_rgba(20,42,32,.07)]">
               {hero ? (
@@ -104,9 +104,9 @@ export default function PropertyDetailPage() {
 
             <div className="mt-8">
               <span className="inline-block rounded-full bg-[#edf2ed] px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[#0b3d2e]">{property.listing_type === 'rent' ? 'Disewakan' : 'Dijual'}</span>
-              <h1 className="mt-4 font-serif text-4xl text-[#0b3d2e] sm:text-5xl">{property.title}</h1>
+              <h1 className="mt-4 font-serif text-2xl sm:text-4xl text-[#0b3d2e] md:text-5xl">{property.title}</h1>
               <p className="mt-3 flex items-center gap-2 text-[#65706c]"><MapPin className="size-4" /> {propertyLocation(property)}{property.address ? ` · ${property.address}` : ''}</p>
-              <p className="mt-6 text-3xl font-bold text-[#0b3d2e]">{formatPriceWithPeriod(property.price, property.price_period)}</p>
+              <p className="mt-6 text-2xl sm:text-3xl font-bold text-[#0b3d2e]">{formatPriceWithPeriod(property.price, property.price_period)}</p>
 
               <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {property.bedrooms ? <div className="rounded-xl bg-white p-4"><BedDouble className="text-[#c09b54]" /><p className="mt-2 text-sm text-[#65706c]">Kamar tidur</p><p className="font-semibold text-[#0b3d2e]">{property.bedrooms}</p></div> : null}
@@ -116,8 +116,8 @@ export default function PropertyDetailPage() {
               </div>
 
               {property.description && (
-                <div className="mt-8 rounded-2xl bg-white p-6">
-                  <h2 className="font-serif text-2xl text-[#0b3d2e]">Deskripsi</h2>
+                <div className="mt-8 rounded-2xl bg-white p-4 sm:p-6">
+                  <h2 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Deskripsi</h2>
                   <p className="mt-3 whitespace-pre-line leading-7 text-[#65706c]">{property.description}</p>
                 </div>
               )}
@@ -129,14 +129,14 @@ export default function PropertyDetailPage() {
           </div>
 
           <aside className="h-fit space-y-4 lg:sticky lg:top-6">
-            <div className="rounded-2xl bg-white p-6 shadow-[0_10px_35px_rgba(20,42,32,.07)]">
-              <h2 className="font-serif text-2xl text-[#0b3d2e]">Tanya pemilik</h2>
+            <div className="rounded-2xl bg-white p-4 sm:p-6 shadow-[0_10px_35px_rgba(20,42,32,.07)]">
+              <h2 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Tanya pemilik</h2>
               <p className="mt-2 text-sm text-[#65706c]">Kirim pertanyaan tentang properti ini. Pemilik atau agen akan menghubungi Anda.</p>
               <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} className="mt-4 w-full rounded-lg border border-[#e8dfd3] p-3 text-sm outline-none focus:border-[#0b3d2e]" placeholder="Halo, apakah properti ini masih tersedia?" />
               <Button disabled={sending} onClick={() => { void sendInquiry() }} className="mt-3 w-full rounded-lg bg-[#0b3d2e] text-white hover:bg-[#14533f]">{sending ? 'Mengirim...' : 'Kirim pertanyaan'} <Send data-icon="inline-end" /></Button>
               {status && <p role="status" className="mt-3 rounded-lg bg-[#e2eee7] p-3 text-sm text-[#0b3d2e]">{status}</p>}
             </div>
-            <div className="rounded-2xl bg-white p-6 shadow-[0_10px_35px_rgba(20,42,32,.07)]">
+            <div className="rounded-2xl bg-white p-4 sm:p-6 shadow-[0_10px_35px_rgba(20,42,32,.07)]">
               <AiChat
                 compact
                 propertyId={id}
@@ -145,7 +145,7 @@ export default function PropertyDetailPage() {
                 suggestions={['Apakah harga ini wajar untuk area ini?', 'Apa saja fasilitas dan keunggulan properti ini?', 'Bagaimana perbandingannya dengan properti sejenis di sekitar?']}
               />
             </div>
-            <div className="rounded-2xl bg-[#0f2a44] p-6 text-white">
+            <div className="rounded-2xl bg-[#0f2a44] p-4 sm:p-6 text-white">
               <div className="flex items-center gap-2"><Sparkles className="text-[#c9a961]" /><p className="font-semibold">Insight Homy</p></div>
               <p className="mt-3 text-sm leading-6 text-white/80">Properti ini {property.status === 'published' ? 'sudah terverifikasi dan tayang' : 'sedang dalam proses moderasi'} di Homy.</p>
             </div>
