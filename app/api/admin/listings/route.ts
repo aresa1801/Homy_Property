@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { sendListingStatusEmail, type ListingStatus } from '@/lib/email'
+import { notifyListingMatch, notifyUser } from '@/lib/notifications'
 
 const ADMIN_ROLES = ['admin', 'super_admin']
 
@@ -104,6 +105,44 @@ export async function POST(request: Request) {
       if (to) {
         const ownerName = String((owner?.user_metadata as Record<string, unknown> | undefined)?.full_name ?? '')
         email = await sendListingStatusEmail({ to, title: String(data?.title ?? before.title ?? ''), status: status as ListingStatus, note, ownerName, listingId: id })
+      }
+    }
+  }
+
+  // Notifikasi in-app ke pemilik listing (ikon lonceng) + pencocokan pencarian tersimpan.
+  if (status === 'published' || status === 'rejected') {
+    const ownerId = String(before.owner_id ?? data?.owner_id ?? '')
+    const title = String(data?.title ?? before.title ?? 'Listing Anda')
+    if (ownerId) {
+      await notifyUser({
+        userId: ownerId,
+        kind: status === 'published' ? 'listing.approved' : 'listing.rejected',
+        title: status === 'published' ? 'Listing Anda sudah tayang' : 'Listing Anda perlu diperbaiki',
+        body: status === 'published'
+          ? '"' + title + '" sudah tayang dan bisa dilihat calon pembeli.'
+          : '"' + title + '" belum disetujui.' + (note ? ' Catatan moderator: ' + note : ''),
+        href: status === 'published' ? '/dashboard/property-owner/properties' : '/dashboard/property-owner/list',
+        data: { property_id: id, status },
+      })
+    }
+    if (status === 'published') {
+      const { data: full } = await admin
+        .from('properties')
+        .select('id,title,listing_type,city,district,price,bedrooms,ai_summary,owner_id')
+        .eq('id', id)
+        .maybeSingle()
+      if (full) {
+        await notifyListingMatch({
+          id: String(full.id),
+          title: full.title as string | null,
+          listingType: full.listing_type as string | null,
+          city: full.city as string | null,
+          district: full.district as string | null,
+          price: full.price as number | string | null,
+          bedrooms: (full.bedrooms as number | null) ?? null,
+          summary: full.ai_summary as string | null,
+          ownerId: String(full.owner_id ?? ownerId),
+        })
       }
     }
   }

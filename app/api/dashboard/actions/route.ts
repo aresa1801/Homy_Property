@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { notifyUser, type NotificationKind } from '@/lib/notifications'
 
 type Payload = {
   kind?: string
@@ -55,8 +56,26 @@ export async function POST(request: Request) {
     }
     if (typeof body.notes === 'string') patch.follow_up_note = body.notes.trim() || null
     if (!Object.keys(patch).length) return NextResponse.json({ error: 'Tidak ada perubahan' }, { status: 400 })
+    const { data: inquiryBefore } = await supabase.from('inquiries').select('id,user_id,property_id').eq('id', id).maybeSingle()
     const { data, error } = await supabase.from('inquiries').update(patch).eq('id', id).select('id,status,reply_message,replied_at,follow_up_note').single()
     if (error) return NextResponse.json({ error: 'Gagal memperbarui prospek' }, { status: 403 })
+    try {
+      const askedBy = String(inquiryBefore?.user_id ?? '')
+      if (askedBy && askedBy !== user.id) {
+        const { data: property } = await supabase.from('properties').select('title').eq('id', String(inquiryBefore?.property_id ?? '')).maybeSingle()
+        const repliedText = typeof patch.reply_message === 'string' ? String(patch.reply_message) : ''
+        await notifyUser({
+          userId: askedBy,
+          kind: 'inquiry.reply',
+          title: 'Balasan untuk pertanyaan Anda',
+          body: (repliedText || 'Agen/pemilik memperbarui status pertanyaan Anda.') + (property?.title ? ' — ' + String(property.title) : ''),
+          href: inquiryBefore?.property_id ? '/property/' + String(inquiryBefore.property_id) : '/dashboard/user',
+          data: { inquiry_id: id, property_id: inquiryBefore?.property_id ?? null },
+        })
+      }
+    } catch (err) {
+      console.error('[homy-actions] notifikasi balasan gagal:', err instanceof Error ? err.message : err)
+    }
     return NextResponse.json({ data })
   }
 
@@ -68,8 +87,30 @@ export async function POST(request: Request) {
     if (typeof body.notes === 'string') patch.notes = body.notes.trim() || null
     if (typeof body.scheduledAt === 'string' && body.scheduledAt) patch.scheduled_at = body.scheduledAt
     if (!Object.keys(patch).length) return NextResponse.json({ error: 'Tidak ada perubahan' }, { status: 400 })
+    const { data: visitBefore } = await supabase.from('visits').select('id,user_id,agent_id,property_id,scheduled_at,status').eq('id', id).maybeSingle()
     const { data, error } = await supabase.from('visits').update(patch).eq('id', id).select('id,status,notes,scheduled_at').single()
     if (error) return NextResponse.json({ error: 'Gagal memperbarui jadwal' }, { status: 403 })
+    try {
+      const nextStatus = String(patch.status ?? '')
+      const KIND: Record<string, NotificationKind> = { requested: 'visit.new', confirmed: 'visit.confirmed', cancelled: 'visit.cancelled', completed: 'visit.completed' }
+      const KIND_LABEL: Record<string, string> = { requested: 'diminta ulang', confirmed: 'dikonfirmasi', cancelled: 'dibatalkan', completed: 'selesai' }
+      const notifyUserId = visitBefore ? (visitBefore.user_id === user.id ? String(visitBefore.agent_id ?? '') : String(visitBefore.user_id ?? '')) : ''
+      if (nextStatus && KIND[nextStatus] && notifyUserId) {
+        const { data: property } = await supabase.from('properties').select('title').eq('id', String(visitBefore?.property_id ?? '')).maybeSingle()
+        const when = new Date(String(data?.scheduled_at ?? visitBefore?.scheduled_at ?? '')).toLocaleString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
+        const isVisitorNotified = visitBefore?.user_id !== user.id
+        await notifyUser({
+          userId: notifyUserId,
+          kind: KIND[nextStatus],
+          title: 'Jadwal kunjungan ' + KIND_LABEL[nextStatus],
+          body: (property?.title ? String(property.title) + ' — ' : '') + when + ' WIB',
+          href: isVisitorNotified ? '/dashboard/user' : '/dashboard/property-owner/calendar',
+          data: { visit_id: id, property_id: visitBefore?.property_id ?? null, status: nextStatus },
+        })
+      }
+    } catch (err) {
+      console.error('[homy-actions] notifikasi jadwal gagal:', err instanceof Error ? err.message : err)
+    }
     return NextResponse.json({ data })
   }
 

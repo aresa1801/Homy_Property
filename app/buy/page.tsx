@@ -1,6 +1,7 @@
 'use client'
 
 import { SiteFooter } from '@/components/site-footer'
+import { SaveSearchButton } from '@/components/save-search-button'
 import { SiteHeader } from '@/components/site-header'
 import { useEffect, useMemo, useState } from 'react'
 import { BedDouble, Building2, Check, Heart, Home, Map, MapPin, Search, SlidersHorizontal } from 'lucide-react'
@@ -84,7 +85,7 @@ export default function BuyPage() {
       </section>
       <section className="mx-auto grid max-w-7xl gap-5 sm:gap-8 px-5 pb-16 lg:grid-cols-[1fr_300px] lg:px-8">
         <div>
-          <div className="mb-5 flex items-center justify-between"><p className="text-sm text-[#65706c]"><strong className="text-[#0b3d2e]">{loading ? '…' : filtered.length}</strong> properti ditemukan</p><Button variant="outline" className="border-[#d8ccbb]"><SlidersHorizontal data-icon="inline-start" /> Advanced filters</Button></div>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-[#65706c]"><strong className="text-[#0b3d2e]">{loading ? '…' : filtered.length}</strong> properti ditemukan</p><div className="flex flex-wrap items-center gap-2"><SaveSearchButton listingType="sale" city={applied.city} keywords={undefined} maxPrice={applied.priceBand === 'under3' ? 3000000000 : applied.priceBand === '3to5' ? 5000000000 : undefined} minPrice={applied.priceBand === '3to5' ? 3000000000 : applied.priceBand === 'over5' ? 5000000000 : undefined} /><Button variant="outline" className="border-[#d8ccbb]"><SlidersHorizontal data-icon="inline-start" /> Advanced filters</Button></div></div>
           {!loading && filtered.length === 0 && <p className="rounded-2xl bg-white p-4 sm:p-6 text-sm text-[#65706c]">Belum ada properti untuk filter ini.</p>}
           <div className="grid gap-4 sm:gap-6 sm:grid-cols-2">
             {filtered.map((home, i) => {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { answerInquiry, aiAutoReplyEnabled } from '@/lib/inquiry-ai'
 import { clientKey, rateLimit } from '@/lib/rate-limit'
+import { notifyUser } from '@/lib/notifications'
 import { serviceClient } from '@/lib/visits'
 
 export const runtime = 'nodejs'
@@ -40,6 +41,26 @@ export async function POST(request: Request) {
     .select('id,property_id,status,message,created_at')
     .single()
   if (error || !data) return NextResponse.json({ error: 'Unable to send inquiry' }, { status: 400 })
+
+  // Notifikasi in-app ke pemilik/agen listing (ikon lonceng).
+  try {
+    const admin = serviceClient()
+    if (admin && data.property_id) {
+      const { data: property } = await admin.from('properties').select('owner_id,title').eq('id', data.property_id).maybeSingle()
+      if (property?.owner_id && property.owner_id !== user.id) {
+        await notifyUser({
+          userId: String(property.owner_id),
+          kind: 'inquiry.new',
+          title: 'Pertanyaan baru untuk ' + String(property.title ?? 'listing Anda'),
+          body: message.slice(0, 160),
+          href: '/dashboard/property-owner/inquiries',
+          data: { inquiry_id: String(data.id), property_id: String(data.property_id) },
+        })
+      }
+    }
+  } catch (err) {
+    console.error('[homy-inquiries] notifikasi pemilik gagal:', err instanceof Error ? err.message : err)
+  }
 
   let ai: { ok: boolean; answer?: string; sources?: unknown[]; at?: string } | null = null
   try {

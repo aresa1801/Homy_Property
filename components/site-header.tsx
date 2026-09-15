@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { BrandMark } from '@/components/brand-mark'
 import { usePathname } from 'next/navigation'
 import { AccountMenu } from '@/components/account-menu'
+import { NotificationBell } from '@/components/notification-bell'
 import { useSessionProfile } from '@/lib/homy-session'
 
 const NAV = [
@@ -37,7 +38,7 @@ export function SiteHeader({ cta }: { cta?: { label: string; href: string } }) {
           {loading ? (
             <span className="size-9 animate-pulse rounded-full bg-white/20" aria-hidden="true" />
           ) : profile ? (
-            <AccountMenu />
+            <div className="flex items-center gap-2"><NotificationBell variant="light" /><AccountMenu /></div>
           ) : (
             <Link href="/auth/login" className="rounded-full bg-[#c9a961] px-5 py-2 text-sm font-semibold text-[#0b3d2e] transition hover:bg-[#e1c67e]">Masuk</Link>
           )}

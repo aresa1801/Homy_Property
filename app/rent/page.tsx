@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { SaveSearchButton } from '@/components/save-search-button'
 import { BadgeCheck, Building2, CalendarDays, Check, Heart, MapPin, Search, SlidersHorizontal, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SiteFooter } from '@/components/site-footer'
@@ -130,7 +131,7 @@ export default function RentPage() {
         <div>
           <div className="mb-5 flex items-center justify-between">
             <p className="text-sm text-[#65706c]"><strong className="text-[#0b3d2e]">{loading ? '…' : shown.length}</strong> properti sewa ditemukan</p>
-            <Button variant="outline" className="border-[#d8ccbb]"><SlidersHorizontal data-icon="inline-start" /> Filter lanjutan</Button>
+            <div className="flex flex-wrap items-center gap-2"><SaveSearchButton listingType="rent" city={applied.city} minPrice={(BANDS[duration].find((item) => item.value === band)?.min) ?? undefined} maxPrice={(BANDS[duration].find((item) => item.value === band)?.max) ?? undefined} /><Button variant="outline" className="border-[#d8ccbb]"><SlidersHorizontal data-icon="inline-start" /> Filter lanjutan</Button></div>
           </div>
           {loading && <div className="grid gap-4 sm:gap-6 sm:grid-cols-2">{[0, 1].map((i) => <div key={i} className="h-80 animate-pulse rounded-2xl bg-white" />)}</div>}
           {!loading && shown.length === 0 && (

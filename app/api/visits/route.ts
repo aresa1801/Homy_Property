@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { sendVisitScheduledEmail } from '@/lib/email'
 import { clientKey, rateLimit } from '@/lib/rate-limit'
 import { getVisitContext, MODE_LABEL, serviceClient, weeklySummary } from '@/lib/visits'
+import { notifyUser } from '@/lib/notifications'
 
 export const runtime = 'nodejs'
 export const maxDuration = 45
@@ -141,6 +142,15 @@ export async function POST(request: Request) {
     mode: slot.mode,
     location: slot.location,
     notes: notes || null,
+  })
+
+  await notifyUser({
+    userId: ctx.ownerId,
+    kind: 'visit.new',
+    title: 'Jadwal kunjungan baru',
+    body: visitorName + ' memilih ' + slot.dayLabel + ' pukul ' + slot.timeLabel + ' untuk ' + ctx.propertyTitle + '.',
+    href: '/dashboard/property-owner/calendar',
+    data: { visit_id: String(inserted.id), property_id: ctx.propertyId, scheduled_at: slot.iso },
   })
 
   return NextResponse.json({
