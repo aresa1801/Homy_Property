@@ -78,25 +78,26 @@ export function ListingBoard({ data, loading, reload, type }: BoardProps & { typ
         <div className="mt-4 space-y-3">
           {loading && <div className="h-20 animate-pulse rounded-xl bg-[#f7f3ec]" />}
           {!loading && !rows.length && <p className={ui.soft + ' text-sm text-[#718078]'}>Belum ada listing pada filter ini. Mulai pasang properti pertama Anda.</p>}
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-1 sm:gap-3">
           {rows.map((item: DashboardProperty) => {
             const stages = (data.inquiries ?? []).filter((inquiry) => inquiry.property_id === item.id)
             const openStages = stages.filter((inquiry) => inquiry.status === 'open').length
             return (
-              <div key={item.id} className="rounded-xl border border-[#eee7dc] p-4">
+              <div key={item.id} className="rounded-xl border border-[#eee7dc] p-3 sm:p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate font-semibold text-[#20332c]">{item.title ?? 'Listing properti'}</p>
+                      <p className="truncate text-sm font-semibold text-[#20332c] sm:text-base">{item.title ?? 'Listing properti'}</p>
                       <StatusBadge status={item.status} />
                     </div>
-                    <p className="mt-1 text-sm text-[#718078]">{[item.district, item.city, item.province].filter(Boolean).join(', ') || 'Lokasi belum diisi'}</p>
-                    <p className="mt-1 text-sm text-[#718078]">
+                    <p className="mt-0.5 text-xs text-[#718078] sm:mt-1 sm:text-sm">{[item.district, item.city, item.province].filter(Boolean).join(', ') || 'Lokasi belum diisi'}</p>
+                    <p className="mt-0.5 text-xs text-[#718078] sm:mt-1 sm:text-sm">
                       {item.listing_type === 'rent' ? 'Disewakan' : item.listing_type === 'sale' ? 'Dijual' : String(item.listing_type ?? 'Properti')} · {rupiah(item.price)}{item.listing_type === 'rent' ? '/bln' : ''} · {item.property_type ?? '—'} · dikirim {shortDate(item.created_at)}
                     </p>
-                    <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                      <span className="rounded-full bg-[#f2f0ea] px-2.5 py-1 font-semibold text-[#718078]">{stages.length} prospek</span>
-                      {openStages > 0 && <span className="rounded-full bg-[#fff7e3] px-2.5 py-1 font-semibold text-[#9b762a]">{openStages} belum ditindak</span>}
-                      {item.verified_at && <span className="rounded-full bg-[#edf2ed] px-2.5 py-1 font-semibold text-[#4e866d]">Terverifikasi {shortDate(item.verified_at)}</span>}
+                    <div className="mt-1.5 flex flex-wrap gap-1 text-[10px] sm:mt-2 sm:gap-2 sm:text-xs">
+                      <span className="rounded-full bg-[#f2f0ea] px-2 py-0.5 font-semibold text-[#718078] sm:px-2.5 sm:py-1">{stages.length} prospek</span>
+                      {openStages > 0 && <span className="rounded-full bg-[#fff7e3] px-2 py-0.5 font-semibold text-[#9b762a] sm:px-2.5 sm:py-1">{openStages} belum ditindak</span>}
+                      {item.verified_at && <span className="rounded-full bg-[#edf2ed] px-2 py-0.5 font-semibold text-[#4e866d] sm:px-2.5 sm:py-1">Terverifikasi {shortDate(item.verified_at)}</span>}
                     </div>
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
@@ -124,6 +125,7 @@ export function ListingBoard({ data, loading, reload, type }: BoardProps & { typ
               </div>
             )
           })}
+          </div>
         </div>
       </div>
     </div>
@@ -160,11 +162,11 @@ export function LeadsBoard({ data, loading, reload, type }: BoardProps & { type:
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-4 xl:grid-cols-5">
         {counts.map(([stage, total]) => (
-          <div key={stage} className={ui.card}>
-            <p className="text-sm text-[#718078]">{STAGE_LABEL[stage].label}</p>
-            <p className="mt-2 font-serif text-2xl sm:text-3xl text-[#0b3d2e]">{total}</p>
+          <div key={stage} className="rounded-2xl border border-[#e5dccd] bg-white p-3 shadow-[0_10px_30px_rgba(20,42,32,.04)] sm:p-5">
+            <p className="text-xs leading-snug text-[#718078] sm:text-sm">{STAGE_LABEL[stage].label}</p>
+            <p className="mt-1 font-serif text-base leading-tight text-[#0b3d2e] sm:mt-2 sm:text-3xl">{total}</p>
           </div>
         ))}
       </div>

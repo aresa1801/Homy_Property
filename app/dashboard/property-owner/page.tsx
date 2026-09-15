@@ -33,12 +33,12 @@ export default function PropertyOwnerDashboard() {
         <MetricCard label="Menunggu moderasi" value={String(metrics.pendingProperties ?? 0)} change={`${metrics.rejectedProperties ?? 0} ditolak`} icon="shield" />
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="mt-6 grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-4 xl:grid-cols-3">
         {TILES.map((tile) => (
-          <a key={tile.href} href={tile.href} className="group rounded-2xl border border-[#e5dccd] bg-white p-4 sm:p-5 shadow-[0_10px_30px_rgba(20,42,32,.04)] transition hover:border-[#c9a961]">
-            <span className="grid size-11 place-items-center rounded-xl bg-[#edf2ed] text-[#0b3d2e]"><tile.icon /></span>
-            <p className="mt-4 font-serif text-xl text-[#0b3d2e]">{tile.title}</p>
-            <p className="mt-1 text-sm leading-6 text-[#718078]">{tile.body}</p>
+          <a key={tile.href} href={tile.href} className="group rounded-2xl border border-[#e5dccd] bg-white p-3 shadow-[0_10px_30px_rgba(20,42,32,.04)] transition hover:border-[#c9a961] sm:p-5">
+            <span className="grid size-9 place-items-center rounded-xl bg-[#edf2ed] text-[#0b3d2e] sm:size-11"><tile.icon className="size-4 sm:size-5" /></span>
+            <p className="mt-2 font-serif text-base leading-tight text-[#0b3d2e] sm:mt-4 sm:text-xl">{tile.title}</p>
+            <p className="mt-1 text-xs leading-5 text-[#718078] sm:text-sm sm:leading-6">{tile.body}</p>
             <span className="mt-3 inline-block text-xs font-semibold text-[#0b3d2e] group-hover:underline">Buka halaman →</span>
           </a>
         ))}

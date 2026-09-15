@@ -78,15 +78,16 @@ export function MyListings({ items }: { items: Listing[] }) {
       {message && (
         <p className={`rounded-xl px-4 py-3 text-sm font-medium ${message.tone === 'ok' ? 'bg-[#edf2ed] text-[#0b3d2e]' : 'bg-[#fbeeec] text-[#b45c50]'}`}>{message.text}</p>
       )}
+      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-1 sm:gap-3">
       {rows.map((item) => {
         const state = STATUS_STYLE[String(item.status ?? 'draft')] ?? STATUS_STYLE.draft
         const rejected = item.status === 'rejected'
         return (
-          <div key={item.id} className="rounded-xl border border-[#eee7dc] p-4">
+          <div key={item.id} className="rounded-xl border border-[#eee7dc] p-3 sm:p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div className="min-w-0">
-                <p className="truncate font-semibold text-[#20332c]">{item.title ?? 'Listing properti'}</p>
-                <p className="mt-1 text-sm text-[#718078]">
+                <p className="truncate text-sm font-semibold text-[#20332c] sm:text-base">{item.title ?? 'Listing properti'}</p>
+                <p className="mt-0.5 text-xs text-[#718078] sm:mt-1 sm:text-sm">
                   {[item.city, item.province].filter(Boolean).join(', ') || 'Lokasi belum diisi'} · {String(item.listing_type ?? 'properti')} · {rupiah(item.price)}
                 </p>
                 <p className="mt-1 text-xs text-[#718078]">Dikirim {formatDate(item.created_at)}</p>
@@ -129,6 +130,7 @@ export function MyListings({ items }: { items: Listing[] }) {
           </div>
         )
       })}
+      </div>
     </div>
   )
 }
