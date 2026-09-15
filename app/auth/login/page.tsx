@@ -14,12 +14,16 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
     const supabase = createClient()
+    const params = new URLSearchParams(window.location.search)
+    const rawNext = params.get('next') ?? ''
+    const safeNext = rawNext.startsWith('/') && !rawNext.startsWith('//') ? rawNext : ''
     const { data: { user: existingUser } } = await supabase.auth.getUser()
     if (existingUser) {
-      window.location.assign('/')
+      window.location.assign(safeNext || '/')
       return
     }
-    const redirectTo = process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/auth/callback`
+    const baseRedirect = process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/auth/callback`
+    const redirectTo = safeNext ? baseRedirect + (baseRedirect.includes('?') ? '&' : '?') + 'next=' + encodeURIComponent(safeNext) : baseRedirect
     const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo },

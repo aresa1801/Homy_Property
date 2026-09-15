@@ -7,6 +7,7 @@ import { useParams } from 'next/navigation'
 import { ArrowLeft, BedDouble, Bath, Check, Heart, Home, MapPin, Ruler, Send, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AiChat } from '@/components/ai/ai-chat'
+import { VisitScheduler } from '@/components/ai/visit-scheduler'
 import { createClient } from '@/lib/supabase/client'
 import {
   FURNISHED_LABEL,
@@ -25,6 +26,7 @@ export default function PropertyDetailPage() {
   const [notFound, setNotFound] = useState(false)
   const [message, setMessage] = useState('')
   const [status, setStatus] = useState<string | null>(null)
+  const [aiAnswer, setAiAnswer] = useState<{ answer: string; at: string | null } | null>(null)
   const [sending, setSending] = useState(false)
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 
@@ -66,11 +68,22 @@ export default function PropertyDetailPage() {
     if (!user) { window.location.assign(`/auth/login?next=/property/${id}`); return }
     const trimmed = message.trim()
     if (!trimmed) { setStatus('Tulis pesan terlebih dahulu.'); setSending(false); return }
-    const { error } = await supabase.from('inquiries').insert({ property_id: id, user_id: user.id, message: trimmed, status: 'open' })
+    setAiAnswer(null)
+    try {
+      const response = await fetch('/api/inquiries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ property_id: id, message: trimmed, status: 'open' }),
+      })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(payload?.error || 'Gagal mengirim pertanyaan. Coba lagi.')
+      setMessage('')
+      setStatus('Pertanyaan terkirim ke pemilik/agen.')
+      if (payload?.ai?.answer) setAiAnswer({ answer: String(payload.ai.answer), at: payload.ai.at ?? null })
+    } catch (submitError) {
+      setStatus(submitError instanceof Error ? submitError.message : 'Gagal mengirim pertanyaan. Coba lagi.')
+    }
     setSending(false)
-    if (error) { setStatus('Gagal mengirim pertanyaan. Coba lagi.'); return }
-    setMessage('')
-    setStatus('Pertanyaan terkirim ke pemilik/agen.')
   }
 
   if (loading) return <main className="grid min-h-screen place-items-center bg-[#f7f3ec] text-[#0b3d2e]">Memuat properti...</main>
@@ -135,6 +148,13 @@ export default function PropertyDetailPage() {
               <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={4} className="mt-4 w-full rounded-lg border border-[#e8dfd3] p-3 text-sm outline-none focus:border-[#0b3d2e]" placeholder="Halo, apakah properti ini masih tersedia?" />
               <Button disabled={sending} onClick={() => { void sendInquiry() }} className="mt-3 w-full rounded-lg bg-[#0b3d2e] text-white hover:bg-[#14533f]">{sending ? 'Mengirim...' : 'Kirim pertanyaan'} <Send data-icon="inline-end" /></Button>
               {status && <p role="status" className="mt-3 rounded-lg bg-[#e2eee7] p-3 text-sm text-[#0b3d2e]">{status}</p>}
+              {aiAnswer && (
+                <div className="mt-3 rounded-xl border border-[#e5dccd] bg-[#f7f3ec] p-3">
+                  <p className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[.12em] text-[#a18a61]"><Sparkles className="size-3.5" /> Homy AI menjawab</p>
+                  <p className="mt-2 whitespace-pre-line text-sm leading-6 text-[#33433d]">{aiAnswer.answer}</p>
+                  <p className="mt-2 text-xs text-[#718078]">Agen/pemilik tetap menerima pertanyaan Anda dan bisa menambahkan informasi lain.</p>
+                </div>
+              )}
             </div>
             <div className="rounded-2xl bg-white p-4 sm:p-6 shadow-[0_10px_35px_rgba(20,42,32,.07)]">
               <AiChat
@@ -142,9 +162,10 @@ export default function PropertyDetailPage() {
                 propertyId={id}
                 intro="Dijawab dari data properti ini + pembanding area"
                 placeholder="Contoh: apakah harga ini wajar untuk area sini?"
-                suggestions={['Apakah harga ini wajar untuk area ini?', 'Apa saja fasilitas dan keunggulan properti ini?', 'Bagaimana perbandingannya dengan properti sejenis di sekitar?']}
+                suggestions={['Apakah harga ini wajar untuk area ini?', 'Apa saja fasilitas dan keunggulan properti ini?', 'Kapan saya bisa melihat unit ini?']}
               />
             </div>
+            <VisitScheduler propertyId={id} />
             <div className="rounded-2xl bg-[#0f2a44] p-4 sm:p-6 text-white">
               <div className="flex items-center gap-2"><Sparkles className="text-[#c9a961]" /><p className="font-semibold">Insight Homy</p></div>
               <p className="mt-3 text-sm leading-6 text-white/80">Properti ini {property.status === 'published' ? 'sudah terverifikasi dan tayang' : 'sedang dalam proses moderasi'} di Homy.</p>

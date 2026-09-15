@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { aiChat, aiConfigured, aiModel, AiError, type AiMessage } from '@/lib/ai'
 import { clientKey, rateLimit } from '@/lib/rate-limit'
 import { computeStats, fetchById, fetchPublished, listingDetail, listingLine, statsBlock, type ListingFilters, type MarketListing } from '@/lib/market'
+import { availabilityBlock, getVisitContext } from '@/lib/visits'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -25,7 +26,10 @@ ATURAN WAJIB:
 5. Jangan memberi nasihat hukum/pajak yang mengikat. Untuk hal itu, sarankan konsultasi dengan notaris/agen.
 6. Ringkas, ramah, profesional. Maksimal ~180 kata, pakai poin-poin pendek bila membantu. Bahasa Indonesia.
 7. Jangan menyebut dirimu sebagai model tertentu; kamu "Homy AI".
-8. JANGAN mencampur harga JUAL dan harga SEWA dalam satu rata-rata. Kalau menyebut rata-rata pasar, sebutkan terpisah ("rata-rata harga jual ...", "rata-rata harga sewa ... per bulan"). Pakai baris "Pisahkan jual vs sewa" di statistik.`
+8. JANGAN mencampur harga JUAL dan harga SEWA dalam satu rata-rata. Kalau menyebut rata-rata pasar, sebutkan terpisah ("rata-rata harga jual ...", "rata-rata harga sewa ... per bulan"). Pakai baris "Pisahkan jual vs sewa" di statistik.
+9. GAYA: kamu juga berperan sebagai tim pemasaran properti yang ramah, meyakinkan, dan profesional. Tunjukkan nilai plus properti (lokasi, luas, fasilitas, harga vs pasar) dengan bahasa positif, lalu dorong langkah berikutnya: jadwalkan kunjungan, kirim pertanyaan, atau bicarakan penawaran. Tetap jujur — jangan melebih-lebihkan data.
+10. KUNJUNGAN/SURVEY: kalau pengguna ingin melihat unit, menanyakan jadwal, atau kapan bisa survey/visit, jawab dengan data di blok "JADWAL KUNJUNGAN (WIB)" dan arahkan pengguna memilih salah satu slot pada panel "Jadwalkan kunjungan" di halaman properti (jadwal otomatis tercatat dan agen/pemilik dapat notifikasi email). JANGAN mengarang hari/jam di luar data itu. Kalau jadwal belum diatur, arahkan mengirim pertanyaan lewat form "Tanya pemilik".
+11. Jangan menjanjikan harga final, diskon, atau kesepakatan apa pun; negosiasi dan legalitas selalu lewat agen/pemilik.`
 
 export async function GET() {
   return NextResponse.json({ configured: aiConfigured(), model: aiModel() })
@@ -65,6 +69,8 @@ export async function POST(request: Request) {
       const siblings = rows.filter((row) => row.id !== property.id && row.listing_type === property.listing_type && (row.district === property.district || row.city === property.city))
       const stats = computeStats(siblings, `daerah ${property.district || property.city || '-'} (${property.listing_type === 'rent' ? 'sewa' : 'jual'})`)
       sourceRows = siblings.slice(0, 6)
+      const visitContext = await getVisitContext(property.id).catch(() => null)
+      const visitBlock = visitContext ? availabilityBlock(visitContext) : ''
       dataBlock = [
         '=== PROPERTI YANG DITANYAKAN ===',
         listingDetail(property),
@@ -72,7 +78,8 @@ export async function POST(request: Request) {
         '=== PEMBANDING & STATISTIK AREA ===',
         statsBlock(stats),
         siblings.length ? 'Pembanding:\n' + siblings.slice(0, 6).map((row, index) => listingLine(row, index)).join('\n') : 'Belum ada pembanding di area yang sama.',
-      ].join('\n')
+        visitBlock,
+      ].filter(Boolean).join('\n')
     } else {
       const candidates = rows.filter((row) => {
         if (filters.listing_type && row.listing_type !== filters.listing_type) return false
