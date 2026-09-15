@@ -217,5 +217,46 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     supabase.from('rental_requests').select('id,property_id,start_date,end_date,status,duration_unit').eq('renter_id', user.id).order('created_at', { ascending: false }).limit(20),
     supabase.from('payments').select('id,amount,currency,payment_type,status,due_at,paid_at').eq('payer_id', user.id).order('created_at', { ascending: false }).limit(20),
   ])
-  return NextResponse.json({ ...base, metrics: { favorites: favorites.data?.length ?? 0, inquiries: inquiries.data?.length ?? 0, upcomingVisits: visits.data?.filter((v) => v.status !== 'cancelled').length ?? 0, pendingPayments: payments.data?.filter((p) => p.status === 'pending').length ?? 0 }, favorites: favorites.data ?? [], inquiries: inquiries.data ?? [], visits: visits.data ?? [], rentals: rentals.data ?? [], payments: payments.data ?? [] })
+  const favRowsRaw = (favorites.data ?? []) as unknown as Array<{ property_id?: string | null }>
+  const visitRowsRaw = (visits.data ?? []) as unknown as Array<{ property_id?: string | null; status?: string | null }>
+  const inquiryRowsRaw = (inquiries.data ?? []) as unknown as Array<{ property_id?: string | null; status?: string | null }>
+  const rentalRowsRaw = (rentals.data ?? []) as unknown as Array<{ property_id?: string | null }>
+  const refIds = Array.from(new Set([
+    ...favRowsRaw.map((row) => String(row.property_id ?? '')),
+    ...visitRowsRaw.map((row) => String(row.property_id ?? '')),
+    ...inquiryRowsRaw.map((row) => String(row.property_id ?? '')),
+    ...rentalRowsRaw.map((row) => String(row.property_id ?? '')),
+  ].filter(Boolean)))
+  const { data: refProperties } = refIds.length
+    ? await supabase.from('properties').select('id,title,city,province,district,status,listing_type,property_type,price,price_period,created_at').in('id', refIds)
+    : { data: [] as Array<Record<string, unknown>> }
+  const refMap: Record<string, Record<string, unknown>> = {}
+  for (const row of (refProperties ?? []) as unknown as Array<Record<string, unknown>>) refMap[String(row.id)] = row
+  const attach = (row: Record<string, unknown>): Record<string, unknown> => ({ ...row, property: refMap[String(row.property_id ?? '')] ?? null })
+  const favoriteRows = favRowsRaw.map((row) => attach(row as unknown as Record<string, unknown>))
+  const visitRows = visitRowsRaw.map((row) => attach(row as unknown as Record<string, unknown>))
+  const inquiryRows = inquiryRowsRaw.map((row) => attach(row as unknown as Record<string, unknown>))
+  const upcomingVisits = visitRows.filter((v) => v.status !== 'cancelled' && v.status !== 'completed').length
+  const averageFavoritePrice = (() => {
+    const values = favoriteRows.map((row) => Number(((row.property ?? null) as { price?: unknown } | null)?.price ?? 0)).filter((value) => Number.isFinite(value) && value > 0)
+    if (!values.length) return 0
+    return Math.round(values.reduce((total, value) => total + value, 0) / values.length)
+  })()
+  const pendingPayments = ((payments.data ?? []) as unknown as Array<{ status?: string | null }>).filter((p) => p.status === 'pending')
+  return NextResponse.json({
+    ...base,
+    metrics: {
+      favorites: favoriteRows.length,
+      inquiries: inquiryRows.length,
+      openInquiries: inquiryRows.filter((row) => String(row.status ?? 'open') !== 'closed').length,
+      upcomingVisits,
+      pendingPayments: pendingPayments.length,
+      averageFavoritePrice,
+    },
+    favorites: favoriteRows,
+    inquiries: inquiryRows,
+    visits: visitRows,
+    payments: payments.data ?? [],
+    rentals: rentals.data ?? [],
+  })
 }

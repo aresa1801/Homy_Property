@@ -29,6 +29,7 @@ export type DashboardInquiry = {
   replied_at?: string | null
   follow_up_note?: string | null
   created_at?: string
+  property?: DashboardProperty | null
   from?: { name?: string; email?: string; phone?: string } | null
 }
 
@@ -36,6 +37,7 @@ export type DashboardVisit = {
   id: string
   property_id?: string
   property_title?: string
+  property?: DashboardProperty | null
   scheduled_at?: string
   status?: string
   notes?: string | null
@@ -103,6 +105,9 @@ export type DashboardAudit = {
   created_at?: string
 }
 
+export type DashboardFavorite = { property_id?: string; created_at?: string; property?: DashboardProperty | null }
+export type DashboardPayment = { id?: string; amount?: number | string | null; currency?: string | null; payment_type?: string | null; status?: string | null; due_at?: string | null; paid_at?: string | null }
+
 export type DashboardFlag = { key: string; label: string; description?: string | null; enabled: boolean; rollout: number; updated_at?: string }
 export type DashboardSetting = { key: string; label?: string | null; value: unknown; updated_at?: string }
 export type DashboardTransactionAdmin = DashboardTransaction & { user?: { name?: string; email?: string } | null; role?: string | null; review_note?: string | null; verified_at?: string | null }
@@ -126,6 +131,8 @@ export type DashboardPayload = {
   settings?: DashboardSetting[]
   duplicates?: DashboardDuplicate[]
   roleCounts?: DashboardRoleCount[]
+  favorites?: DashboardFavorite[]
+  payments?: DashboardPayment[]
   ai?: { configured?: boolean; model?: string; listingsWithSummary?: number; listingsWithoutMedia?: number; amenitiesCoverage?: number }
 }
 
