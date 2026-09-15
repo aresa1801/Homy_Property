@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { BrandMark } from '@/components/brand-mark'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { BarChart3, Bell, Bot, CalendarDays, ChevronDown, ChevronRight, Clock, FileSignature, Flag, Handshake, Home, LayoutDashboard, LogOut, Menu, Search, Settings, ShieldCheck, Sparkles, Users, WalletCards, X } from 'lucide-react'
@@ -81,7 +82,7 @@ export function DashboardShell({ role, children, showSummary = true }: { role: R
   const translated = (label: string) => ({ Overview: 'Ringkasan', Favorites: 'Favorit', 'Inquiries & Chats': 'Pertanyaan & Pesan', Visits: 'Jadwal Kunjungan', 'Become an Agent / Owner': 'Daftar sebagai Agen atau Pemilik', Agent: 'Agen', 'Property Owner': 'Pemilik Properti', User: 'Pengguna', Settings: 'Pengaturan', 'List Property': 'Pasang Properti', Agreement: 'Perjanjian Kerjasama', 'My Listings': 'Listing Saya', 'Leads CRM': 'CRM Prospek', Analytics: 'Analitik', Billing: 'Penagihan', 'Billing & Commission': 'Penagihan & Komisi', 'Platform Billing': 'Penagihan Platform', 'My Properties': 'Properti Saya', Inquiries: 'Pertanyaan', Calendar: 'Kalender', 'Moderate Listings': 'Moderasi Listing', 'Users & Agents': 'Pengguna & Agen', 'Reports & Fraud': 'Laporan & Penipuan', 'AI Monitoring': 'Pemantauan AI', 'AI Assistant': 'Asisten AI', 'AI Recommendations': 'Rekomendasi AI', 'Roles & Permissions': 'Peran & Izin', 'System Config': 'Konfigurasi Sistem', 'Audit Log': 'Log Audit', 'Feature Flags': 'Feature Flag', 'Super Admin': 'Super Admin', Admin: 'Admin' }[label] ?? label)
   return <div className="min-h-screen bg-[#f7f3ec] text-[#20332c]">
     <aside className={`fixed inset-y-0 left-0 z-30 flex w-72 flex-col border-r border-[#e5dccd] bg-[#0b3d2e] p-6 text-white transition-transform lg:translate-x-0 ${open ? 'translate-x-0' : '-translate-x-full'}`}>
-      <div className="flex items-center justify-between"><Link href="/" className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-[#c9a961] text-[#0b3d2e]"><Home /></span><span className="font-serif text-2xl font-bold">Homy<span className="text-[#c9a961]">.</span></span></Link><button className="lg:hidden" onClick={() => setOpen(false)} aria-label="Tutup menu"><X /></button></div>
+      <div className="flex items-center justify-between"><BrandMark /><button className="lg:hidden" onClick={() => setOpen(false)} aria-label="Tutup menu"><X /></button></div>
       <div className="mt-6 flex shrink-0 items-center gap-3 rounded-xl border border-white/10 bg-white/5 p-3">
         <UserAvatar name={displayName} email={displayEmail} avatarUrl={avatarUrl} size={44} />
         <div className="min-w-0"><p className="truncate text-sm font-semibold">{displayName}</p><p className="truncate text-xs text-white/55">{displayEmail || '—'}</p></div>

@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import { BrandMark } from '@/components/brand-mark'
 import { usePathname } from 'next/navigation'
-import { Home } from 'lucide-react'
 import { AccountMenu } from '@/components/account-menu'
 import { useSessionProfile } from '@/lib/homy-session'
 
@@ -26,10 +26,7 @@ export function SiteHeader({ cta }: { cta?: { label: string; href: string } }) {
   return (
     <header className="border-b border-[#e8dfd3] bg-[#0b3d2e] text-white">
       <div className="mx-auto flex h-20 max-w-7xl items-center justify-between gap-4 px-5 lg:px-8">
-        <Link href="/" className="flex items-center gap-3" aria-label="Homy Property">
-          <span className="grid size-10 place-items-center rounded-xl bg-[#c9a961] text-[#0b3d2e]"><Home /></span>
-          <span className="font-serif text-2xl font-bold">Homy<span className="text-[#c9a961]">.</span></span>
-        </Link>
+        <BrandMark />
         <nav className="hidden items-center gap-8 text-sm md:flex" aria-label="Navigasi utama">
           {NAV.map((item) => (
             <Link key={item.href} href={item.href} aria-current={isActive(item.href) ? 'page' : undefined} className={isActive(item.href) ? 'font-semibold text-[#c9a961]' : 'text-white/75 transition hover:text-white'}>{item.label}</Link>

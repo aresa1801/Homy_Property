@@ -1,6 +1,7 @@
 'use client'
 
 import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { BrandMark } from '@/components/brand-mark'
 import { ArrowRight, Briefcase, Check, Home, UserRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -111,7 +112,7 @@ export default function OnboardingPage() {
   return (
     <main className="min-h-screen bg-[#f7f3ec] px-5 py-10 text-[#1c1c1c] sm:px-8">
       <div className="mx-auto max-w-3xl">
-        <a href="/" className="flex items-center gap-3 text-[#0b3d2e]"><span className="grid size-10 place-items-center rounded-xl bg-[#0b3d2e] text-[#c9a961]"><Home /></span><span className="font-serif text-2xl font-bold">Homy<span className="text-[#c9a961]">.</span></span></a>
+        <BrandMark className="text-[#0b3d2e]" />
         <div className="mt-12 flex items-center gap-3 rounded-2xl border border-[#e8dfd3] bg-white p-4">
           <UserAvatar name={name} email={email} avatarUrl={avatarUrl} size={48} />
           <div className="min-w-0"><p className="truncate font-semibold text-[#0b3d2e]">{name || 'Akun Google Anda'}</p><p className="truncate text-sm text-[#65706c]">{email || 'Belum masuk'}</p></div>

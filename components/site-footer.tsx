@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Home, Mail } from 'lucide-react'
+import { BrandMark } from '@/components/brand-mark'
+import { Mail } from 'lucide-react'
 
 const LINKS = [
   { label: 'Jual', href: '/buy' },
@@ -18,10 +19,7 @@ export function SiteFooter() {
     <footer className="bg-[#071f18] py-10 text-white/60">
       <div className="mx-auto flex max-w-7xl flex-col gap-6 px-5 text-sm lg:px-8">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <Link href="/" className="flex items-center gap-2 text-white">
-            <span className="grid size-8 place-items-center rounded-lg bg-[#c9a961] text-[#0b3d2e]"><Home /></span>
-            <span className="font-serif text-xl">Homy<span className="text-[#c9a961]">.</span></span>
-          </Link>
+          <BrandMark size={32} className="text-white" textClassName="text-xl" />
           <p>© {year} Homy Property. Rumah, dengan cara yang lebih baik.</p>
         </div>
         <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-white/10 pt-6">

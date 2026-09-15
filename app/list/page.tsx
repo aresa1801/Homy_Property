@@ -1,6 +1,7 @@
 'use client'
 
 import { SiteHeader } from '@/components/site-header'
+import { BrandMark } from '@/components/brand-mark'
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   ArrowLeft,
@@ -8,7 +9,6 @@ import {
   Building2,
   Check,
   FileSignature,
-  Home,
   ImagePlus,
   KeyRound,
   Loader2,
@@ -555,7 +555,7 @@ export default function ListPage() {
     return (
       <main className="min-h-screen bg-[#f7f3ec] px-5 py-16 text-[#1c1c1c]">
         <div className="mx-auto max-w-2xl">
-          <a href="/" className="flex items-center gap-3 text-[#0b3d2e]"><span className="grid size-10 place-items-center rounded-xl bg-[#0b3d2e] text-[#c9a961]"><Home /></span><span className="font-serif text-2xl font-bold">Homy<span className="text-[#c9a961]">.</span></span></a>
+          <BrandMark className="text-[#0b3d2e]" />
           <div className="mt-10 rounded-3xl border border-[#e8dfd3] bg-white p-8 sm:p-10">
             <span className="grid size-14 place-items-center rounded-2xl bg-[#fff7e3] text-[#c09b54]"><FileSignature /></span>
             <h1 className="mt-6 font-serif text-3xl text-[#0b3d2e] sm:text-4xl">Perjanjian kerja sama diperlukan</h1>
