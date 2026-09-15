@@ -69,6 +69,46 @@ export type DashboardAgreement = {
   agreement_version?: string
 }
 
+export type DashboardUser = {
+  id: string
+  full_name?: string | null
+  email?: string | null
+  phone?: string | null
+  roles?: string[]
+  created_at?: string
+  listings?: number
+  verification?: string
+}
+
+export type DashboardReport = {
+  id: string
+  property_id?: string | null
+  property_title?: string | null
+  reported_user_id?: string | null
+  reported_user?: { name?: string; email?: string } | null
+  reason?: string | null
+  status?: string
+  resolution_note?: string | null
+  created_at?: string
+}
+
+export type DashboardAudit = {
+  id: string
+  actor_id?: string | null
+  actor?: { name?: string; email?: string } | null
+  action?: string
+  entity_type?: string | null
+  entity_id?: string | null
+  metadata?: Record<string, unknown> | null
+  created_at?: string
+}
+
+export type DashboardFlag = { key: string; label: string; description?: string | null; enabled: boolean; rollout: number; updated_at?: string }
+export type DashboardSetting = { key: string; label?: string | null; value: unknown; updated_at?: string }
+export type DashboardTransactionAdmin = DashboardTransaction & { user?: { name?: string; email?: string } | null; role?: string | null; review_note?: string | null; verified_at?: string | null }
+export type DashboardDuplicate = { key: string; count: number; ids: string[]; titles: string[] }
+export type DashboardRoleCount = { role: string; count: number }
+
 export type DashboardPayload = {
   authenticated?: boolean
   role?: string
@@ -78,6 +118,15 @@ export type DashboardPayload = {
   visits?: DashboardVisit[]
   transactions?: DashboardTransaction[]
   agreements?: DashboardAgreement[]
+  users?: DashboardUser[]
+  allProperties?: DashboardProperty[]
+  adminReports?: DashboardReport[]
+  audit?: DashboardAudit[]
+  flags?: DashboardFlag[]
+  settings?: DashboardSetting[]
+  duplicates?: DashboardDuplicate[]
+  roleCounts?: DashboardRoleCount[]
+  ai?: { configured?: boolean; model?: string; listingsWithSummary?: number; listingsWithoutMedia?: number; amenitiesCoverage?: number }
 }
 
 /** Ambil data dashboard (properties/inquiries/visits/transactions) + reload manual. */
@@ -98,6 +147,14 @@ export function useDashboard(type: string) {
 
 export async function runAction(payload: Record<string, unknown>) {
   const response = await fetch('/api/dashboard/actions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(String(body?.error ?? 'Aksi gagal dijalankan'))
+  return body
+}
+
+/** Aksi operasional admin/super admin (verifikasi komisi, laporan, peran, flag, konfigurasi). */
+export async function adminAction(payload: Record<string, unknown>) {
+  const response = await fetch('/api/admin/ops', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
   const body = await response.json().catch(() => ({}))
   if (!response.ok) throw new Error(String(body?.error ?? 'Aksi gagal dijalankan'))
   return body

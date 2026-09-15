@@ -82,26 +82,126 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     return NextResponse.json({ ...base, metrics, properties: rows, inquiries: inquiriesEnriched, visits: visitsEnriched, transactions: transactions.data ?? [], agreements: agreements.data ?? [], payments: [] })
   }
 
-  if (role === 'admin') {
+  if (role === 'admin' || role === 'super-admin') {
     const admin = await adminScopedClient(supabase, user.id)
-    if (!admin) return NextResponse.json({ ...base, metrics: { pendingApprovals: 0, published: 0, rejected: 0, openReports: 0, activeUsers: 0 }, properties: [], reports: [], forbidden: true })
-    const [rows, reports, users] = await Promise.all([
-      admin.from('properties').select('id,title,city,province,district,listing_type,property_type,price,price_period,status,owner_id,created_at,moderation_note').order('created_at', { ascending: false }).limit(100),
-      admin.from('moderation_reports').select('id,property_id,reason,status,created_at').in('status', ['open', 'investigating']).order('created_at', { ascending: false }).limit(30),
-      admin.from('profiles').select('id,role,created_at').limit(1000),
+    if (!admin) {
+      return NextResponse.json({ ...base, forbidden: true, metrics: { pendingApprovals: 0, published: 0, rejected: 0, activeUsers: 0, openReports: 0 } })
+    }
+    const [rows, media, adminReports, profiles, roleRows, transactions, audit, flags, settings] = await Promise.all([
+      admin.from('properties').select('id,title,address,city,province,district,listing_type,property_type,price,price_period,status,owner_id,created_at,moderation_note,verified_at,ai_summary').order('created_at', { ascending: false }).limit(200),
+      admin.from('property_media').select('property_id').limit(3000),
+      admin.from('moderation_reports').select('id,property_id,reported_user_id,reason,status,resolution_note,created_at').order('created_at', { ascending: false }).limit(50),
+      admin.from('profiles').select('id,full_name,phone,role,created_at').limit(500),
+      admin.from('user_roles').select('user_id,role').limit(2000),
+      admin.from('transaction_reports').select('id,user_id,role,property_id,property_title,buyer_name,buyer_contact,sale_price,commission_rate,commission_amount,sold_at,status,notes,review_note,verified_at,created_at').order('created_at', { ascending: false }).limit(200),
+      admin.from('audit_logs').select('id,actor_id,action,entity_type,entity_id,metadata,created_at').order('created_at', { ascending: false }).limit(80),
+      role === 'super-admin' ? admin.from('feature_flags').select('key,label,description,enabled,rollout,updated_at').order('key') : Promise.resolve({ data: [] as unknown[] }),
+      role === 'super-admin' ? admin.from('platform_settings').select('key,label,value,updated_at').order('key') : Promise.resolve({ data: [] as unknown[] }),
     ])
-    const list = rows.data ?? []
-    const pending = list.filter((p) => p.status === 'pending')
-    return NextResponse.json({ ...base, metrics: { pendingApprovals: pending.length, published: list.filter((p) => p.status === 'published').length, rejected: list.filter((p) => p.status === 'rejected').length, openReports: reports.data?.length ?? 0, activeUsers: users.data?.length ?? 0 }, properties: pending, allProperties: list, reports: reports.data ?? [] })
-  }
 
-  if (role === 'super-admin') {
-    const [users, properties, audit] = await Promise.all([
-      supabase.from('profiles').select('id,role,created_at').limit(1000),
-      supabase.from('properties').select('id,status,listing_type,created_at').limit(1000),
-      supabase.from('audit_logs').select('id,action,entity_type,created_at,metadata').order('created_at', { ascending: false }).limit(20),
-    ])
-    return NextResponse.json({ ...base, metrics: { users: users.data?.length ?? 0, properties: properties.data?.length ?? 0, auditEvents: audit.data?.length ?? 0 }, audit: audit.data ?? [] })
+    const list = rows.data ?? []
+    const mediaCount = new Map<string, number>()
+    for (const row of media.data ?? []) mediaCount.set(row.property_id, (mediaCount.get(row.property_id) ?? 0) + 1)
+
+    // identitas pemilik + admin (nama + email) — hanya untuk id yang ada di data
+    const ownerIds = Array.from(new Set(list.map((p) => p.owner_id).filter(Boolean))) as string[]
+    const actorIds = Array.from(new Set((audit.data ?? []).map((a) => a.actor_id).filter(Boolean))) as string[]
+    const txUserIds = Array.from(new Set((transactions.data ?? []).map((t) => t.user_id).filter(Boolean))) as string[]
+    const profileIds = Array.from(new Set([...ownerIds, ...actorIds, ...txUserIds])).slice(0, 200)
+    const profileMap: Record<string, { name?: string; email?: string; phone?: string }> = {}
+    if (profileIds.length) {
+      const [profileRows, userRows] = await Promise.all([
+        admin.from('profiles').select('id,full_name,phone').in('id', profileIds),
+        Promise.all(profileIds.map((id) => admin.auth.admin.getUserById(id).then((r) => r.data?.user ?? null).catch(() => null))),
+      ])
+      for (const profile of profileRows.data ?? []) profileMap[profile.id] = { name: profile.full_name ?? undefined, phone: profile.phone ?? undefined }
+      for (const u of userRows) if (u?.id) profileMap[u.id] = { ...(profileMap[u.id] ?? {}), email: u.email ?? undefined }
+    }
+
+    const roleMap: Record<string, string[]> = {}
+    for (const row of roleRows.data ?? []) roleMap[row.user_id] = [...(roleMap[row.user_id] ?? []), row.role]
+    const listingCount = new Map<string, number>()
+    for (const p of list) if (p.owner_id) listingCount.set(p.owner_id, (listingCount.get(p.owner_id) ?? 0) + 1)
+
+    const users = (profiles.data ?? []).map((profile) => {
+      const roles = roleMap[profile.id] ?? (profile.role ? [profile.role] : [])
+      return {
+        id: profile.id,
+        full_name: profile.full_name,
+        email: profileMap[profile.id]?.email ?? null,
+        phone: profile.phone,
+        roles,
+        created_at: profile.created_at,
+        listings: listingCount.get(profile.id) ?? 0,
+        verification: roles.some((r) => ['agent', 'property_owner'].includes(r)) ? (roleMap[profile.id]?.includes('admin') ? 'admin' : 'mitra') : 'pengguna',
+      }
+    })
+
+    const transactionsEnriched = (transactions.data ?? []).map((row) => ({ ...row, user: profileMap[row.user_id] ?? null }))
+    const reportsEnriched = (adminReports.data ?? []).map((row) => {
+      const property = list.find((p) => p.id === row.property_id)
+      return { ...row, property_title: property?.title ?? null, reported_user: row.reported_user_id ? profileMap[row.reported_user_id] ?? null : null }
+    })
+    const auditEnriched = (audit.data ?? []).map((row) => ({ ...row, actor: row.actor_id ? profileMap[row.actor_id] ?? null : null }))
+
+    // deteksi duplikat sederhana: judul/alamat sama (dinormalisasi)
+    const dupMap = new Map<string, { ids: string[]; titles: string[] }>()
+    for (const p of list) {
+      const key = String(p.title ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+      if (!key) continue
+      const entry = dupMap.get(key) ?? { ids: [], titles: [] }
+      entry.ids.push(p.id)
+      entry.titles.push(String(p.title ?? ''))
+      dupMap.set(key, entry)
+    }
+    const duplicates = [...dupMap.entries()].filter(([, v]) => v.ids.length > 1).map(([key, v]) => ({ key, count: v.ids.length, ids: v.ids, titles: v.titles }))
+
+    const commissionTotal = transactionsEnriched.reduce((sum, row) => sum + Number(row.commission_amount ?? 0), 0)
+    const commissionVerified = transactionsEnriched.filter((row) => row.status === 'verified').reduce((sum, row) => sum + Number(row.commission_amount ?? 0), 0)
+    const commissionPending = transactionsEnriched.filter((row) => row.status === 'reported').reduce((sum, row) => sum + Number(row.commission_amount ?? 0), 0)
+    const published = list.filter((p) => p.status === 'published')
+    const roleCounts = Object.entries(roleMap).reduce<Record<string, number>>((acc, [, roles]) => {
+      for (const r of roles) acc[r] = (acc[r] ?? 0) + 1
+      return acc
+    }, {})
+
+    const metrics = {
+      totalListings: list.length,
+      pendingApprovals: list.filter((p) => p.status === 'pending').length,
+      published: published.length,
+      rejected: list.filter((p) => p.status === 'rejected').length,
+      activeUsers: users.length,
+      openReports: reportsEnriched.filter((r) => ['open', 'investigating'].includes(String(r.status))).length,
+      totalReports: transactionsEnriched.length,
+      commissionTotal,
+      commissionVerified,
+      commissionPending,
+      pendingCommissionCount: transactionsEnriched.filter((row) => row.status === 'reported').length,
+      aiEvents: auditEnriched.filter((a) => String(a.action ?? '').startsWith('ai.')).length,
+      aiCoverage: published.length ? Math.round((published.filter((p) => p.ai_summary).length / published.length) * 100) : 0,
+    }
+
+    return NextResponse.json({
+      ...base,
+      metrics,
+      properties: list.filter((p) => p.status === 'pending'),
+      allProperties: list,
+      users,
+      transactions: transactionsEnriched,
+      adminReports: reportsEnriched,
+      audit: auditEnriched,
+      duplicates,
+      roleCounts: Object.entries(roleCounts).map(([r, count]) => ({ role: r, count })).sort((a, b) => b.count - a.count),
+      flags: flags.data ?? [],
+      settings: settings.data ?? [],
+      ai: {
+        configured: true,
+        model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+        listingsWithSummary: published.filter((p) => p.ai_summary).length,
+        listingsWithoutMedia: published.filter((p) => (mediaCount.get(p.id) ?? 0) === 0).length,
+        amenitiesCoverage: published.length,
+      },
+    })
   }
 
   const [favorites, inquiries, visits, rentals, payments] = await Promise.all([

@@ -4,6 +4,8 @@ import { DashboardSection, type SectionRole } from '@/components/dashboard/dashb
 const VALID: Record<SectionRole, string[]> = {
   agent: ['listings', 'leads', 'analytics', 'billing', 'agreement', 'list', 'ai'],
   'property-owner': ['properties', 'inquiries', 'calendar', 'agreement', 'list', 'ai'],
+  admin: ['moderation', 'users', 'billing', 'reports', 'ai'],
+  'super-admin': ['roles', 'billing', 'audit', 'system', 'flags'],
 }
 
 export function generateStaticParams() {
