@@ -22,7 +22,7 @@ export default function ContactPage() {
         <p className="mt-3 max-w-2xl leading-7 text-[#65706c]">Ada pertanyaan tentang akun, listing, komisi, atau kerja sama institusi? Pilih kanal yang paling nyaman untuk Anda — tim Homy Property akan merespons dengan cepat.</p>
       </section>
       <section className="mx-auto max-w-7xl px-5 pb-6 lg:px-8">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
           {channels.map(({ icon: Icon, title, value, hint, href }) => (
             <a key={title} href={href} className="rounded-2xl bg-white p-4 sm:p-5 shadow-[0_10px_30px_rgba(20,42,32,.05)] transition hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(20,42,32,.1)]">
               <span className="grid size-11 place-items-center rounded-xl bg-[#edf2ed] text-[#0b3d2e]"><Icon /></span>

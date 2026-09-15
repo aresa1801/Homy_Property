@@ -84,7 +84,7 @@ export function UsersBoard({ data, loading, reload, type }: BoardProps & { type:
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <MetricCard label="Total akun" value={String(users.length)} change="Pengguna terdaftar" icon="users" />
         <MetricCard label="Mitra (agen/pemilik)" value={String(mitra)} change="Punya perjanjian kerja sama" icon="shield" />
         <MetricCard label="Admin & super admin" value={String(admins)} change="Akses operasional" icon="key" />
@@ -178,7 +178,7 @@ export function PlatformBillingBoard({ data, loading, reload, type }: BoardProps
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <MetricCard label="Laporan transaksi" value={String(rows.length)} change={`${metrics.pendingCommissionCount ?? 0} menunggu verifikasi`} icon="wallet" />
         <MetricCard label="Nilai transaksi mitra" value={rupiah(totalSale)} change="Akumulasi harga jual dilaporkan" icon="chart" />
         <MetricCard label="Komisi terverifikasi" value={rupiah(metrics.commissionVerified ?? 0)} change="Pendapatan Homy yang sudah divalidasi" icon="shield" />
@@ -271,7 +271,7 @@ export function ReportsBoard({ data, loading, reload }: BoardProps) {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <MetricCard label="Laporan terbuka" value={String(open.length)} change={`${reports.length} total laporan`} icon="flag" />
         <MetricCard label="Listing tanpa foto" value={String(data.ai?.listingsWithoutMedia ?? 0)} change="Perlu ditindaklanjuti saat tayang" icon="home" />
         <MetricCard label="Indikasi duplikat" value={String(duplicates.length)} change="Judul sama antar listing" icon="search" />
@@ -346,7 +346,7 @@ export function AiMonitorBoard({ data }: BoardProps) {
   const ai = data.ai ?? {}
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <MetricCard label="Status Homy AI" value={ai.configured ? 'Aktif' : 'Nonaktif'} change={'Model ' + (ai.model ?? 'deepseek-chat')} icon="sparkles" />
         <MetricCard label="Listing tayang" value={String(data.metrics?.published ?? 0)} change="Sumber jawaban Homy AI" icon="home" />
         <MetricCard label="Ringkasan AI siap" value={String(ai.listingsWithSummary ?? 0)} change={'Cakupan ' + (data.metrics?.aiCoverage ?? 0) + '% listing tayang'} icon="file" />
@@ -389,7 +389,7 @@ export function AuditBoard({ data, loading }: BoardProps) {
   const filtered = audit.filter((row) => !query || `${row.action ?? ''} ${row.entity_type ?? ''} ${row.actor?.email ?? ''}`.toLowerCase().includes(query.toLowerCase()))
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <MetricCard label="Event terbaru" value={String(audit.length)} change="80 event terakhir" icon="flag" />
         <MetricCard label="Verifikasi komisi" value={String(audit.filter((r) => String(r.action ?? '').startsWith('transaction.')).length)} change="transaction.verified / rejected" icon="wallet" />
         <MetricCard label="Moderasi listing" value={String(audit.filter((r) => String(r.action ?? '').startsWith('listing.')).length)} change="approve / reject / resubmit" icon="file" />
@@ -437,7 +437,7 @@ export function RolesBoard({ data, reload, type }: BoardProps & { type: AdminTyp
   ]
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <MetricCard label="Total akun" value={String(data.users?.length ?? 0)} change="Semua peran" icon="users" />
         {counts.slice(0, 3).map((item) => (
           <MetricCard key={item.role} label={ROLE_LABEL[item.role] ?? item.role} value={String(item.count)} change="Akun dengan peran ini" icon="shield" />
@@ -583,7 +583,7 @@ export function AdminOverviewBoard({ type }: { type: AdminType }) {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         {type === 'admin' ? (
           <>
             <MetricCard label="Menunggu moderasi" value={String(metrics.pendingApprovals ?? 0)} change={`${metrics.totalListings ?? 0} listing total`} icon="file" />
@@ -701,7 +701,7 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <MetricCard label="Total pengajuan" value={String(leads.length)} change="Dari halaman Open Partnership & Kontak" icon="users" />
         <MetricCard label="Perlu ditindak" value={String(pending)} change="Status baru / ditinjau" icon="flag" />
         <MetricCard label="Agensi & institusi" value={String(institutions)} change="Skema komisi khusus" icon="chart" />

@@ -39,7 +39,7 @@ export function BillingBoard({ data, loading, reload, type }: BoardProps & { typ
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <MetricCard label="Transaksi dilaporkan" value={String(reports.length)} change="Wajib lapor ≤3 hari kerja" icon="wallet" />
         <MetricCard label="Nilai transaksi" value={rupiah(totalValue)} change="Akumulasi harga jual" icon="chart" />
         <MetricCard label={'Komisi Homy (' + String(rate).replace('.', ',') + '%)'} value={rupiah(totalCommission)} change="Dihitung otomatis dari harga jual" icon="sparkles" />
@@ -169,7 +169,7 @@ export function CalendarBoard({ data, loading, reload }: BoardProps & { type: 'a
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <MetricCard label="Kunjungan hari ini" value={String(todayVisits.length)} change="Siapkan properti" icon="calendar" />
         <MetricCard label="Akan datang" value={String(upcoming.length)} change="Terjadwal" icon="calendar" />
         <MetricCard label="Menunggu konfirmasi" value={String(active.filter((visit) => visit.status === 'requested').length)} change="Perlu tindakan Anda" icon="message" />
@@ -398,7 +398,7 @@ export function AvailabilityBoard({ data, loading, reload }: BoardProps & { type
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <MetricCard label="Hari aktif" value={String(activeDays.length)} change="Dari 7 hari" icon="calendar" />
         <MetricCard label="Jam tersedia / minggu" value={String(Math.floor(weeklyMinutes / 60))} change="Total jam buka" icon="file" />
         <MetricCard label="Slot kunjungan / minggu" value={String(slotCount)} change="Otomatis dari durasi slot" icon="message" />

@@ -50,7 +50,7 @@ export function ListingBoard({ data, loading, reload, type }: BoardProps & { typ
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <MetricCard label={type === 'agent' ? 'Total listing' : 'Total properti'} value={String(listings.length)} change={`${listings.filter((p) => p.status === 'published').length} tayang`} icon="home" />
         <MetricCard label="Menunggu moderasi" value={String(listings.filter((p) => p.status === 'pending').length)} change="Perlu ditinjau admin" icon="shield" />
         <MetricCard label="Ditolak" value={String(listings.filter((p) => p.status === 'rejected').length)} change="Bisa diajukan ulang" icon="flag" />
@@ -233,7 +233,7 @@ export function AnalyticsBoard({ data, loading, type }: BoardProps & { type: 'ag
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <MetricCard label="Listing aktif" value={String(listings.filter((item) => item.status === 'published').length)} change={`dari ${listings.length} listing`} icon="home" />
         <MetricCard label="Harga rata-rata" value={rupiah(avgPrice)} change="Semua listing Anda" icon="chart" />
         <MetricCard label="Tingkat respons" value={`${responseRate}%`} change={`${replied} dari ${leads.length} prospek dibalas`} icon="message" />

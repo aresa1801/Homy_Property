@@ -26,7 +26,7 @@ export default function PropertyOwnerDashboard() {
         <a href="/dashboard/property-owner/list" className="inline-flex items-center gap-2 rounded-xl bg-[#0b3d2e] px-5 py-3 text-sm font-semibold text-white hover:bg-[#14553f]"><Plus className="size-4" />Pasang properti</a>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <MetricCard label="Total properti" value={String(metrics.properties ?? (data.properties ?? []).length)} change={`${metrics.publishedProperties ?? 0} tayang`} icon="home" />
         <MetricCard label="Pertanyaan masuk" value={String(metrics.inquiries ?? 0)} change={`${metrics.openLeads ?? 0} belum ditindak`} icon="message" />
         <MetricCard label="Kunjungan mendatang" value={String(metrics.upcomingVisits ?? 0)} change="Kelola di kalender" icon="calendar" />

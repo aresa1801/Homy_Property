@@ -27,7 +27,7 @@ export default function UserDashboard() {
         <a href="/onboarding" className="inline-flex items-center justify-center rounded-full bg-[#0b3d2e] px-5 py-3 text-sm font-semibold text-white hover:bg-[#14543f]">Daftar sebagai Agen atau Pemilik</a>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <MetricCard label="Favorit tersimpan" value={String(metrics.favorites ?? favorites.length)} change={favorites.length ? 'Properti yang Anda simpan' : 'Belum ada properti disimpan'} icon="home" />
         <MetricCard label="Pertanyaan aktif" value={String(metrics.inquiries ?? inquiries.length)} change={(metrics.openInquiries ?? 0) + ' belum selesai'} icon="message" />
         <MetricCard label="Kunjungan mendatang" value={String(metrics.upcomingVisits ?? visits.length)} change={nextVisit?.scheduled_at ? shortDateTime(nextVisit.scheduled_at) : 'Belum ada jadwal'} icon="calendar" />

@@ -28,7 +28,7 @@ export default function AgentDashboard() {
         <a href="/dashboard/agent/list" className="inline-flex items-center gap-2 rounded-xl bg-[#0b3d2e] px-5 py-3 text-sm font-semibold text-white hover:bg-[#14553f]"><Plus className="size-4" />Tambah listing</a>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <MetricCard label="Total listing" value={String(metrics.totalListings ?? (data.properties ?? []).length)} change={`${metrics.activeListings ?? 0} tayang`} icon="home" />
         <MetricCard label="Prospek baru" value={String(metrics.newLeads ?? 0)} change={`${metrics.totalLeads ?? 0} total prospek`} icon="users" />
         <MetricCard label="Kunjungan mendatang" value={String(metrics.upcomingVisits ?? 0)} change="Lihat kalender & konfirmasi" icon="calendar" />
