@@ -2,7 +2,44 @@ import { NextResponse } from 'next/server'
 import { aiChat, aiConfigured, aiModel, AiError, type AiMessage } from '@/lib/ai'
 import { clientKey, rateLimit } from '@/lib/rate-limit'
 import { computeStats, fetchById, fetchPublished, listingDetail, listingLine, statsBlock, type ListingFilters, type MarketListing } from '@/lib/market'
-import { availabilityBlock, getVisitContext } from '@/lib/visits'
+import { availabilityBlock, getVisitContext, serviceClient } from '@/lib/visits'
+import { createClient } from '@/lib/supabase/server'
+
+/**
+ * Simpan rekaman percakapan AI (item "Record Percakapan").
+ * Best-effort: kegagalan tidak boleh mengganggu jawaban ke pengguna.
+ */
+async function recordConversation(input: {
+  propertyId?: string | null
+  mode: string
+  question: string
+  answer: string
+  sources: unknown
+}) {
+  try {
+    const admin = serviceClient()
+    if (!admin) return
+    let userId: string | null = null
+    let userEmail: string | null = null
+    try {
+      const supabase = await createClient()
+      const { data } = await supabase.auth.getUser()
+      userId = data.user?.id ?? null
+      userEmail = data.user?.email ?? null
+    } catch { /* anonim */ }
+    await admin.from('ai_conversations').insert({
+      property_id: input.propertyId ?? null,
+      user_id: userId,
+      user_email: userEmail,
+      mode: input.mode,
+      question: input.question.slice(0, 2000),
+      answer: input.answer.slice(0, 8000),
+      sources: (input.sources ?? []) as Record<string, unknown>[],
+    })
+  } catch (error) {
+    console.error('[homy-ai] gagal menyimpan rekaman percakapan:', error instanceof Error ? error.message : error)
+  }
+}
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -113,12 +150,15 @@ export async function POST(request: Request) {
     )
 
     const sources = [property, ...sourceRows].filter((row): row is MarketListing => Boolean(row))
+    const sourcePayload = sources.map((row) => ({ id: row.id, title: row.title, city: row.city, district: row.district, listing_type: row.listing_type, price: row.price })).slice(0, 7)
+    // Rekam percakapan (item: Record Percakapan user <-> AI).
+    await recordConversation({ propertyId: property?.id ?? body.propertyId ?? null, mode, question, answer: text, sources: sourcePayload })
     return NextResponse.json({
       answer: text,
       mode,
       configured: true,
       usage,
-      sources: sources.map((row) => ({ id: row.id, title: row.title, city: row.city, district: row.district, listing_type: row.listing_type, price: row.price })).slice(0, 7),
+      sources: sourcePayload,
     })
   } catch (error) {
     const aiError = error instanceof AiError ? error : null

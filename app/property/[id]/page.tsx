@@ -8,7 +8,7 @@ const SUPABASE_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 const LISTING_SELECT =
-  'id,title,description,ai_summary,listing_type,property_type,status,city,district,address,province,price,price_period,bedrooms,bathrooms,land_area,building_area,latitude,longitude,created_at,updated_at,property_media(storage_path,sort_order)'
+  'id,title,description,ai_summary,listing_type,property_type,status,city,district,province,price,price_period,bedrooms,bathrooms,land_area,building_area,created_at,updated_at,property_media(storage_path,sort_order)'
 
 type ListingMedia = { storage_path: string | null; sort_order?: number | null }
 
@@ -149,20 +149,13 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
       datePosted: listing.created_at || undefined,
       dateModified: listing.updated_at || undefined,
       address: {
+        // Alamat detail tidak dipublikasikan (kebijakan privasi listing).
+        // Yang tampil hanya kecamatan/kota/provinsi; titik temu lewat peta.
         '@type': 'PostalAddress',
-        streetAddress: listing.address || undefined,
-        addressLocality: listing.city || undefined,
-        addressRegion: listing.province || undefined,
+        addressLocality: listing.district || listing.city || undefined,
+        addressRegion: listing.city || listing.province || undefined,
         addressCountry: 'ID',
       },
-      geo:
-        listing.latitude != null && listing.longitude != null
-          ? {
-              '@type': 'GeoCoordinates',
-              latitude: listing.latitude,
-              longitude: listing.longitude,
-            }
-          : undefined,
       numberOfRooms: listing.bedrooms ?? undefined,
       numberOfBathroomsTotal: listing.bathrooms ?? undefined,
       floorSize:

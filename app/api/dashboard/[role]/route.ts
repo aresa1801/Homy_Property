@@ -51,7 +51,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     const [ownInquiries, agentInquiries, visits, transactions, agreements] = await Promise.all([
       supabase.from('inquiries').select(inquirySelect).in('property_id', ownIds).order('created_at', { ascending: false }).limit(100),
       supabase.from('inquiries').select(inquirySelect).eq('agent_id', user.id).order('created_at', { ascending: false }).limit(100),
-      supabase.from('visits').select('id,property_id,user_id,scheduled_at,status,notes').eq('agent_id', user.id).order('scheduled_at', { ascending: true }).limit(100),
+      supabase.from('visits').select('id,property_id,user_id,scheduled_at,status,notes,interest,buyer_feedback,completed_at,follow_up_sent_at').eq('agent_id', user.id).order('scheduled_at', { ascending: true }).limit(100),
       supabase.from('transaction_reports').select('id,property_id,property_title,buyer_name,buyer_contact,sale_price,commission_rate,commission_amount,sold_at,status,notes,created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
       supabase.from('partner_agreements').select('role,status,full_name,identity_number,phone,address,commission_rate,signed_at,agreement_version').eq('user_id', user.id),
     ])
@@ -225,7 +225,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
   const [favorites, inquiries, visits, rentals, payments] = await Promise.all([
     supabase.from('favorites').select('property_id,created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
     supabase.from('inquiries').select('id,property_id,status,message,reply_message,replied_at,created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(20),
-    supabase.from('visits').select('id,property_id,scheduled_at,status,notes').eq('user_id', user.id).order('scheduled_at', { ascending: true }).limit(20),
+    supabase.from('visits').select('id,property_id,scheduled_at,status,notes,interest,buyer_feedback,completed_at,follow_up_sent_at').eq('user_id', user.id).order('scheduled_at', { ascending: true }).limit(20),
     supabase.from('rental_requests').select('id,property_id,start_date,end_date,status,duration_unit').eq('renter_id', user.id).order('created_at', { ascending: false }).limit(20),
     supabase.from('payments').select('id,amount,currency,payment_type,status,due_at,paid_at').eq('payer_id', user.id).order('created_at', { ascending: false }).limit(20),
   ])

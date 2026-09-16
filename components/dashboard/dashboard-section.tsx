@@ -4,7 +4,7 @@ import { FeatureShell } from '@/components/dashboard/feature-shell'
 import { useDashboard } from '@/lib/dashboard-client'
 import { AnalyticsBoard, LeadsBoard, ListingBoard } from '@/components/dashboard/boards-listing'
 import { AgreementBoard, AvailabilityBoard, BillingBoard, CalendarBoard, ListLauncher } from '@/components/dashboard/boards-ops'
-import { AiBoard } from '@/components/dashboard/boards-ai'
+import { AiBoard, AiConversationsBoard } from '@/components/dashboard/boards-ai'
 import { AiMonitorBoard, AuditBoard, FlagsBoard, ModerationBoard, PartnershipBoard, PlatformBillingBoard, ReportsBoard, RolesBoard, SettingsBoard, UsersBoard } from '@/components/dashboard/boards-admin'
 
 export type SectionRole = 'agent' | 'property-owner' | 'admin' | 'super-admin'
@@ -16,8 +16,10 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
     listings: { eyebrow: 'Listing', title: 'Listing Saya', description: 'Pantau seluruh listing Anda: status moderasi, performa prospek, dan aksi cepat seperti mengajukan ulang listing yang ditolak.' },
     leads: { eyebrow: 'Prospek', title: 'CRM Prospek', description: 'Kelola calon pembeli dan penyewa dari pertama menghubungi sampai transaksi selesai. Balas, ubah tahap, dan catat tindak lanjut.' },
     analytics: { eyebrow: 'Kinerja', title: 'Analitik', description: 'Lihat performa setiap listing: harga, jumlah prospek, tingkat respons, dan konversi agar Anda tahu mana yang perlu diprioritaskan.' },
-    calendar: { eyebrow: 'Jadwal', title: 'Kalender Kunjungan', description: 'Jadwal kunjungan calon pembeli ke listing Anda: konfirmasi, ubah waktu, tambah catatan, atau tandai selesai.' },
-    availability: { eyebrow: 'Ketersediaan', title: 'Kalender Ketersediaan', description: 'Atur hari dan jam Anda siap menerima meeting/kunjungan calon pembeli, lengkap dengan durasi slot, mode (lokasi/online), dan catatan per hari.' },
+    calendar: { eyebrow: 'Jadwal', title: 'Kalender & Ketersediaan', description: 'Satu tempat untuk jadwal kunjungan calon pembeli dan pengaturan hari/jam Anda siap menerima meeting. Konfirmasi jadwal, ubah waktu, atur ketersediaan, lalu tindak lanjuti hasil kunjungan.' },
+    schedule: { eyebrow: 'Jadwal', title: 'Kalender & Ketersediaan', description: 'Satu tempat untuk jadwal kunjungan calon pembeli dan pengaturan hari/jam Anda siap menerima meeting. Konfirmasi jadwal, ubah waktu, atur ketersediaan, lalu tindak lanjuti hasil kunjungan.' },
+    availability: { eyebrow: 'Jadwal', title: 'Kalender & Ketersediaan', description: 'Satu tempat untuk jadwal kunjungan calon pembeli dan pengaturan hari/jam Anda siap menerima meeting. Konfirmasi jadwal, ubah waktu, atur ketersediaan, lalu tindak lanjuti hasil kunjungan.' },
+    conversations: { eyebrow: 'Rekaman', title: 'Rekam Percakapan', description: 'Riwayat tanya-jawab calon pembeli/penyewa dengan Homy AI tentang listing Anda. Pakai untuk memahami pertanyaan yang paling sering muncul dan menyiapkan jawaban terbaik.' },
     billing: { eyebrow: 'Keuangan', title: 'Penagihan & Komisi', description: 'Laporkan transaksi properti ke Homy dan pantau komisi penjualan 0,5% beserta status verifikasinya.' },
     agreement: { eyebrow: 'Kemitraan', title: 'Perjanjian Kerjasama', description: 'Status perjanjian mitra Anda, data perjanjian yang tersimpan, dan ringkasan kewajiban sebagai agen Homy.' },
     list: { eyebrow: 'Publikasi', title: 'Pasang Properti', description: 'Siapkan syarat publikasi, lanjutkan listing yang tertunda, dan mulai listing baru dari form lengkap yang terbaca AI.' },
@@ -26,8 +28,10 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
   'property-owner': {
     properties: { eyebrow: 'Portofolio', title: 'Properti Saya', description: 'Semua properti Anda dalam satu papan: status moderasi, harga, jumlah pertanyaan masuk, dan aksi cepat mengajukan ulang.' },
     inquiries: { eyebrow: 'Pertanyaan', title: 'Pertanyaan Masuk', description: 'Semua pertanyaan calon pembeli/penyewa per properti. Balas langsung dan tandai tahap tindak lanjutnya.' },
-    calendar: { eyebrow: 'Jadwal', title: 'Kalender Kunjungan', description: 'Jadwal kunjungan calon pembeli ke properti Anda: konfirmasi, ubah waktu, tambah catatan, atau tandai selesai.' },
-    availability: { eyebrow: 'Ketersediaan', title: 'Kalender Ketersediaan', description: 'Atur hari dan jam Anda siap menerima meeting/kunjungan calon pembeli, lengkap dengan durasi slot, mode (lokasi/online), dan catatan per hari.' },
+    calendar: { eyebrow: 'Jadwal', title: 'Kalender & Ketersediaan', description: 'Satu tempat untuk jadwal kunjungan calon pembeli dan pengaturan hari/jam Anda siap menerima meeting. Konfirmasi jadwal, ubah waktu, atur ketersediaan, lalu tindak lanjuti hasil kunjungan.' },
+    schedule: { eyebrow: 'Jadwal', title: 'Kalender & Ketersediaan', description: 'Satu tempat untuk jadwal kunjungan calon pembeli dan pengaturan hari/jam Anda siap menerima meeting. Konfirmasi jadwal, ubah waktu, atur ketersediaan, lalu tindak lanjuti hasil kunjungan.' },
+    availability: { eyebrow: 'Jadwal', title: 'Kalender & Ketersediaan', description: 'Satu tempat untuk jadwal kunjungan calon pembeli dan pengaturan hari/jam Anda siap menerima meeting. Konfirmasi jadwal, ubah waktu, atur ketersediaan, lalu tindak lanjuti hasil kunjungan.' },
+    conversations: { eyebrow: 'Rekaman', title: 'Rekam Percakapan', description: 'Riwayat tanya-jawab calon pembeli/penyewa dengan Homy AI tentang properti Anda. Pakai untuk memahami pertanyaan yang paling sering muncul dan menyiapkan jawaban terbaik.' },
     agreement: { eyebrow: 'Kemitraan', title: 'Perjanjian Kerjasama', description: 'Status perjanjian mitra Anda, data perjanjian yang tersimpan, dan ringkasan kewajiban sebagai pemilik properti.' },
     list: { eyebrow: 'Publikasi', title: 'Pasang Properti', description: 'Siapkan syarat publikasi, lanjutkan properti yang tertunda, dan mulai listing baru dari form lengkap yang terbaca AI.' },
     ai: { eyebrow: 'Kecerdasan Buatan', title: 'Asisten AI', description: 'Saran harga otomatis dari data harga rata-rata kecamatan/kota Anda, pembanding listing, dan tanya-jawab bebas dengan Homy AI.' },
@@ -51,6 +55,18 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
 
 function adminOr(role: SectionRole): 'admin' | 'super-admin' {
   return role === 'admin' ? 'admin' : 'super-admin'
+}
+
+/** Kalender kunjungan + pengaturan ketersediaan digabung dalam satu halaman. */
+function ScheduleBoard({ data, loading, reload, type }: { data: Parameters<typeof CalendarBoard>[0]['data']; loading: boolean; reload: () => void; type: 'agent' | 'property-owner' }) {
+  return (
+    <div className="space-y-5">
+      <CalendarBoard data={data} loading={loading} reload={reload} type={type} />
+      <div className="border-t border-[#e5dccd] pt-5">
+        <AvailabilityBoard data={data} loading={loading} reload={reload} type={type} />
+      </div>
+    </div>
+  )
 }
 
 export function DashboardSection({ role, section }: { role: SectionRole; section: string }) {
@@ -79,8 +95,10 @@ export function DashboardSection({ role, section }: { role: SectionRole; section
       inquiries: <LeadsBoard data={data} loading={loading} reload={reload} type={role} />,
       analytics: <AnalyticsBoard data={data} loading={loading} reload={reload} type={role} />,
       billing: <BillingBoard data={data} loading={loading} reload={reload} type={role} />,
-      calendar: <CalendarBoard data={data} loading={loading} reload={reload} type={role} />,
-      availability: <AvailabilityBoard data={data} loading={loading} reload={reload} type={role} />,
+      calendar: <ScheduleBoard data={data} loading={loading} reload={reload} type={role} />,
+      schedule: <ScheduleBoard data={data} loading={loading} reload={reload} type={role} />,
+      availability: <ScheduleBoard data={data} loading={loading} reload={reload} type={role} />,
+      conversations: <AiConversationsBoard data={data} loading={loading} reload={reload} type={role} />,
       agreement: <AgreementBoard data={data} loading={loading} reload={reload} type={role} />,
       list: <ListLauncher data={data} loading={loading} reload={reload} type={role} />,
       ai: <AiBoard data={data} loading={loading} reload={reload} type={role} />,

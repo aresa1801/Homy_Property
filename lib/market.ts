@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server'
 
 export const MARKET_COLUMNS = [
   'id', 'title', 'listing_type', 'property_type', 'status',
-  'province', 'city', 'district', 'address', 'postal_code',
+  'province', 'city', 'district', 'postal_code',
   'price', 'price_period', 'negotiable',
   'bedrooms', 'bathrooms', 'land_area', 'building_area', 'furnished',
   'certificate', 'year_built', 'floors', 'carports', 'electricity_va',
@@ -25,6 +25,7 @@ export type MarketListing = {
   city?: string | null
   district?: string | null
   address?: string | null
+  /** Catatan internal: alamat detail TIDAK dipakai untuk tampilan publik (hanya kota/kecamatan). */
   postal_code?: string | null
   price?: number | string | null
   price_period?: string | null
@@ -264,7 +265,7 @@ export function listingDetail(row: MarketListing) {
     `ID: ${row.id}`,
     `Jenis: ${row.listing_type === 'rent' ? 'Sewa' : row.listing_type === 'sale' ? 'Jual' : row.listing_type ?? '-'}`,
     `Tipe properti: ${row.property_type ?? '-'}`,
-    `Lokasi: ${[row.address, row.district, row.city, row.province, row.postal_code].filter(Boolean).join(', ') || '-'}`,
+    `Lokasi: ${[row.district, row.city, row.province].filter(Boolean).join(', ') || '-'} (alamat detail sengaja tidak dibagikan ke AI/publik — arahkan pengguna menjadwalkan kunjungan atau menanyakan titik temu lewat pemilik)`,
     `Harga: ${rupiahText(number(row.price))}${row.price_period ? ` per ${row.price_period}` : ''}${row.negotiable ? ' (bisa nego)' : ''}`,
     `Kamar tidur: ${row.bedrooms ?? '-'} | Kamar mandi: ${row.bathrooms ?? '-'}`,
     `Luas tanah: ${row.land_area ?? '-'} m2 | Luas bangunan: ${row.building_area ?? '-'} m2`,

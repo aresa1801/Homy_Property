@@ -109,6 +109,9 @@ export function CalendarBoard({ data, loading, reload }: BoardProps & { type: 'a
   const now = Date.now()
   const today = new Date().toDateString()
   const active = visits.filter((visit) => visit.status !== 'cancelled' && visit.status !== 'completed')
+  const [followUp, setFollowUp] = useState<string | null>(null)
+  const [interest, setInterest] = useState<'interested' | 'not_interested'>('interested')
+  const [feedback, setFeedback] = useState('')
   const todayVisits = active.filter((visit) => visit.scheduled_at && new Date(visit.scheduled_at).toDateString() === today)
   const upcoming = active.filter((visit) => visit.scheduled_at && new Date(visit.scheduled_at).getTime() > now && new Date(visit.scheduled_at).toDateString() !== today)
   const done = visits.filter((visit) => visit.status === 'completed' || visit.status === 'cancelled')
@@ -123,6 +126,32 @@ export function CalendarBoard({ data, loading, reload }: BoardProps & { type: 'a
       reload()
     } catch (error) {
       setMessage({ tone: 'err', text: error instanceof Error ? error.message : 'Gagal memperbarui jadwal' })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function sendFollowUp(visit: DashboardVisit) {
+    setBusy(visit.id)
+    setMessage(null)
+    try {
+      const response = await fetch('/api/visits/follow-up', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visitId: visit.id, interest, feedback }),
+      })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(payload?.error ?? 'Gagal mengirim tindak lanjut')
+      const mail = payload?.email
+      setMessage({
+        tone: 'ok',
+        text: `Tindak lanjut terkirim ke pembeli lewat notifikasi${mail?.ok ? ' dan email' : mail?.skipped ? ' (email aktif setelah pengaturan email diisi)' : ''}. ${interest === 'interested' ? 'Langkah selanjutnya sudah dijelaskan.' : `Dikirim ${payload?.alternatives?.length ?? 0} rekomendasi properti lain.`}`,
+      })
+      setFollowUp(null)
+      setFeedback('')
+      reload()
+    } catch (error) {
+      setMessage({ tone: 'err', text: error instanceof Error ? error.message : 'Gagal mengirim tindak lanjut' })
     } finally {
       setBusy(null)
     }
@@ -147,12 +176,37 @@ export function CalendarBoard({ data, loading, reload }: BoardProps & { type: 'a
                 <span className={`${ui.badge} ${meta.className} h-fit shrink-0`}>{meta.label}</span>
               </div>
               {visit.notes && <p className="mt-2 rounded-lg bg-[#f7f3ec] p-3 text-sm text-[#33433d]">{visit.notes}</p>}
+              {visit.interest && visit.interest !== 'pending' && (
+                <p className={`mt-2 rounded-lg px-3 py-2 text-xs font-semibold ${visit.interest === 'interested' ? 'bg-[#edf2ed] text-[#0b3d2e]' : 'bg-[#fff7e3] text-[#9b762a]'}`}>
+                  {visit.interest === 'interested' ? '✅ Pembeli tertarik — langkah lanjutan sudah dikirim' : '↩️ Pembeli belum tertarik — rekomendasi properti lain sudah dikirim'}
+                  {visit.buyer_feedback ? ` · Catatan: ${visit.buyer_feedback}` : ''}
+                </p>
+              )}
               <div className="mt-3 flex flex-wrap gap-2">
                 {visit.status === 'requested' && <button type="button" disabled={busy === visit.id} onClick={() => update(visit, { status: 'confirmed' }, 'Kunjungan dikonfirmasi.')} className={ui.btn}>Konfirmasi</button>}
                 {visit.status !== 'completed' && <button type="button" disabled={busy === visit.id} onClick={() => update(visit, { status: 'completed' }, 'Kunjungan ditandai selesai.')} className={ui.ghost}>Selesai</button>}
                 {visit.status !== 'cancelled' && visit.status !== 'completed' && <button type="button" disabled={busy === visit.id} onClick={() => update(visit, { status: 'cancelled' }, 'Kunjungan dibatalkan.')} className={ui.ghost}>Batalkan</button>}
+                <button type="button" disabled={busy === visit.id} onClick={() => { setFollowUp(followUp === visit.id ? null : visit.id); setInterest(visit.interest === 'not_interested' ? 'not_interested' : 'interested'); setFeedback(visit.buyer_feedback ?? '') }} className={ui.ghost}>
+                  {followUp === visit.id ? 'Tutup tindak lanjut' : 'Tindak lanjut kunjungan'}
+                </button>
                 <button type="button" onClick={() => { setEditing(open ? null : visit.id); setDraft({ scheduledAt: (visit.scheduled_at ?? '').slice(0, 16), notes: visit.notes ?? '' }) }} className={ui.ghost}>{open ? 'Tutup' : 'Ubah jadwal / catatan'}</button>
               </div>
+              {followUp === visit.id && (
+                <div className="mt-3 space-y-3 border-t border-[#f2ede4] pt-3">
+                  <p className="text-sm font-semibold text-[#0b3d2e]">Hasil kunjungan</p>
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => setInterest('interested')} className={interest === 'interested' ? ui.btn : ui.ghost}>Pembeli tertarik</button>
+                    <button type="button" onClick={() => setInterest('not_interested')} className={interest === 'not_interested' ? ui.btn : ui.ghost}>Belum tertarik</button>
+                  </div>
+                  <textarea value={feedback} onChange={(event) => setFeedback(event.target.value)} rows={2} placeholder="Catatan kunjungan (opsional) — misal: suka dapurnya, tapi harga sedikit di atas budget" className={ui.input} />
+                  <p className="text-xs leading-5 text-[#718078]">
+                    {interest === 'interested'
+                      ? 'Pembeli akan dapat notifikasi + email berisi langkah selanjutnya (konfirmasi minat, dokumen, negosiasi, akad).'
+                      : 'Pembeli akan dapat notifikasi + email berisi rekomendasi properti lain yang mirip.'}
+                  </p>
+                  <button type="button" disabled={busy === visit.id} onClick={() => void sendFollowUp(visit)} className={ui.btn}>Kirim tindak lanjut</button>
+                </div>
+              )}
               {open && (
                 <div className="mt-3 space-y-3 border-t border-[#f2ede4] pt-3">
                   <input type="datetime-local" value={draft.scheduledAt} onChange={(event) => setDraft({ ...draft, scheduledAt: event.target.value })} className={ui.input} />

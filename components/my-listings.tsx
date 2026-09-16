@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertTriangle, ExternalLink, RefreshCw } from 'lucide-react'
+import { AlertTriangle, ExternalLink, Pencil, RefreshCw } from 'lucide-react'
 
 type Listing = {
   id: string
@@ -124,7 +124,9 @@ export function MyListings({ items }: { items: Listing[] }) {
                 </a>
               )}
               {item.status !== 'rejected' && (
-                <a href={`/list?edit=${item.id}`} className="rounded-lg border border-[#d8ccbb] px-3 py-1.5 text-xs font-semibold text-[#33433d]">Tinjau isi</a>
+                <a href={`/listing/${item.id}/edit`} className="inline-flex items-center gap-2 rounded-lg bg-[#0b3d2e] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#14553f]">
+                  <Pencil className="size-3.5" /> Edit listing (foto & titik peta)
+                </a>
               )}
             </div>
           </div>

@@ -23,6 +23,13 @@ export type PropertyRecord = {
   rent_payment_terms?: string | null
   property_condition?: string | null
   created_at?: string | null
+  // Lokasi: alamat detail bersifat internal (tidak ditampilkan di halaman publik).
+  // Yang dipublikasikan hanya kecamatan/kota/provinsi + titik temu (meeting point).
+  address?: string | null
+  map_url?: string | null
+  meeting_point?: string | null
+  meeting_point_lat?: number | null
+  meeting_point_lng?: number | null
   property_media?: { storage_path: string; media_type?: string | null; sort_order?: number | null }[] | null
   media?: { storage_path: string; sort_order?: number | null }[] | null
 }

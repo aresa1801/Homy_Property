@@ -41,6 +41,10 @@ export type DashboardVisit = {
   scheduled_at?: string
   status?: string
   notes?: string | null
+  interest?: 'pending' | 'interested' | 'not_interested' | string | null
+  buyer_feedback?: string | null
+  completed_at?: string | null
+  follow_up_sent_at?: string | null
   visitor?: { name?: string; email?: string; phone?: string } | null
 }
 

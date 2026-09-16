@@ -3,11 +3,12 @@
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 import { useEffect, useState } from 'react'
-import { ArrowLeft, BedDouble, Bath, Check, Heart, Home, MapPin, Ruler, Send, Sparkles } from 'lucide-react'
+import { ArrowLeft, BedDouble, Bath, Check, Heart, Home, MapPin, Navigation, Ruler, Send, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { AiChat } from '@/components/ai/ai-chat'
 import { VisitScheduler } from '@/components/ai/visit-scheduler'
 import { createClient } from '@/lib/supabase/client'
+import { mapEmbedUrl, mapOpenUrl } from '@/lib/homy-maps'
 import {
   FURNISHED_LABEL,
   PROPERTY_TYPE_LABEL,
@@ -33,7 +34,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
     const supabase = createClient()
     supabase
       .from('properties')
-      .select('id,title,description,listing_type,status,property_type,province,postal_code,negotiable,certificate,year_built,floors,carports,electricity_va,water_source,property_condition,amenities,nearby,min_lease_months,rent_payment_terms,occupancy_status,extra_notes,ai_summary,ai_facts,city,district,address,price,price_period,bedrooms,bathrooms,land_area,building_area,furnished,utilities_included,available_from,created_at,property_media(storage_path,media_type,sort_order)')
+      .select('id,title,description,listing_type,status,property_type,province,postal_code,negotiable,certificate,year_built,floors,carports,electricity_va,water_source,property_condition,amenities,nearby,min_lease_months,rent_payment_terms,occupancy_status,extra_notes,ai_summary,ai_facts,city,district,map_url,meeting_point,meeting_point_lat,meeting_point_lng,price,price_period,bedrooms,bathrooms,land_area,building_area,furnished,utilities_included,available_from,created_at,property_media(storage_path,media_type,sort_order)')
       .eq('id', id)
       .maybeSingle()
       .then(({ data }) => {
@@ -115,7 +116,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
             <div className="mt-8">
               <span className="inline-block rounded-full bg-[#edf2ed] px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[#0b3d2e]">{property.listing_type === 'rent' ? 'Disewakan' : 'Dijual'}</span>
               <h1 className="mt-4 font-serif text-2xl sm:text-4xl text-[#0b3d2e] md:text-5xl">{property.title}</h1>
-              <p className="mt-3 flex items-center gap-2 text-[#65706c]"><MapPin className="size-4" /> {propertyLocation(property)}{property.address ? ` · ${property.address}` : ''}</p>
+              <p className="mt-3 flex items-center gap-2 text-[#65706c]"><MapPin className="size-4" /> {propertyLocation(property)}</p>
               <p className="mt-6 text-2xl sm:text-3xl font-bold text-[#0b3d2e]">{formatPriceWithPeriod(property.price, property.price_period)}</p>
 
               <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -131,6 +132,8 @@ export default function PropertyDetailClient({ id }: { id: string }) {
                   <p className="mt-3 whitespace-pre-line leading-7 text-[#65706c]">{property.description}</p>
                 </div>
               )}
+
+              <LocationMeetingCard property={property} />
 
               {property.furnished && (
                 <p className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#edf2ed] px-4 py-2 text-sm text-[#0b3d2e]"><Check className="size-4" /> {FURNISHED_LABEL[property.furnished] ?? property.furnished}</p>
@@ -172,5 +175,47 @@ export default function PropertyDetailClient({ id }: { id: string }) {
       </section>
           <SiteFooter />
     </main>
+  )
+}
+
+/**
+ * Kartu "Lokasi & titik temu".
+ *
+ * Alamat detail sengaja TIDAK ditampilkan di halaman publik (Jual/Sewa) —
+ * hanya kecamatan/kota/provinsi dan titik temu (meeting point) yang sudah
+ * didaftarkan pemilik/agen. Peta memakai koordinat titik temu, bukan alamat rumah.
+ */
+function LocationMeetingCard({ property }: { property: PropertyRecord }) {
+  const lat = property.meeting_point_lat
+  const lng = property.meeting_point_lng
+  const hasPoint = lat != null && lng != null && (Number(lat) !== 0 || Number(lng) !== 0)
+  const embed = mapEmbedUrl(hasPoint ? lat : null, hasPoint ? lng : null)
+  const open = mapOpenUrl(hasPoint ? lat : null, hasPoint ? lng : null)
+  if (!embed && !property.meeting_point) return null
+
+  return (
+    <div className="mt-8 rounded-2xl bg-white p-4 sm:p-6">
+      <h2 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Lokasi & titik temu</h2>
+      <p className="mt-2 text-sm leading-6 text-[#65706c]">
+        Demi keamanan pemilik, alamat lengkap tidak ditampilkan. Titik temu di bawah ini adalah lokasi yang sudah
+        didaftarkan pemilik/agen untuk kunjungan atau serah terima.
+      </p>
+      <p className="mt-2 flex items-center gap-2 text-sm font-medium text-[#0b3d2e]">
+        <MapPin className="size-4" /> {propertyLocation(property)}
+      </p>
+      {property.meeting_point && (
+        <p className="mt-1 text-sm text-[#65706c]">Patokan titik temu: {property.meeting_point}</p>
+      )}
+      {embed && (
+        <div className="mt-4 overflow-hidden rounded-xl border border-[#e8dfd3]">
+          <iframe src={embed} title="Peta titik temu" className="h-72 w-full" loading="lazy" referrerPolicy="no-referrer-when-downgrade" />
+        </div>
+      )}
+      {open && (
+        <a href={open} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 rounded-lg border border-[#d8ccbb] px-3 py-2 text-xs font-semibold text-[#33433d]">
+          <Navigation className="size-3.5" /> Buka titik temu di Google Maps
+        </a>
+      )}
+    </div>
   )
 }

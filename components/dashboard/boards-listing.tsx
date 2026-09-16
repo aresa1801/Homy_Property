@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { AlertTriangle, ExternalLink, RefreshCw, Search } from 'lucide-react'
+import { AlertTriangle, ExternalLink, Pencil, RefreshCw, Search } from 'lucide-react'
 import { MetricCard } from '@/components/dashboard-shell'
 import { resubmitListing, rupiah, runAction, shortDate, STAGE_LABEL, STATUS_LABEL, ui, type DashboardPayload, type DashboardProperty } from '@/lib/dashboard-client'
 
@@ -110,6 +110,7 @@ export function ListingBoard({ data, loading, reload, type }: BoardProps & { typ
                     {item.status === 'published' && (
                       <a href={`/property/${item.id}`} className={ui.ghost}><ExternalLink className="size-3.5" />Lihat listing</a>
                     )}
+                    <a href={`/listing/${item.id}/edit`} className={ui.btn}><Pencil className="size-3.5" />Edit listing</a>
                   </div>
                 </div>
                 {item.status === 'rejected' && item.moderation_note && (

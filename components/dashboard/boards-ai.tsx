@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { BarChart3, Building2, Loader2, MapPin, Sparkles } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { BarChart3, Building2, ChevronDown, ExternalLink, Loader2, MapPin, MessageSquare, RefreshCw, Sparkles } from 'lucide-react'
 import { AiChat } from '@/components/ai/ai-chat'
 import { CuratePanel } from '@/components/ai/curate-panel'
 import { rupiah, ui, type DashboardPayload } from '@/lib/dashboard-client'
@@ -302,6 +302,151 @@ export function CurateBoard(_props: BoardProps) {
           suggestions={['Bandingkan 3 properti termurah di Bandung', 'Sewa apartemen Jakarta per bulan berapa?', 'Properti mana yang terbaik untuk investasi?']}
         />
       </div>
+    </div>
+  )
+}
+
+/* --------------------------------------------------------------------------- */
+/* Rekam percakapan pengguna <-> Homy AI tentang listing milik agen/pemilik      */
+/* --------------------------------------------------------------------------- */
+
+type ConversationRow = {
+  id: string
+  propertyId: string | null
+  propertyTitle: string | null
+  propertyCity: string | null
+  propertyDistrict: string | null
+  listingType: string | null
+  userEmail: string | null
+  isMine: boolean
+  mode: string
+  question: string
+  answer: string
+  createdAt: string
+}
+
+function shortDateTime(value?: string | null) {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return date.toLocaleString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
+function maskEmail(value?: string | null) {
+  const text = String(value ?? '').trim()
+  if (!text.includes('@')) return text || 'Tamu (belum masuk)'
+  const [name, domain] = text.split('@')
+  const visible = name.slice(0, 2)
+  return `${visible}${'*'.repeat(Math.max(name.length - 2, 1))}@${domain}`
+}
+
+/** Papan "Rekam Percakapan": riwayat tanya-jawab pembeli dengan Homy AI per listing. */
+export function AiConversationsBoard({ data, loading }: BoardProps) {
+  const properties = data.properties ?? []
+  const [propertyId, setPropertyId] = useState('')
+  const [rows, setRows] = useState<ConversationRow[]>([])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [openId, setOpenId] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setBusy(true)
+    setError(null)
+    try {
+      const query = propertyId ? `?propertyId=${propertyId}&limit=80` : '?limit=80'
+      const response = await fetch(`/api/ai/conversations${query}`, { cache: 'no-store' })
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setError(payload?.error ?? 'Gagal memuat rekaman percakapan.')
+        setRows([])
+        return
+      }
+      setRows((payload.conversations ?? []) as ConversationRow[])
+    } catch {
+      setError('Tidak bisa menghubungi server. Coba lagi.')
+    } finally {
+      setBusy(false)
+    }
+  }, [propertyId])
+
+  useEffect(() => { void load() }, [load])
+
+  const grouped = new Map<string, ConversationRow[]>()
+  rows.forEach((row) => {
+    const key = row.propertyId ?? 'lainnya'
+    grouped.set(key, [...(grouped.get(key) ?? []), row])
+  })
+
+  return (
+    <div className="space-y-4 sm:space-y-5">
+      <div className={ui.card}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="flex items-center gap-2 text-sm font-semibold text-[#0b3d2e]"><MessageSquare className="size-4" /> Rekam percakapan pembeli dengan Homy AI</p>
+            <p className="mt-1 text-sm text-[#718078]">
+              Semua tanya-jawab antara calon pembeli/penyewa dan Homy AI tentang listing Anda tercatat di sini. Pakai untuk tahu apa yang paling sering ditanyakan pembeli.
+            </p>
+          </div>
+          <div className="flex items-end gap-2">
+            <label className="flex flex-col gap-1 text-xs font-semibold text-[#65706c]">Listing
+              <select value={propertyId} onChange={(event) => setPropertyId(event.target.value)} className="h-10 min-w-52 rounded-lg border border-[#e8dfd3] px-3 text-sm">
+                <option value="">Semua listing saya</option>
+                {properties.map((property) => <option key={property.id} value={property.id}>{property.title ?? 'Listing'}</option>)}
+              </select>
+            </label>
+            <button type="button" onClick={() => void load()} disabled={busy} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#d8ccbb] px-3 text-sm font-semibold text-[#33433d] disabled:opacity-60">
+              {busy ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />} Muat ulang
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {error && <p className="rounded-xl bg-[#fbeeec] px-4 py-3 text-sm font-medium text-[#b45c50]">{error}</p>}
+
+      {!busy && !rows.length && !error && (
+        <div className={ui.card}>
+          <p className="text-sm text-[#718078]">Belum ada percakapan tercatat. Rekaman muncul otomatis begitu pembeli bertanya ke Homy AI tentang listing Anda.</p>
+        </div>
+      )}
+
+      {Array.from(grouped.entries()).map(([key, items]) => {
+        const first = items[0]
+        return (
+          <div key={key} className={ui.card}>
+            <p className="text-sm font-semibold text-[#0b3d2e]">{first.propertyTitle ?? 'Percakapan umum (tanpa listing)'}</p>
+            <p className="mt-0.5 text-xs text-[#718078]">
+              {[first.propertyDistrict, first.propertyCity].filter(Boolean).join(', ') || 'Tanpa lokasi'} · {items.length} percakapan
+            </p>
+            <div className="mt-3 space-y-2">
+              {items.map((row) => {
+                const open = openId === row.id
+                return (
+                  <div key={row.id} className="rounded-xl bg-[#f7f3ec] p-3">
+                    <button type="button" onClick={() => setOpenId(open ? null : row.id)} className="flex w-full items-start justify-between gap-3 text-left">
+                      <span className="min-w-0">
+                        <span className="block text-sm font-semibold text-[#20332c]">{row.question}</span>
+                        <span className="mt-0.5 block text-xs text-[#718078]">{maskEmail(row.userEmail)} · {shortDateTime(row.createdAt)} · {row.mode === 'property' ? 'tentang listing ini' : row.mode === 'market' ? 'pasar umum' : 'pencarian'}</span>
+                      </span>
+                      <ChevronDown className={'mt-0.5 size-4 shrink-0 text-[#65706c] transition ' + (open ? 'rotate-180' : '')} />
+                    </button>
+                    {open && (
+                      <div className="mt-3 space-y-2 border-t border-[#e8dfd3] pt-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-[#a18a61]">Jawaban Homy AI</p>
+                        <p className="whitespace-pre-wrap text-sm leading-6 text-[#33433d]">{row.answer}</p>
+                        {row.propertyId && (
+                          <a href={`/property/${row.propertyId}`} className="inline-flex items-center gap-1 text-xs font-semibold text-[#0b3d2e]">
+                            <ExternalLink className="size-3" /> Lihat listing
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }

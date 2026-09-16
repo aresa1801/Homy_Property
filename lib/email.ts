@@ -233,3 +233,130 @@ export async function sendVisitScheduledEmail(input: VisitMailInput) {
     return { ok: false, error: 'request failed', subject }
   }
 }
+
+/* --------------------------------------------------------------------------- */
+/* Tindak lanjut SETELAH kunjungan (follow-up ke calon pembeli/penyewa)         */
+/* --------------------------------------------------------------------------- */
+
+export type FollowUpAlternative = {
+  id: string
+  title?: string | null
+  city?: string | null
+  district?: string | null
+  price?: number | string | null
+  listing_type?: string | null
+}
+
+export type VisitFollowUpInput = {
+  to: string
+  buyerName?: string
+  propertyTitle: string
+  propertyId?: string | null
+  interested: boolean
+  sellerName?: string | null
+  sellerContact?: string | null
+  feedback?: string | null
+  nextSteps?: string | null
+  alternatives?: FollowUpAlternative[]
+}
+
+function rupiahText(value?: number | string | null) {
+  const amount = typeof value === 'string' ? Number(value) : value
+  if (!amount || Number.isNaN(amount)) return 'Harga menyusul'
+  return `Rp ${Number(amount).toLocaleString('id-ID')}`
+}
+
+export function visitFollowUpSubject(input: VisitFollowUpInput) {
+  return input.interested
+    ? `Langkah berikutnya untuk ${input.propertyTitle}`
+    : `Pilihan properti lain yang mirip ${input.propertyTitle}`
+}
+
+function followUpHtml(input: VisitFollowUpInput) {
+  const greeting = input.buyerName ? `<p style="margin:0 0 12px;color:#65706c">Halo ${escapeHtml(input.buyerName)},</p>` : ''
+  const alternatives = (input.alternatives ?? []).slice(0, 4)
+  const altBlock = !input.interested && alternatives.length
+    ? `<p style="margin:22px 0 10px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#a18a61">Rekomendasi untuk Anda</p>
+       ${alternatives
+         .map(
+           (item) => `<a href="${appUrl()}/property/${item.id}" style="display:block;margin:0 0 10px;padding:14px 16px;border:1px solid #e8dfd3;border-radius:12px;text-decoration:none">
+             <p style="margin:0;font-weight:700;color:#0b3d2e">${escapeHtml(String(item.title ?? 'Properti'))}</p>
+             <p style="margin:4px 0 0;font-size:13px;color:#718078">${escapeHtml([item.district, item.city].filter(Boolean).join(', ') || 'Lokasi menyusul')}${item.listing_type === 'rent' ? ' · Sewa' : ' · Jual'}</p>
+             <p style="margin:4px 0 0;font-size:14px;font-weight:600;color:#0b3d2e">${rupiahText(item.price)}${item.listing_type === 'rent' ? ' / bulan' : ''}</p>
+           </a>`,
+         )
+         .join('')}`
+    : ''
+
+  const steps = input.interested
+    ? `<ol style="margin:12px 0 0;padding-left:20px;color:#33433d;line-height:1.9">
+         <li>Konfirmasi minat Anda dengan membalas email ini atau menghubungi pemilik/agen.</li>
+         <li>Siapkan dokumen: KTP, dan untuk pembelian KPR siapkan slip gaji/rekening 3 bulan terakhir.</li>
+         <li>Jadwalkan negosiasi harga &amp; cek sertifikat/IMB bersama pemilik.</li>
+         <li>Lanjut ke proses booking, PPJB, lalu akad/balik nama.</li>
+       </ol>`
+    : `<p style="margin:12px 0 0;color:#33433d;line-height:1.8">Terima kasih atas waktunya. Kalau unit tadi belum cocok, tidak masalah — kami bantu carikan pilihan lain yang lebih sesuai kriteria Anda.</p>`
+
+  const contact = input.sellerContact
+    ? `<p style="margin:14px 0 0;color:#33433d;line-height:1.8">Kontak pemilik/agen${input.sellerName ? ` (${escapeHtml(input.sellerName)})` : ''}: <strong>${escapeHtml(input.sellerContact)}</strong></p>`
+    : ''
+
+  const feedback = input.feedback
+    ? `<div style="margin:18px 0 0;padding:14px 16px;border-radius:12px;background:#f7f3ec;border:1px solid #e8dfd3">
+         <p style="margin:0 0 6px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#a18a61">Catatan kunjungan</p>
+         <p style="margin:0;color:#33433d;line-height:1.7">${escapeHtml(input.feedback)}</p>
+       </div>`
+    : ''
+
+  const headline = input.interested ? 'Terima kasih sudah berkunjung!' : 'Belum cocok? Kami punya pilihan lain'
+
+  return `<!doctype html><html><body style="margin:0;background:#f7f3ec;font-family:'Segoe UI',Helvetica,Arial,sans-serif">
+  <div style="max-width:560px;margin:0 auto;padding:32px 20px">
+    <div style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:#0b3d2e;margin-bottom:20px">Homy<span style="color:#c9a961">.</span></div>
+    <div style="background:#ffffff;border:1px solid #e8dfd3;border-radius:16px;padding:28px">
+      <p style="margin:0 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:${input.interested ? '#4e866d' : '#c9a961'}">Tindak lanjut kunjungan</p>
+      <h1 style="margin:0 0 16px;font-family:Georgia,serif;font-size:26px;line-height:1.3;color:#0b3d2e">${headline}</h1>
+      ${greeting}
+      <p style="margin:0;color:#33433d;line-height:1.7">Kunjungan Anda ke <strong>${escapeHtml(input.propertyTitle)}</strong> sudah tercatat. ${
+        input.interested ? 'Karena Anda tertarik, berikut langkah selanjutnya yang bisa diambil:' : 'Berikut pilihan properti lain yang mirip dan bisa Anda pertimbangkan:'
+      }</p>
+      ${steps}
+      ${contact}
+      ${feedback}
+      ${altBlock}
+      <a href="${input.propertyId ? `${appUrl()}/property/${input.propertyId}` : `${appUrl()}/buy`}" style="display:inline-block;margin-top:22px;background:#0b3d2e;color:#ffffff;text-decoration:none;padding:13px 22px;border-radius:10px;font-weight:600">${
+        input.interested ? 'Lihat properti' : 'Cari properti lain'
+      }</a>
+    </div>
+    <p style="margin:20px 0 0;font-size:12px;line-height:1.6;color:#8a938f">Email otomatis dari Homy Property setelah kunjungan Anda.<br/>Pencarian properti terpercaya — <a href="${appUrl()}" style="color:#0b3d2e">${appUrl().replace(/^https?:\/\//, '')}</a></p>
+  </div></body></html>`
+}
+
+/** Kirim email tindak lanjut setelah kunjungan. Tidak pernah melempar error. */
+export async function sendVisitFollowUpEmail(input: VisitFollowUpInput) {
+  const subject = visitFollowUpSubject(input)
+  if (!input.to) return { ok: false, skipped: true, reason: 'missing recipient', subject }
+  const apiKey = process.env.RESEND_API_KEY
+  const from = process.env.HOMY_EMAIL_FROM || 'Homy Property <notifikasi@homy.id>'
+  if (!apiKey) {
+    console.warn(`[homy-email] RESEND_API_KEY belum di-set — email tindak lanjut ke ${input.to} dilewati (${subject})`)
+    return { ok: false, skipped: true, reason: 'email provider not configured', subject }
+  }
+  try {
+    const response = await fetch(RESEND_ENDPOINT, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [input.to], subject, html: followUpHtml(input) }),
+    })
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      console.error('[homy-email] gagal kirim tindak lanjut:', response.status, detail.slice(0, 300))
+      return { ok: false, status: response.status, subject }
+    }
+    const payload = (await response.json().catch(() => ({}))) as { id?: string }
+    return { ok: true, id: payload.id, subject }
+  } catch (error) {
+    console.error('[homy-email] error tindak lanjut:', error instanceof Error ? error.message : error)
+    return { ok: false, error: 'request failed', subject }
+  }
+}
