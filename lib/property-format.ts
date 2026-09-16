@@ -79,6 +79,38 @@ export function propertyLocation(p: PropertyRecord): string {
   return [p.district, p.city].filter(Boolean).join(', ') || 'Lokasi menyusul'
 }
 
+/**
+ * Kebijakan privasi listing: alamat detail tidak ditampilkan di halaman publik.
+ * Kolom `address` memang tidak lagi dikirim ke UI, tapi pemilik/agen kadang
+ * menuliskan alamat lengkap di dalam judul/deskripsi/ringkasan. Fungsi ini
+ * membersihkan bagian yang mirip alamat jalan (Jl./Jalan, RT/RW, Blok, No.)
+ * tanpa mengubah bagian lain dari teks.
+ */
+const ADDRESS_RULES: { pattern: RegExp; replace: string }[] = [
+  { pattern: /\s*\(([^()]{0,160}?)\b(?:Jl\.?|Jalan)\b[^()]{0,160}?\)/gi, replace: '' },
+  { pattern: /\s*\(\s*(?:RT|RW)\.?\s*\d+[^()]{0,120}?\)/gi, replace: '' },
+  { pattern: /\s*,?\s*\b(?:No|Nomor)\.?\s*\d{1,5}[A-Za-z]?\b/gi, replace: '' },
+  {
+    pattern: /\b(?:Jl\.?|Jalan)\s+(?:(?!\b(?:RT|RW|Blok)\b)[^,;.\n()]){2,120}/gi,
+    replace: 'lokasi disembunyikan ',
+  },
+  { pattern: /\b(?:RT|RW)\.?\s*\d+\s*[/\-]?\s*(?:RT|RW)?\.?\s*\d*\b/gi, replace: ' ' },
+  { pattern: /\bBlok\s+[A-Z0-9]{1,4}\b/gi, replace: '' },
+]
+
+export function hideDetailAddress(input?: string | null): string {
+  let text = String(input ?? '')
+  if (!text) return ''
+  for (const rule of ADDRESS_RULES) text = text.replace(rule.pattern, rule.replace)
+  return text
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s+([,;.])/g, '$1')
+    .replace(/\(\s*\)/g, '')
+    .replace(/,\s*,/g, ',')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
 // Resolve a public URL for the first media item of a property.
 // storage_path may already be a full URL (legacy/demo) or a bucket-relative path.
 export function firstMediaUrl(p: PropertyRecord, supabaseUrl?: string, bucket = 'property-media'): string | null {

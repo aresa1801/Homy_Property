@@ -13,6 +13,7 @@ import {
   FURNISHED_LABEL,
   PROPERTY_TYPE_LABEL,
   formatPriceWithPeriod,
+  hideDetailAddress,
   propertyLocation,
   type PropertyRecord,
 } from '@/lib/property-format'
@@ -129,7 +130,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
               {property.description && (
                 <div className="mt-8 rounded-2xl bg-white p-4 sm:p-6">
                   <h2 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Deskripsi</h2>
-                  <p className="mt-3 whitespace-pre-line leading-7 text-[#65706c]">{property.description}</p>
+                  <p className="mt-3 whitespace-pre-line leading-7 text-[#65706c]">{hideDetailAddress(property.description)}</p>
                 </div>
               )}
 

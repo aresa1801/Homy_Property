@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import { hideDetailAddress } from '@/lib/property-format'
 import PropertyDetailClient from './property-detail-client'
 
 const SITE_URL = (process.env.HOMY_APP_URL || 'https://homyproperty.id').replace(/\/$/, '')
@@ -75,7 +76,7 @@ async function fetchListing(
 }
 
 function cleanText(value: string | null | undefined, max = 300): string {
-  return (value ?? '').replace(/\s+/g, ' ').trim().slice(0, max)
+  return hideDetailAddress(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max)
 }
 
 function locationLabel(listing: Listing): string {

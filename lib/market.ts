@@ -3,6 +3,13 @@
  * Dipakai AI untuk: menjawab calon buyer, saran harga, kurasi & rekomendasi listing.
  */
 import { createClient } from '@/lib/supabase/server'
+import { hideDetailAddress } from '@/lib/property-format'
+
+/** Ringkasan teks listing tanpa alamat jalan (kebijakan privasi listing). */
+function safeText(value?: string | null): string | null {
+  const clean = hideDetailAddress(value)
+  return clean ? clean : null
+}
 
 export const MARKET_COLUMNS = [
   'id', 'title', 'listing_type', 'property_type', 'status',
@@ -135,7 +142,7 @@ export function matches(row: MarketListing, filters: ListingFilters) {
   if (filters.maxPrice != null && price != null && price > filters.maxPrice) return false
   if (filters.minPrice != null && price != null && price < filters.minPrice) return false
   if (filters.keyword) {
-    const haystack = [row.title, row.city, row.district, row.province, row.property_type, row.ai_summary, (row.amenities ?? []).join(' '), (row.nearby ?? []).join(' ')]
+    const haystack = [row.title, row.city, row.district, row.province, row.property_type, safeText(row.ai_summary), (row.amenities ?? []).join(' '), (row.nearby ?? []).join(' ')]
       .map((part) => norm(part as string))
       .join(' ')
     const words = norm(filters.keyword).split(/\s+/).filter((word) => word.length > 2)
@@ -274,8 +281,8 @@ export function listingDetail(row: MarketListing) {
     row.listing_type === 'rent' ? `Min sewa: ${row.min_lease_months ?? '-'} bulan | Skema bayar: ${row.rent_payment_terms ?? '-'} | Status huni: ${row.occupancy_status ?? '-'} | Utilitas termasuk: ${row.utilities_included ? 'ya' : 'belum tentu'} | Tersedia: ${row.available_from ?? '-'}` : null,
     row.amenities?.length ? `Fasilitas: ${row.amenities.join(', ')}` : null,
     row.nearby?.length ? `Lingkungan sekitar: ${row.nearby.join(', ')}` : null,
-    row.extra_notes ? `Catatan tambahan: ${row.extra_notes}` : null,
-    row.ai_summary ? `Ringkasan: ${row.ai_summary}` : null,
+    row.extra_notes ? `Catatan tambahan: ${safeText(row.extra_notes)}` : null,
+    row.ai_summary ? `Ringkasan: ${safeText(row.ai_summary)}` : null,
   ].filter(Boolean)
   return lines.join('\n')
 }
