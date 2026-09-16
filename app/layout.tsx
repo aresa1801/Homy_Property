@@ -76,9 +76,33 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const orgJsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'Organization',
+        name: 'Homy Property',
+        url: SITE_URL,
+        logo: `${SITE_URL}/logo-homy.png`,
+        description:
+          'Marketplace properti Indonesia: cari rumah dijual, disewakan, dan kerja sama agen properti.',
+      },
+      {
+        '@type': 'WebSite',
+        name: 'Homy Property',
+        url: SITE_URL,
+        inLanguage: 'id-ID',
+      },
+    ],
+  }
+
   return (
     <html lang="id">
       <body className="antialiased">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
+        />
         <PwaRegister />
         <LanguageProvider>{children}</LanguageProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
