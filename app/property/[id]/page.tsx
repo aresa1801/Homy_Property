@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
 import PropertyDetailClient from './property-detail-client'
 
 const SITE_URL = (process.env.HOMY_APP_URL || 'https://homyproperty.id').replace(/\/$/, '')
@@ -52,8 +53,10 @@ function mediaUrls(listing: Listing): string[] {
 }
 
 /** Ambil satu listing langsung dari Supabase (public read) untuk metadata & structured data. */
-async function fetchListing(id: string): Promise<Listing | null> {
-  if (!SUPABASE_URL || !SUPABASE_KEY) return null
+async function fetchListing(
+  id: string,
+): Promise<{ listing: Listing | null; failed: boolean }> {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return { listing: null, failed: true }
   try {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/properties?id=eq.${encodeURIComponent(id)}&select=${LISTING_SELECT}`,
@@ -62,11 +65,12 @@ async function fetchListing(id: string): Promise<Listing | null> {
         next: { revalidate: 600 },
       },
     )
-    if (!res.ok) return null
+    if (!res.ok) return { listing: null, failed: true }
     const rows = (await res.json()) as Listing[]
-    return Array.isArray(rows) && rows[0] ? rows[0] : null
+    const listing = Array.isArray(rows) && rows[0] ? rows[0] : null
+    return { listing, failed: false }
   } catch {
-    return null
+    return { listing: null, failed: true }
   }
 }
 
@@ -84,7 +88,7 @@ export async function generateMetadata({
   params: Promise<{ id: string }>
 }): Promise<Metadata> {
   const { id } = await params
-  const listing = await fetchListing(id)
+  const { listing } = await fetchListing(id)
 
   if (!listing) {
     return {
@@ -123,7 +127,11 @@ export async function generateMetadata({
 
 export default async function PropertyDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const listing = await fetchListing(id)
+  const { listing, failed } = await fetchListing(id)
+
+  // Listing benar-benar tidak ada → 404 asli (hindari soft 404 di mata Google).
+  // Kalau DB sedang error, halaman tetap dirender agar gangguan sementara tidak jadi 404.
+  if (!listing && !failed) notFound()
 
   let jsonLd: Record<string, unknown> | null = null
   if (listing) {
