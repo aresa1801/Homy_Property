@@ -235,6 +235,92 @@ export async function sendVisitScheduledEmail(input: VisitMailInput) {
 }
 
 /* --------------------------------------------------------------------------- */
+/* Titik temu dikirim SETELAH jadwal kunjungan dikonfirmasi agen/pemilik        */
+/* --------------------------------------------------------------------------- */
+
+export type MeetingPointMailInput = {
+  to: string
+  visitorName?: string
+  propertyTitle: string
+  propertyId?: string
+  dayLabel?: string
+  timeLabel?: string
+  meetingPoint?: string | null
+  mapUrl?: string | null
+  agentName?: string | null
+  agentPhone?: string | null
+}
+
+export function visitMeetingSubject(input: MeetingPointMailInput) {
+  const when = [input.dayLabel, input.timeLabel].filter(Boolean).join(' ')
+  return `Jadwal dikonfirmasi: ${input.propertyTitle}${when ? ' — ' + when : ''}`
+}
+
+function meetingHtml(input: MeetingPointMailInput) {
+  const when = [input.dayLabel, input.timeLabel].filter(Boolean).join(', ')
+  const rows: Array<[string, string]> = [['Properti', escapeHtml(input.propertyTitle)]]
+  if (when) rows.push(['Waktu (WIB)', when])
+  if (input.meetingPoint) rows.push(['Titik temu', escapeHtml(String(input.meetingPoint))])
+  if (input.agentName) rows.push(['Agen/pemilik', escapeHtml(String(input.agentName))])
+  if (input.agentPhone) rows.push(['Kontak', escapeHtml(String(input.agentPhone))])
+
+  const table = rows
+    .map(
+      ([label, value], index) =>
+        `<tr style="background:${index % 2 ? '#ffffff' : '#f7f3ec'}"><td style="padding:10px 12px;font-size:13px;color:#718078;white-space:nowrap">${label}</td><td style="padding:10px 12px;font-size:14px;color:#20332c;font-weight:600">${value}</td></tr>`,
+    )
+    .join('')
+
+  const cta = input.mapUrl
+    ? `<a href="${escapeHtml(String(input.mapUrl))}" style="display:inline-block;margin-top:20px;background:#0b3d2e;color:#ffffff;text-decoration:none;padding:13px 22px;border-radius:10px;font-weight:600">Buka titik temu di Google Maps</a>`
+    : ''
+  const greeting = input.visitorName ? `<p style="margin:0 0 12px;color:#65706c">Halo ${escapeHtml(input.visitorName)},</p>` : ''
+
+  return `<!doctype html><html><body style="margin:0;background:#f7f3ec;font-family:'Segoe UI',Helvetica,Arial,sans-serif">
+  <div style="max-width:560px;margin:0 auto;padding:32px 20px">
+    <div style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:#0b3d2e;margin-bottom:20px">Homy<span style="color:#c9a961">.</span></div>
+    <div style="background:#ffffff;border:1px solid #e8dfd3;border-radius:16px;padding:28px">
+      <p style="margin:0 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#c9a961">Kunjungan dikonfirmasi</p>
+      <h1 style="margin:0 0 16px;font-family:Georgia,serif;font-size:26px;line-height:1.3;color:#0b3d2e">Jadwal Anda sudah dikonfirmasi</h1>
+      ${greeting}
+      <p style="margin:0 0 18px;color:#33433d;line-height:1.7">Agen/pemilik sudah mengonfirmasi jadwal kunjungan Anda. Detail lokasi dan titik temu ada di bawah ini — mohon datang tepat waktu dan hubungi agen/pemilik bila perlu mengubah jadwal.</p>
+      <table style="width:100%;border-collapse:collapse;border:1px solid #e8dfd3;border-radius:12px;overflow:hidden">${table}</table>
+      ${cta}
+    </div>
+    <p style="margin:20px 0 0;font-size:12px;line-height:1.6;color:#8a938f">Email otomatis dari Homy Property. Demi keamanan, mohon tidak membagikan detail titik temu ke pihak lain.<br/>Pencarian properti terpercaya — <a href="${appUrl()}" style="color:#0b3d2e">${appUrl().replace(/^https?:\/\//, '')}</a></p>
+  </div></body></html>`
+}
+
+/** Kirim email titik temu ke calon pembeli/penyewa setelah jadwal dikonfirmasi. Tidak pernah melempar error. */
+export async function sendVisitMeetingPointEmail(input: MeetingPointMailInput) {
+  const subject = visitMeetingSubject(input)
+  if (!input.to) return { ok: false, skipped: true, reason: 'missing recipient', subject }
+  const apiKey = process.env.RESEND_API_KEY
+  const from = process.env.HOMY_EMAIL_FROM || 'Homy Property <notifikasi@homy.id>'
+  if (!apiKey) {
+    console.warn(`[homy-email] RESEND_API_KEY belum di-set — email titik temu ke ${input.to} dilewati (${subject})`)
+    return { ok: false, skipped: true, reason: 'email provider not configured', subject }
+  }
+  try {
+    const response = await fetch(RESEND_ENDPOINT, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [input.to], subject, html: meetingHtml(input) }),
+    })
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      console.error('[homy-email] gagal kirim titik temu:', response.status, detail.slice(0, 300))
+      return { ok: false, status: response.status, reason: 'provider rejected the message', subject }
+    }
+    const payload = (await response.json().catch(() => ({}))) as { id?: string }
+    return { ok: true, id: payload.id, subject }
+  } catch (error) {
+    console.error('[homy-email] error titik temu:', error instanceof Error ? error.message : error)
+    return { ok: false, error: 'request failed', subject }
+  }
+}
+
+/* --------------------------------------------------------------------------- */
 /* Tindak lanjut SETELAH kunjungan (follow-up ke calon pembeli/penyewa)         */
 /* --------------------------------------------------------------------------- */
 

@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { notifyUser, type NotificationKind } from '@/lib/notifications'
+import { sendVisitMeetingPointEmail } from '@/lib/email'
+import { mapOpenUrl } from '@/lib/homy-maps'
 
 type Payload = {
   kind?: string
@@ -99,14 +101,49 @@ export async function POST(request: Request) {
         const { data: property } = await supabase.from('properties').select('title').eq('id', String(visitBefore?.property_id ?? '')).maybeSingle()
         const when = new Date(String(data?.scheduled_at ?? visitBefore?.scheduled_at ?? '')).toLocaleString('id-ID', { weekday: 'long', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
         const isVisitorNotified = visitBefore?.user_id !== user.id
+        // Titik temu hanya dibuka setelah jadwal dikonfirmasi. Sumber: properties.meeting_point*
+        let meetingPoint: string | null = null
+        let mapHref: string | null = null
+        if (nextStatus === 'confirmed' && visitBefore?.property_id) {
+          try {
+            const admin = createServiceClient(process.env.SUPABASE_URL as string, (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY) as string, { auth: { persistSession: false } })
+            const { data: point } = await admin.from('properties').select('meeting_point,meeting_point_lat,meeting_point_lng,map_url').eq('id', String(visitBefore.property_id)).maybeSingle()
+            if (point) {
+              meetingPoint = (point.meeting_point as string | null) ?? null
+              mapHref = mapOpenUrl(point.meeting_point_lat as number | null, point.meeting_point_lng as number | null) ?? ((point.map_url as string | null) ?? null)
+            }
+          } catch (err) {
+            console.error('[homy-actions] ambil titik temu gagal:', err instanceof Error ? err.message : err)
+          }
+        }
         await notifyUser({
           userId: notifyUserId,
           kind: KIND[nextStatus],
           title: 'Jadwal kunjungan ' + KIND_LABEL[nextStatus],
-          body: (property?.title ? String(property.title) + ' — ' : '') + when + ' WIB',
-          href: isVisitorNotified ? '/dashboard/user' : '/dashboard/property-owner/calendar',
-          data: { visit_id: id, property_id: visitBefore?.property_id ?? null, status: nextStatus },
+          body: (property?.title ? String(property.title) + ' — ' : '') + when + ' WIB' + (isVisitorNotified && meetingPoint ? ' • Titik temu: ' + meetingPoint : ''),
+          href: isVisitorNotified ? '/dashboard/user/visits' : '/dashboard/property-owner/calendar',
+          data: { visit_id: id, property_id: visitBefore?.property_id ?? null, status: nextStatus, meeting_point: meetingPoint, map_url: mapHref },
         })
+        // Email titik temu ke pengunjung (hanya saat konfirmasi oleh agen/pemilik).
+        if (nextStatus === 'confirmed' && isVisitorNotified) {
+          try {
+            const admin = createServiceClient(process.env.SUPABASE_URL as string, (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY) as string, { auth: { persistSession: false } })
+            const { data: buyer } = await admin.auth.admin.getUserById(notifyUserId)
+            const { data: profile } = await admin.from('profiles').select('full_name').eq('id', notifyUserId).maybeSingle()
+            await sendVisitMeetingPointEmail({
+              to: buyer?.user?.email ?? '',
+              visitorName: (profile?.full_name as string | undefined) ?? undefined,
+              propertyTitle: property?.title ? String(property.title) : 'Properti Homy',
+              propertyId: String(visitBefore?.property_id ?? ''),
+              dayLabel: new Date(String(data?.scheduled_at ?? visitBefore?.scheduled_at ?? '')).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' }),
+              timeLabel: new Date(String(data?.scheduled_at ?? visitBefore?.scheduled_at ?? '')).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }) + ' WIB',
+              meetingPoint,
+              mapUrl: mapHref,
+            })
+          } catch (err) {
+            console.error('[homy-actions] email titik temu gagal:', err instanceof Error ? err.message : err)
+          }
+        }
       }
     } catch (err) {
       console.error('[homy-actions] notifikasi jadwal gagal:', err instanceof Error ? err.message : err)

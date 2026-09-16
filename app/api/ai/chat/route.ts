@@ -2,8 +2,52 @@ import { NextResponse } from 'next/server'
 import { aiChat, aiConfigured, aiModel, AiError, type AiMessage } from '@/lib/ai'
 import { clientKey, rateLimit } from '@/lib/rate-limit'
 import { computeStats, fetchById, fetchPublished, listingDetail, listingLine, statsBlock, type ListingFilters, type MarketListing } from '@/lib/market'
-import { availabilityBlock, getVisitContext, serviceClient } from '@/lib/visits'
 import { createClient } from '@/lib/supabase/server'
+import { mapOpenUrl } from '@/lib/homy-maps'
+import { availabilityBlock, getVisitContext, serviceClient } from '@/lib/visits'
+
+/**
+ * Blok konteks titik temu — HANYA diberikan kalau pengguna yang sedang login
+ * punya kunjungan terkonfirmasi/selesai untuk properti itu. Selain itu kosong,
+ * jadi Homy AI tidak pernah membocorkan lokasi ke pengunjung lain.
+ */
+async function confirmedMeetingBlock(propertyId: string): Promise<string> {
+  try {
+    const supabase = await createClient()
+    const { data: auth } = await supabase.auth.getUser()
+    const user = auth.user
+    if (!user) return ''
+    const { data: visit } = await supabase
+      .from('visits')
+      .select('id,status,scheduled_at')
+      .eq('property_id', propertyId)
+      .eq('user_id', user.id)
+      .in('status', ['confirmed', 'completed'])
+      .order('scheduled_at', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+    if (!visit) return ''
+    const { data: point } = await supabase
+      .from('properties')
+      .select('meeting_point,meeting_point_lat,meeting_point_lng,map_url')
+      .eq('id', propertyId)
+      .maybeSingle()
+    const mapUrl = mapOpenUrl(point?.meeting_point_lat ?? null, point?.meeting_point_lng ?? null) || (point?.map_url ?? null)
+    const when = visit.scheduled_at
+      ? new Date(String(visit.scheduled_at)).toLocaleString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
+      : '-'
+    return [
+      '=== TITIK TEMU (KHUSUS PENGGUNA INI) ===',
+      `Pengguna ini SUDAH punya jadwal kunjungan berstatus ${visit.status === 'completed' ? 'selesai' : 'dikonfirmasi'} pada ${when} WIB.`,
+      point?.meeting_point ? `Patokan titik temu: ${point.meeting_point}` : 'Patokan titik temu belum dicatat pemilik/agen.',
+      mapUrl ? `Link peta titik temu: ${mapUrl}` : null,
+      'Info ini boleh dibagikan ke pengguna ini kalau dia menanyakannya (karena kunjungannya sudah dikonfirmasi). Jangan sebutkan data ini ke pihak lain dan jangan pernah menyebut alamat lengkap rumah.',
+      '=== AKHIR TITIK TEMU ===',
+    ].filter(Boolean).join('\n')
+  } catch {
+    return ''
+  }
+}
 
 /**
  * Simpan rekaman percakapan AI (item "Record Percakapan").
@@ -68,7 +112,8 @@ ATURAN WAJIB:
 10. KUNJUNGAN/SURVEY: kalau pengguna ingin melihat unit, menanyakan jadwal, atau kapan bisa survey/visit, jawab dengan data di blok "JADWAL KUNJUNGAN (WIB)" dan arahkan pengguna memilih salah satu slot pada panel "Jadwalkan kunjungan" di halaman properti (jadwal otomatis tercatat dan agen/pemilik dapat notifikasi email). JANGAN mengarang hari/jam di luar data itu. Kalau jadwal belum diatur, arahkan mengirim pertanyaan lewat form "Tanya pemilik".
 11. Jangan menjanjikan harga final, diskon, atau kesepakatan apa pun; negosiasi dan legalitas selalu lewat agen/pemilik.
 12. FORMAT WAJIB — tampilannya seperti chat manusia biasa: JANGAN pakai sintaks markdown sama sekali. Tanpa tanda bintang (* atau **), tanpa tanda pagar (#), tanpa garis bawah (_) untuk menebalkan/memiringkan. Kalau perlu merinci, tulis tiap baris dimulai dengan "- " (tanda minus + spasi), maksimal beberapa baris, dan sisanya kalimat mengalir. Jangan menulis kata dengan bintang di sekelilingnya.
-13. Sebut properti apa adanya dengan judul listing, lalu jelaskan singkat plus-minus-nya seperti orang menjelaskan ke teman: harga segini biasanya dapat apa, cocok untuk siapa, dan apa yang perlu dicek. Hindari daftar kaku berisi metadata mentah; rangkai jadi kalimat yang enak dibaca.`
+13. Sebut properti apa adanya dengan judul listing, lalu jelaskan singkat plus-minus-nya seperti orang menjelaskan ke teman: harga segini biasanya dapat apa, cocok untuk siapa, dan apa yang perlu dicek. Hindari daftar kaku berisi metadata mentah; rangkai jadi kalimat yang enak dibaca.
+14. LOKASI & TITIK TEMU: jangan pernah menyebutkan alamat lengkap rumah (nama jalan, nomor, RT/RW) — memang tidak ada di data dan tidak boleh dikarang. Kalau pengguna menanyakan lokasi detail atau titik temu, jelaskan bahwa titik temu akan dikirim setelah jadwal kunjungan dikonfirmasi agen/pemilik. KECUALI kalau di data ada blok "TITIK TEMU (KHUSUS PENGGUNA INI)": itu berarti pengguna ini kunjungannya sudah dikonfirmasi, jadi datanya boleh disebutkan apa adanya (patokan + link peta).`
 
 export async function GET() {
   return NextResponse.json({ configured: aiConfigured(), model: aiModel() })
@@ -110,6 +155,7 @@ export async function POST(request: Request) {
       sourceRows = siblings.slice(0, 6)
       const visitContext = await getVisitContext(property.id).catch(() => null)
       const visitBlock = visitContext ? availabilityBlock(visitContext) : ''
+      const meetingBlock = await confirmedMeetingBlock(property.id).catch(() => '')
       dataBlock = [
         '=== PROPERTI YANG DITANYAKAN ===',
         listingDetail(property),
@@ -118,6 +164,7 @@ export async function POST(request: Request) {
         statsBlock(stats),
         siblings.length ? 'Pembanding:\n' + siblings.slice(0, 6).map((row, index) => listingLine(row, index)).join('\n') : 'Belum ada pembanding di area yang sama.',
         visitBlock,
+        meetingBlock,
       ].filter(Boolean).join('\n')
     } else {
       const candidates = rows.filter((row) => {

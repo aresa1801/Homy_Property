@@ -244,9 +244,32 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     : { data: [] as Array<Record<string, unknown>> }
   const refMap: Record<string, Record<string, unknown>> = {}
   for (const row of (refProperties ?? []) as unknown as Array<Record<string, unknown>>) refMap[String(row.id)] = row
+  // Titik temu hanya dibuka untuk kunjungan yang sudah dikonfirmasi/selesai.
+  const unlockedIds = Array.from(new Set(
+    visitRowsRaw
+      .filter((row) => String(row.status ?? '') === 'confirmed' || String(row.status ?? '') === 'completed')
+      .map((row) => String(row.property_id ?? '')),
+  )).filter(Boolean)
+  const { data: pointRows } = unlockedIds.length
+    ? await supabase.from('properties').select('id,meeting_point,meeting_point_lat,meeting_point_lng,map_url').in('id', unlockedIds)
+    : { data: [] as Array<Record<string, unknown>> }
+  const pointMap: Record<string, Record<string, unknown>> = {}
+  for (const row of (pointRows ?? []) as unknown as Array<Record<string, unknown>>) pointMap[String(row.id)] = row
   const attach = (row: Record<string, unknown>): Record<string, unknown> => ({ ...row, property: refMap[String(row.property_id ?? '')] ?? null })
   const favoriteRows = favRowsRaw.map((row) => attach(row as unknown as Record<string, unknown>))
-  const visitRows = visitRowsRaw.map((row) => attach(row as unknown as Record<string, unknown>))
+  const visitRows = visitRowsRaw.map((row) => {
+    const base = attach(row as unknown as Record<string, unknown>)
+    const status = String(row.status ?? '')
+    if (status !== 'confirmed' && status !== 'completed') return base
+    const point = pointMap[String(row.property_id ?? '')]
+    return {
+      ...base,
+      meeting_point: point?.meeting_point ?? null,
+      meeting_point_lat: point?.meeting_point_lat ?? null,
+      meeting_point_lng: point?.meeting_point_lng ?? null,
+      map_url: point?.map_url ?? null,
+    }
+  })
   const inquiryRows = inquiryRowsRaw.map((row) => attach(row as unknown as Record<string, unknown>))
   const upcomingVisits = visitRows.filter((v) => v.status !== 'cancelled' && v.status !== 'completed').length
   const averageFavoritePrice = (() => {
