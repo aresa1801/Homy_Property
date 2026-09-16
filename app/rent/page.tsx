@@ -133,38 +133,39 @@ export default function RentPage() {
             <p className="text-sm text-[#65706c]"><strong className="text-[#0b3d2e]">{loading ? '…' : shown.length}</strong> properti sewa ditemukan</p>
             <div className="flex flex-wrap items-center gap-2"><SaveSearchButton listingType="rent" city={applied.city} minPrice={(BANDS[duration].find((item) => item.value === band)?.min) ?? undefined} maxPrice={(BANDS[duration].find((item) => item.value === band)?.max) ?? undefined} /><Button variant="outline" className="border-[#d8ccbb]"><SlidersHorizontal data-icon="inline-start" /> Filter lanjutan</Button></div>
           </div>
-          {loading && <div className="grid gap-4 sm:gap-6 sm:grid-cols-2">{[0, 1].map((i) => <div key={i} className="h-80 animate-pulse rounded-2xl bg-white" />)}</div>}
+          {loading && <div className="grid grid-cols-2 gap-3 sm:gap-6">{[0, 1].map((i) => <div key={i} className="h-80 animate-pulse rounded-2xl bg-white" />)}</div>}
           {!loading && shown.length === 0 && (
             <div className="rounded-2xl bg-white p-4 sm:p-6 text-sm text-[#65706c]">
               Belum ada properti sewa yang cocok dengan filter ini. Coba ubah durasi (Bulanan/Tahunan), longgarkan budget, atau gunakan <a className="font-semibold text-[#0b3d2e] underline" href="/ai-assistant">Asisten AI</a> untuk rekomendasi.
             </div>
           )}
-          <div className="grid gap-4 sm:gap-6 sm:grid-cols-2">
+          {/* Dua kartu per baris (di HP maupun desktop) supaya daftar properti sewa lebih ringkas. */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-6">
             {shown.map((home, i) => {
               const image = firstMediaUrl(home, supabaseUrl) ?? DEMO_PROPERTY_IMAGES[i % DEMO_PROPERTY_IMAGES.length]
               const isSaved = saved.includes(home.id)
               return (
-                <article key={home.id} className="overflow-hidden rounded-2xl bg-white shadow-[0_10px_35px_rgba(20,42,32,.07)]">
+                <article key={home.id} className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-[0_10px_35px_rgba(20,42,32,.07)]">
                   <div className="relative aspect-[1.25] overflow-hidden">
                     <img src={image} alt={home.title} className="size-full object-cover transition duration-500 hover:scale-105" />
-                    <div className="absolute left-4 top-4 rounded-full bg-[#0b3d2e] px-3 py-1.5 text-xs font-semibold text-[#f6e2a8]">{home.price_period === 'yearly' ? 'Sewa Tahunan' : 'Sewa Bulanan'}</div>
-                    <button aria-label={'Simpan ' + home.title} onClick={() => setSaved((s) => (isSaved ? s.filter((x) => x !== home.id) : [...s, home.id]))} className="absolute right-4 top-4 grid size-9 place-items-center rounded-full bg-white/90 text-[#0b3d2e]"><Heart className={isSaved ? 'fill-[#a3282c] text-[#a3282c]' : ''} /></button>
+                    <div className="absolute left-2 top-2 rounded-full bg-[#0b3d2e] px-2 py-1 text-[10px] font-semibold text-[#f6e2a8] sm:left-4 sm:top-4 sm:px-3 sm:py-1.5 sm:text-xs">{home.price_period === 'yearly' ? 'Sewa Tahunan' : 'Sewa Bulanan'}</div>
+                    <button aria-label={'Simpan ' + home.title} onClick={() => setSaved((s) => (isSaved ? s.filter((x) => x !== home.id) : [...s, home.id]))} className="absolute right-2 top-2 grid size-8 place-items-center rounded-full bg-white/90 text-[#0b3d2e] sm:right-4 sm:top-4 sm:size-9"><Heart className={`size-4 sm:size-5 ${isSaved ? 'fill-[#a3282c] text-[#a3282c]' : ''}`} /></button>
                   </div>
-                  <div className="p-4 sm:p-5">
-                    <h2 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">{home.title}</h2>
-                    <p className="mt-1 flex items-center gap-1 text-sm text-[#65706c]"><MapPin /> {propertyLocation(home)}</p>
-                    <p className="mt-4 text-base sm:text-lg font-bold text-[#0b3d2e]">{formatPriceWithPeriod(home.price, home.price_period)}</p>
-                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                      {home.furnished && <span className="rounded-full bg-[#e2eee7] px-3 py-1 font-semibold text-[#0b3d2e]">{FURNISHED_LABEL[home.furnished] ?? home.furnished}</span>}
-                      {home.bedrooms ? <span className="rounded-full bg-[#f2f0ea] px-3 py-1 text-[#33433d]">{home.bedrooms} KT</span> : null}
-                      {home.bathrooms ? <span className="rounded-full bg-[#f2f0ea] px-3 py-1 text-[#33433d]">{home.bathrooms} KM</span> : null}
-                      {home.min_lease_months ? <span className="rounded-full bg-[#f2f0ea] px-3 py-1 text-[#33433d]">Min. {home.min_lease_months} bulan</span> : null}
-                      {home.available_from ? <span className="rounded-full bg-[#fff7e3] px-3 py-1 text-[#9b762a]">Siap huni {new Date(home.available_from).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</span> : null}
+                  <div className="flex flex-1 flex-col p-3 sm:p-5">
+                    <h2 className="font-serif text-sm leading-tight text-[#0b3d2e] sm:text-2xl">{home.title}</h2>
+                    <p className="mt-1 flex items-center gap-1 text-[11px] text-[#65706c] sm:text-sm"><MapPin className="size-3.5 shrink-0" /> <span className="truncate">{propertyLocation(home)}</span></p>
+                    <p className="mt-2 text-sm font-bold text-[#0b3d2e] sm:mt-4 sm:text-lg">{formatPriceWithPeriod(home.price, home.price_period)}</p>
+                    <div className="mt-2 flex flex-wrap gap-1 text-[10px] sm:mt-3 sm:gap-2 sm:text-xs">
+                      {home.furnished && <span className="rounded-full bg-[#e2eee7] px-2 py-0.5 font-semibold text-[#0b3d2e] sm:px-3 sm:py-1">{FURNISHED_LABEL[home.furnished] ?? home.furnished}</span>}
+                      {home.bedrooms ? <span className="rounded-full bg-[#f2f0ea] px-2 py-0.5 text-[#33433d] sm:px-3 sm:py-1">{home.bedrooms} KT</span> : null}
+                      {home.bathrooms ? <span className="rounded-full bg-[#f2f0ea] px-2 py-0.5 text-[#33433d] sm:px-3 sm:py-1">{home.bathrooms} KM</span> : null}
+                      {home.min_lease_months ? <span className="rounded-full bg-[#f2f0ea] px-2 py-0.5 text-[#33433d] sm:px-3 sm:py-1">Min. {home.min_lease_months} bulan</span> : null}
+                      {home.available_from ? <span className="rounded-full bg-[#fff7e3] px-2 py-0.5 text-[#9b762a] sm:px-3 sm:py-1">Siap huni {new Date(home.available_from).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}</span> : null}
                     </div>
-                    <p className="mt-3 text-sm text-[#65706c]">{monthlyRate(home) ? 'Setara ' + formatRupiah(monthlyRate(home)) + '/bulan' : 'Harga belum diisi'}</p>
-                    <div className="mt-5 grid grid-cols-2 gap-2">
-                      <Button className="w-full rounded-lg bg-[#c9a961] text-[#0b3d2e] hover:bg-[#b7964f]" onClick={() => window.location.assign('/property/' + home.id)}>Lihat detail</Button>
-                      <Button variant="outline" className="w-full rounded-lg border-[#d8ccbb]" onClick={() => window.location.assign('/property/' + home.id + '#sewa')}>Ajukan sewa</Button>
+                    <p className="mt-2 hidden text-sm text-[#65706c] sm:block">{monthlyRate(home) ? 'Setara ' + formatRupiah(monthlyRate(home)) + '/bulan' : 'Harga belum diisi'}</p>
+                    <div className="mt-3 grid grid-cols-1 gap-2 sm:mt-auto sm:grid-cols-2 sm:pt-4">
+                      <Button className="w-full rounded-lg bg-[#c9a961] text-xs text-[#0b3d2e] hover:bg-[#b7964f] sm:text-sm" onClick={() => window.location.assign('/property/' + home.id)}>Lihat detail</Button>
+                      <Button variant="outline" className="w-full rounded-lg border-[#d8ccbb] text-xs sm:text-sm" onClick={() => window.location.assign('/property/' + home.id + '#sewa')}>Ajukan sewa</Button>
                     </div>
                   </div>
                 </article>

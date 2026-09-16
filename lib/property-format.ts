@@ -113,7 +113,7 @@ export function hideDetailAddress(input?: string | null): string {
 
 // Resolve a public URL for the first media item of a property.
 // storage_path may already be a full URL (legacy/demo) or a bucket-relative path.
-export function firstMediaUrl(p: PropertyRecord, supabaseUrl?: string, bucket = 'property-media'): string | null {
+export function firstMediaUrl(p: Pick<PropertyRecord, 'property_media' | 'media'>, supabaseUrl?: string, bucket = 'property-media'): string | null {
   const media = (p.property_media ?? p.media ?? [])
     .slice()
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))

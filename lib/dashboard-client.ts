@@ -17,6 +17,8 @@ export type DashboardProperty = {
   moderation_note?: string | null
   verified_at?: string | null
   ai_summary?: string | null
+  // Foto listing: dipakai untuk menampilkan thumbnail di kartu "Listing Saya" / "Properti Saya".
+  property_media?: { storage_path: string; media_type?: string | null; sort_order?: number | null }[] | null
 }
 
 export type DashboardInquiry = {

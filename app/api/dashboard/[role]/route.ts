@@ -43,7 +43,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
   const base = { authenticated: true, role }
 
   if (role === 'agent' || role === 'property-owner') {
-    const propertySelect = 'id,title,city,province,district,status,listing_type,property_type,price,price_period,created_at,moderation_note,verified_at,ai_summary'
+    const propertySelect = 'id,title,city,province,district,status,listing_type,property_type,price,price_period,created_at,moderation_note,verified_at,ai_summary,property_media(storage_path,media_type,sort_order)'
     const inquirySelect = 'id,property_id,user_id,status,message,reply_message,replied_at,follow_up_note,created_at'
     const { data: ownProperties } = await supabase.from('properties').select(propertySelect).eq('owner_id', user.id).order('created_at', { ascending: false }).limit(100)
     const rows = ownProperties ?? []

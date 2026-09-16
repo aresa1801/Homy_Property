@@ -87,22 +87,25 @@ export default function BuyPage() {
         <div>
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-[#65706c]"><strong className="text-[#0b3d2e]">{loading ? '…' : filtered.length}</strong> properti ditemukan</p><div className="flex flex-wrap items-center gap-2"><SaveSearchButton listingType="sale" city={applied.city} keywords={undefined} maxPrice={applied.priceBand === 'under3' ? 3000000000 : applied.priceBand === '3to5' ? 5000000000 : undefined} minPrice={applied.priceBand === '3to5' ? 3000000000 : applied.priceBand === 'over5' ? 5000000000 : undefined} /><Button variant="outline" className="border-[#d8ccbb]"><SlidersHorizontal data-icon="inline-start" /> Advanced filters</Button></div></div>
           {!loading && filtered.length === 0 && <p className="rounded-2xl bg-white p-4 sm:p-6 text-sm text-[#65706c]">Belum ada properti untuk filter ini.</p>}
-          <div className="grid gap-4 sm:gap-6 sm:grid-cols-2">
+          {/* Dua kartu per baris (di HP maupun desktop) supaya daftar properti lebih ringkas. */}
+          <div className="grid grid-cols-2 gap-3 sm:gap-6">
             {filtered.map((home, i) => {
               const image = firstMediaUrl(home, supabaseUrl) ?? DEMO_PROPERTY_IMAGES[i % DEMO_PROPERTY_IMAGES.length]
               const isSaved = saved.includes(home.id)
               return (
-                <article key={home.id} className="overflow-hidden rounded-2xl bg-white shadow-[0_10px_35px_rgba(20,42,32,.07)]">
+                <article key={home.id} className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-[0_10px_35px_rgba(20,42,32,.07)]">
                   <div className="relative aspect-[1.25] overflow-hidden">
                     <img src={image} alt={home.title} className="size-full object-cover transition duration-500 hover:scale-105" />
-                    <button aria-label={`Save ${home.title}`} onClick={() => setSaved((s) => isSaved ? s.filter((x) => x !== home.id) : [...s, home.id])} className="absolute right-4 top-4 grid size-9 place-items-center rounded-full bg-white/90 text-[#0b3d2e]"><Heart className={isSaved ? 'fill-[#a3282c] text-[#a3282c]' : ''} /></button>
+                    <button aria-label={`Save ${home.title}`} onClick={() => setSaved((s) => isSaved ? s.filter((x) => x !== home.id) : [...s, home.id])} className="absolute right-2 top-2 grid size-8 place-items-center rounded-full bg-white/90 text-[#0b3d2e] sm:right-4 sm:top-4 sm:size-9"><Heart className={`size-4 sm:size-5 ${isSaved ? 'fill-[#a3282c] text-[#a3282c]' : ''}`} /></button>
                   </div>
-                  <div className="p-4 sm:p-5">
-                    <h2 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">{home.title}</h2>
-                    <p className="mt-1 flex items-center gap-1 text-sm text-[#65706c]"><MapPin /> {propertyLocation(home)}</p>
-                    <p className="mt-4 text-base sm:text-lg font-bold text-[#0b3d2e]">{formatPriceWithPeriod(home.price, home.price_period)}</p>
-                    <p className="mt-2 text-sm text-[#65706c]">{propertyMeta(home)}</p>
-                    <Button className="mt-5 w-full rounded-lg bg-[#c9a961] text-[#0b3d2e] hover:bg-[#b7964f]" onClick={() => window.location.assign(`/property/${home.id}`)}>Lihat detail</Button>
+                  <div className="flex flex-1 flex-col p-3 sm:p-5">
+                    <h2 className="font-serif text-sm leading-tight text-[#0b3d2e] sm:text-2xl">{home.title}</h2>
+                    <p className="mt-1 flex items-center gap-1 text-[11px] text-[#65706c] sm:text-sm"><MapPin className="size-3.5 shrink-0" /> <span className="truncate">{propertyLocation(home)}</span></p>
+                    <p className="mt-2 text-sm font-bold text-[#0b3d2e] sm:mt-4 sm:text-lg">{formatPriceWithPeriod(home.price, home.price_period)}</p>
+                    <p className="mt-2 hidden text-sm text-[#65706c] sm:block">{propertyMeta(home)}</p>
+                    <div className="mt-3 sm:mt-auto sm:pt-3">
+                      <Button className="w-full rounded-lg bg-[#c9a961] text-xs text-[#0b3d2e] hover:bg-[#b7964f] sm:text-sm" onClick={() => window.location.assign(`/property/${home.id}`)}>Lihat detail</Button>
+                    </div>
                   </div>
                 </article>
               )

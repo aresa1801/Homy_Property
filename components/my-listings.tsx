@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertTriangle, ExternalLink, Pencil, RefreshCw } from 'lucide-react'
+import { AlertTriangle, ExternalLink, Image as ImageIcon, Pencil, RefreshCw } from 'lucide-react'
+import { firstMediaUrl } from '@/lib/property-format'
 
 type Listing = {
   id: string
@@ -14,6 +15,7 @@ type Listing = {
   price?: number | string
   created_at?: string
   moderation_note?: string | null
+  property_media?: { storage_path: string; media_type?: string | null; sort_order?: number | null }[] | null
 }
 
 const STATUS_STYLE: Record<string, { label: string; className: string }> = {
@@ -78,22 +80,31 @@ export function MyListings({ items }: { items: Listing[] }) {
       {message && (
         <p className={`rounded-xl px-4 py-3 text-sm font-medium ${message.tone === 'ok' ? 'bg-[#edf2ed] text-[#0b3d2e]' : 'bg-[#fbeeec] text-[#b45c50]'}`}>{message.text}</p>
       )}
-      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-1 sm:gap-3">
+      {/* Satu kartu per baris (1 kolom) + foto properti agar mudah dibaca di HP. */}
+      <div className="grid gap-3">
       {rows.map((item) => {
         const state = STATUS_STYLE[String(item.status ?? 'draft')] ?? STATUS_STYLE.draft
         const rejected = item.status === 'rejected'
+        const image = firstMediaUrl(item, process.env.NEXT_PUBLIC_SUPABASE_URL)
         return (
-          <div key={item.id} className="rounded-xl border border-[#eee7dc] p-3 sm:p-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-[#20332c] sm:text-base">{item.title ?? 'Listing properti'}</p>
-                <p className="mt-0.5 text-xs text-[#718078] sm:mt-1 sm:text-sm">
+          <div key={item.id} className="rounded-xl border border-[#eee7dc] bg-white p-3 sm:p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
+              <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden rounded-xl bg-[#f2f0ea] sm:aspect-[4/3] sm:w-52">
+                {image ? (
+                  <img src={image} alt={item.title ?? 'Foto properti'} className="size-full object-cover" />
+                ) : (
+                  <div className="grid size-full place-items-center text-[#a18a61]"><ImageIcon className="size-6" /><span className="mt-1 text-xs font-semibold">Belum ada foto</span></div>
+                )}
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold leading-snug text-[#20332c] sm:text-base">{item.title ?? 'Listing properti'}</p>
+                  <span className={`h-fit shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold sm:px-3 sm:py-1 ${state.className}`}>{state.label}</span>
+                </div>
+                <p className="mt-1 text-xs text-[#718078] sm:text-sm">
                   {[item.city, item.province].filter(Boolean).join(', ') || 'Lokasi belum diisi'} · {String(item.listing_type ?? 'properti')} · {rupiah(item.price)}
                 </p>
                 <p className="mt-1 text-xs text-[#718078]">Dikirim {formatDate(item.created_at)}</p>
-              </div>
-              <span className={`h-fit shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${state.className}`}>{state.label}</span>
-            </div>
 
             {rejected && item.moderation_note && (
               <div className="mt-3 flex items-start gap-2 rounded-xl bg-[#fff7e3] p-3">
@@ -105,7 +116,7 @@ export function MyListings({ items }: { items: Listing[] }) {
               </div>
             )}
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2 sm:mt-auto sm:pt-3">
               {rejected && (
                 <button
                   type="button"
@@ -128,6 +139,8 @@ export function MyListings({ items }: { items: Listing[] }) {
                   <Pencil className="size-3.5" /> Edit listing (foto & titik peta)
                 </a>
               )}
+            </div>
+              </div>
             </div>
           </div>
         )

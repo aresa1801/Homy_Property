@@ -1,8 +1,9 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { AlertTriangle, ExternalLink, Pencil, RefreshCw, Search } from 'lucide-react'
+import { AlertTriangle, ExternalLink, Image as ImageIcon, Pencil, RefreshCw, Search } from 'lucide-react'
 import { MetricCard } from '@/components/dashboard-shell'
+import { firstMediaUrl } from '@/lib/property-format'
 import { resubmitListing, rupiah, runAction, shortDate, STAGE_LABEL, STATUS_LABEL, ui, type DashboardPayload, type DashboardProperty } from '@/lib/dashboard-client'
 
 export type BoardProps = { data: DashboardPayload; loading: boolean; reload: () => void }
@@ -78,51 +79,60 @@ export function ListingBoard({ data, loading, reload, type }: BoardProps & { typ
         <div className="mt-4 space-y-3">
           {loading && <div className="h-20 animate-pulse rounded-xl bg-[#f7f3ec]" />}
           {!loading && !rows.length && <p className={ui.soft + ' text-sm text-[#718078]'}>Belum ada listing pada filter ini. Mulai pasang properti pertama Anda.</p>}
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-1 sm:gap-3">
+          {/* Satu kartu per baris (1 kolom) supaya foto & informasi listing terbaca jelas di layar HP. */}
+          <div className="grid gap-3">
           {rows.map((item: DashboardProperty) => {
             const stages = (data.inquiries ?? []).filter((inquiry) => inquiry.property_id === item.id)
             const openStages = stages.filter((inquiry) => inquiry.status === 'open').length
+            const image = firstMediaUrl(item, process.env.NEXT_PUBLIC_SUPABASE_URL)
             return (
-              <div key={item.id} className="rounded-xl border border-[#eee7dc] p-3 sm:p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
+              <div key={item.id} className="rounded-xl border border-[#eee7dc] bg-white p-3 sm:p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch sm:gap-4">
+                  <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden rounded-xl bg-[#f2f0ea] sm:aspect-[4/3] sm:w-56">
+                    {image ? (
+                      <img src={image} alt={item.title ?? 'Foto properti'} className="size-full object-cover" />
+                    ) : (
+                      <div className="grid size-full place-items-center text-[#a18a61]"><ImageIcon className="size-6" /><span className="mt-1 text-xs font-semibold">Belum ada foto</span></div>
+                    )}
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-semibold text-[#20332c] sm:text-base">{item.title ?? 'Listing properti'}</p>
+                      <p className="text-sm font-semibold leading-snug text-[#20332c] sm:text-base">{item.title ?? 'Listing properti'}</p>
                       <StatusBadge status={item.status} />
                     </div>
-                    <p className="mt-0.5 text-xs text-[#718078] sm:mt-1 sm:text-sm">{[item.district, item.city, item.province].filter(Boolean).join(', ') || 'Lokasi belum diisi'}</p>
-                    <p className="mt-0.5 text-xs text-[#718078] sm:mt-1 sm:text-sm">
+                    <p className="mt-1 text-xs text-[#718078] sm:text-sm">{[item.district, item.city, item.province].filter(Boolean).join(', ') || 'Lokasi belum diisi'}</p>
+                    <p className="mt-1 text-xs text-[#718078] sm:text-sm">
                       {item.listing_type === 'rent' ? 'Disewakan' : item.listing_type === 'sale' ? 'Dijual' : String(item.listing_type ?? 'Properti')} · {rupiah(item.price)}{item.listing_type === 'rent' ? '/bln' : ''} · {item.property_type ?? '—'} · dikirim {shortDate(item.created_at)}
                     </p>
-                    <div className="mt-1.5 flex flex-wrap gap-1 text-[10px] sm:mt-2 sm:gap-2 sm:text-xs">
+                    <div className="mt-2 flex flex-wrap gap-1 text-[10px] sm:gap-2 sm:text-xs">
                       <span className="rounded-full bg-[#f2f0ea] px-2 py-0.5 font-semibold text-[#718078] sm:px-2.5 sm:py-1">{stages.length} prospek</span>
                       {openStages > 0 && <span className="rounded-full bg-[#fff7e3] px-2 py-0.5 font-semibold text-[#9b762a] sm:px-2.5 sm:py-1">{openStages} belum ditindak</span>}
                       {item.verified_at && <span className="rounded-full bg-[#edf2ed] px-2 py-0.5 font-semibold text-[#4e866d] sm:px-2.5 sm:py-1">Terverifikasi {shortDate(item.verified_at)}</span>}
                     </div>
-                  </div>
-                  <div className="flex shrink-0 flex-wrap gap-2">
-                    {item.status === 'rejected' && (
-                      <button type="button" onClick={() => onResubmit(item.id)} disabled={busy === item.id} className={ui.btn}>
-                        <RefreshCw className={`size-3.5 ${busy === item.id ? 'animate-spin' : ''}`} />
-                        {busy === item.id ? 'Mengajukan…' : 'Ajukan ulang'}
-                      </button>
+                    {item.status === 'rejected' && item.moderation_note && (
+                      <div className="mt-3 flex items-start gap-2 rounded-xl bg-[#fff7e3] p-3">
+                        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[#9b762a]" />
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-[#9b762a]">Catatan moderator</p>
+                          <p className="mt-1 text-sm leading-6 text-[#5b4a1f]">{item.moderation_note}</p>
+                        </div>
+                      </div>
                     )}
-                    {item.status === 'published' && (
-                      <a href={`/property/${item.id}`} className={ui.ghost}><ExternalLink className="size-3.5" />Lihat listing</a>
-                    )}
-                    <a href={`/listing/${item.id}/edit`} className={ui.btn}><Pencil className="size-3.5" />Edit listing</a>
-                  </div>
-                </div>
-                {item.status === 'rejected' && item.moderation_note && (
-                  <div className="mt-3 flex items-start gap-2 rounded-xl bg-[#fff7e3] p-3">
-                    <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[#9b762a]" />
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wide text-[#9b762a]">Catatan moderator</p>
-                      <p className="mt-1 text-sm leading-6 text-[#5b4a1f]">{item.moderation_note}</p>
+                    {item.ai_summary && <p className="mt-3 border-t border-[#f2ede4] pt-3 text-xs leading-5 text-[#8a938f]">{String(item.ai_summary).slice(0, 240)}</p>}
+                    <div className="mt-3 flex flex-wrap gap-2 sm:mt-auto sm:pt-3">
+                      {item.status === 'rejected' && (
+                        <button type="button" onClick={() => onResubmit(item.id)} disabled={busy === item.id} className={ui.btn}>
+                          <RefreshCw className={`size-3.5 ${busy === item.id ? 'animate-spin' : ''}`} />
+                          {busy === item.id ? 'Mengajukan…' : 'Ajukan ulang'}
+                        </button>
+                      )}
+                      {item.status === 'published' && (
+                        <a href={`/property/${item.id}`} className={ui.ghost}><ExternalLink className="size-3.5" />Lihat listing</a>
+                      )}
+                      <a href={`/listing/${item.id}/edit`} className={ui.btn}><Pencil className="size-3.5" />Edit listing</a>
                     </div>
                   </div>
-                )}
-                {item.ai_summary && <p className="mt-3 border-t border-[#f2ede4] pt-3 text-xs leading-5 text-[#8a938f]">{String(item.ai_summary).slice(0, 240)}</p>}
+                </div>
               </div>
             )
           })}
