@@ -5,6 +5,7 @@ import { AlertTriangle, ExternalLink, Image as ImageIcon, Pencil, RefreshCw, Sea
 import { MetricCard } from '@/components/dashboard-shell'
 import { firstMediaUrl } from '@/lib/property-format'
 import { resubmitListing, rupiah, runAction, shortDate, STAGE_LABEL, STATUS_LABEL, ui, type DashboardPayload, type DashboardProperty } from '@/lib/dashboard-client'
+import { VERDICT_LABEL } from '@/lib/interest'
 
 export type BoardProps = { data: DashboardPayload; loading: boolean; reload: () => void }
 
@@ -164,6 +165,10 @@ export function LeadsBoard({ data, loading, reload, type }: BoardProps & { type:
     return haystack.includes(needle)
   })
   const aiTotal = all.filter(withAi).length
+  const interestRows = data.interests ?? []
+  const interestMap = new Map<string, NonNullable<DashboardPayload['interests']>[number]>()
+  for (const row of interestRows) interestMap.set(String(row.property_id) + ':' + String(row.user_id), row)
+  const interestBuyLikely = interestRows.filter((row) => String(row.ai_verdict ?? '') === 'buy_likely').length
   const counts = Object.keys(STAGE_LABEL).map((stage) => [stage, leads.filter((lead) => (lead.status ?? 'open') === stage).length] as const)
 
   async function update(id: string, patch: Record<string, unknown>, successText: string) {
@@ -189,6 +194,12 @@ export function LeadsBoard({ data, loading, reload, type }: BoardProps & { type:
         <p className="text-sm text-[#33433d]">
           <strong className="text-[#0b3d2e]">{all.length}</strong> prospek tercatat. Setiap pengguna yang bertanya lewat <strong className="text-[#0b3d2e]">Homy AI</strong> tentang listing Anda otomatis masuk daftar ini sebagai prospek.
         </p>
+        {interestRows.length > 0 && (
+          <p className="mt-2 rounded-xl bg-[#fbfaf7] px-3 py-2 text-xs text-[#33433d]">
+            <strong className="text-[#0b3d2e]">{interestRows.length} konfirmasi ketertarikan</strong> sudah diisi calon pembeli · {interestBuyLikely} dinilai Homy AI <em>cenderung membeli</em>. Kelola tahap negosiasinya di{' '}
+            <a href="/dashboard/agent/interests" className="font-semibold text-[#0b3d2e] underline">Konfirmasi Ketertarikan</a>.
+          </p>
+        )}
         <div className="mt-3 flex flex-wrap items-center gap-2">
           {([['all', `Semua (${all.length})`], ['ai', `Dari Homy AI (${aiTotal})`], ['form', `Dari form tanya (${all.length - aiTotal})`]] as const).map(([value, label]) => (
             <button key={value} type="button" onClick={() => setSource(value)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${source === value ? 'bg-[#0b3d2e] text-white' : 'border border-[#d8ccbb] text-[#33433d]'}`}>{label}</button>
@@ -234,6 +245,21 @@ export function LeadsBoard({ data, loading, reload, type }: BoardProps & { type:
                 </div>
               )}
               <p className="mt-3 line-clamp-3 text-sm leading-6 text-[#33433d]">{lead.message ?? 'Tidak ada pesan.'}</p>
+              {(() => {
+                const interest = interestMap.get(String(lead.property_id) + ':' + String((lead as { user_id?: string }).user_id))
+                if (!interest) return null
+                const verdict = VERDICT_LABEL[String(interest.ai_verdict ?? 'unclear')] ?? VERDICT_LABEL.unclear
+                return (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl bg-[#fbfaf7] p-3 text-[11px] text-[#43504a]">
+                    <span className="font-semibold text-[#0b3d2e]">Konfirmasi ketertarikan</span>
+                    <span className={'rounded-full px-2 py-0.5 font-semibold ' + verdict.className}>{verdict.label}{interest.ai_confidence ? ` · ${interest.ai_confidence}%` : ''}</span>
+                    <span>skor {Number(interest.score ?? 0)}/100</span>
+                    <span>anggaran {interest.budget ? 'Rp ' + Number(interest.budget).toLocaleString('id-ID') : '-'}</span>
+                    <span>{interest.has_other_options ? 'membandingkan properti lain' : 'fokus properti ini'}</span>
+                    {interest.ai_summary && <span className="basis-full text-[#43504a]">{interest.ai_summary}</span>}
+                  </div>
+                )
+              })()}
               {lead.ai_last_question && lead.ai_last_question !== lead.message && (
                 <p className="mt-2 rounded-xl bg-[#f7f9ff] p-3 text-xs leading-5 text-[#43508c]"><span className="font-semibold">Pertanyaan terakhir ke Homy AI:</span> {lead.ai_last_question}</p>
               )}

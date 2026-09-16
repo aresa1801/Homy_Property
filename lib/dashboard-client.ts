@@ -43,6 +43,35 @@ export type DashboardInquiry = {
   from?: { name?: string; email?: string; phone?: string } | null
 }
 
+/** Konfirmasi ketertarikan (pemantauan negosiasi) — dipakai dashboard user/agen/pemilik/admin. */
+export type DashboardInterest = {
+  id: string
+  property_id?: string
+  property_title?: string
+  property_city?: string | null
+  user_id?: string
+  intent?: string | null
+  readiness?: string | null
+  stage?: string | null
+  budget?: number | string | null
+  budget_flexible?: boolean | null
+  timeline?: string | null
+  financing?: string | null
+  down_payment?: number | string | null
+  has_other_options?: boolean | null
+  comparison_notes?: string | null
+  priorities?: string | null
+  deal_breakers?: string | null
+  score?: number | null
+  ai_verdict?: string | null
+  ai_confidence?: number | null
+  ai_summary?: string | null
+  agent_notes?: string | null
+  updated_at?: string | null
+  buyer?: { name?: string; email?: string; phone?: string } | null
+  owner?: { name?: string; email?: string; phone?: string } | null
+}
+
 export type DashboardVisit = {
   id: string
   property_id?: string
@@ -168,6 +197,7 @@ export type DashboardPayload = {
   duplicates?: DashboardDuplicate[]
   roleCounts?: DashboardRoleCount[]
   favorites?: DashboardFavorite[]
+  interests?: DashboardInterest[]
   payments?: DashboardPayment[]
   availability?: DashboardAvailability[]
   partnerLeads?: DashboardLead[]

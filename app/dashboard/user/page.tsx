@@ -1,12 +1,12 @@
 'use client'
 
-import { CalendarDays, Home, MessageSquare, WalletCards } from 'lucide-react'
+import { CalendarDays, Home, HeartHandshake, MessageSquare } from 'lucide-react'
 import { DashboardGreeting, DashboardShell, MetricCard, SectionCard } from '@/components/dashboard-shell'
+import { InterestPanel } from '@/components/interest-panel'
 import { STAGE_LABEL, VISIT_LABEL, rupiah, shortDate, shortDateTime, ui, useDashboard } from '@/lib/dashboard-client'
 
 type UserFavorite = { property_id?: string; created_at?: string; property?: { id?: string; title?: string; city?: string; price?: number | string | null; price_period?: string | null; listing_type?: string | null } | null }
 type UserVisit = { id?: string; status?: string; scheduled_at?: string; notes?: string | null; property?: { title?: string; city?: string } | null }
-type UserPayment = { id?: string; amount?: number | string | null; payment_type?: string; status?: string; due_at?: string | null; paid_at?: string | null }
 
 export default function UserDashboard() {
   const { data, loading } = useDashboard('user')
@@ -14,11 +14,10 @@ export default function UserDashboard() {
   const inquiries = (data.inquiries ?? []).slice(0, 3)
   const favorites = (data.favorites ?? []) as UserFavorite[]
   const visits = ((data.visits ?? []) as UserVisit[]).filter((visit) => visit.status !== 'cancelled' && visit.status !== 'completed')
-  const payments = (data.payments ?? []) as UserPayment[]
+  const interests = data.interests ?? []
   const nextVisit = visits[0]
-  const paidPayments = payments.filter((payment) => payment.status === 'paid' || payment.paid_at).length
-  const pendingAmount = payments.filter((payment) => payment.status !== 'paid' && !payment.paid_at).reduce((total, payment) => total + Number(payment.amount ?? 0), 0)
-  const paidRatio = payments.length ? Math.round((paidPayments / payments.length) * 100) : 0
+  const interestDeal = interests.filter((row) => String(row.stage ?? '') === 'deal').length
+  const interestNegotiation = interests.filter((row) => ['negotiation', 'offer'].includes(String(row.stage ?? ''))).length
 
   return (
     <DashboardShell role="User">
@@ -31,7 +30,7 @@ export default function UserDashboard() {
         <MetricCard label="Favorit tersimpan" value={String(metrics.favorites ?? favorites.length)} change={favorites.length ? 'Properti yang Anda simpan' : 'Belum ada properti disimpan'} icon="home" />
         <MetricCard label="Pertanyaan aktif" value={String(metrics.inquiries ?? inquiries.length)} change={(metrics.openInquiries ?? 0) + ' belum selesai'} icon="message" />
         <MetricCard label="Kunjungan mendatang" value={String(metrics.upcomingVisits ?? visits.length)} change={nextVisit?.scheduled_at ? shortDateTime(nextVisit.scheduled_at) : 'Belum ada jadwal'} icon="calendar" />
-        <MetricCard label="Pembayaran tertunda" value={String(metrics.pendingPayments ?? 0)} change={rupiah(pendingAmount)} icon="wallet" />
+        <MetricCard label="Konfirmasi ketertarikan" value={String(metrics.interests ?? interests.length)} change={interestDeal ? interestDeal + ' sudah kesepakatan' : interestNegotiation ? interestNegotiation + ' sedang negosiasi' : 'Nyatakan minat Anda pada properti'} icon="handshake" />
       </div>
 
       <div className="mt-6 grid gap-4 sm:gap-6 xl:grid-cols-[1.3fr_.7fr]">
@@ -96,11 +95,11 @@ export default function UserDashboard() {
           </div>
         </SectionCard>
 
-        <SectionCard title="Pembayaran" action="Riwayat" id="payments">
-          <p className="text-sm text-[#718078]">{payments.length ? payments.length + ' tagihan tercatat' : 'Belum ada tagihan'}</p>
-          <p className="mt-2 font-serif text-2xl sm:text-3xl text-[#0b3d2e]">{rupiah(pendingAmount)}{pendingAmount > 0 && <span className="font-sans text-sm text-[#718078]"> belum dibayar</span>}</p>
-          <div className="mt-4 h-2 rounded-full bg-[#edf2ed]"><div className="h-2 rounded-full bg-[#c9a961]" style={{ width: paidRatio + '%' }} /></div>
-          <p className="mt-2 text-xs text-[#718078]">{payments.length ? paidPayments + ' dari ' + payments.length + ' tagihan sudah dibayar' : 'Tagihan akan tampil di sini setelah ada transaksi.'}</p>
+        <SectionCard title="Konfirmasi Ketertarikan" action="Kelola" id="interest">
+          <p className="text-sm text-[#718078]">Nyatakan seberapa serius Anda pada properti pilihan. Homy AI menilai apakah Anda siap bertransaksi atau masih membandingkan — hasilnya otomatis terhubung ke agen, pemilik, dan admin.</p>
+          <div className="mt-3">
+            <InterestPanel compact />
+          </div>
         </SectionCard>
       </div>
     </DashboardShell>

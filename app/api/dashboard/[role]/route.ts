@@ -48,12 +48,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     const { data: ownProperties } = await supabase.from('properties').select(propertySelect).eq('owner_id', user.id).order('created_at', { ascending: false }).limit(100)
     const rows = ownProperties ?? []
     const ownIds = rows.length ? rows.map((p) => p.id) : ['00000000-0000-0000-0000-000000000000']
-    const [ownInquiries, agentInquiries, visits, transactions, agreements] = await Promise.all([
+    const [ownInquiries, agentInquiries, visits, transactions, agreements, interests] = await Promise.all([
       supabase.from('inquiries').select(inquirySelect).in('property_id', ownIds).order('created_at', { ascending: false }).limit(100),
       supabase.from('inquiries').select(inquirySelect).eq('agent_id', user.id).order('created_at', { ascending: false }).limit(100),
       supabase.from('visits').select('id,property_id,user_id,scheduled_at,status,notes,interest,buyer_feedback,completed_at,follow_up_sent_at').eq('agent_id', user.id).order('scheduled_at', { ascending: true }).limit(100),
       supabase.from('transaction_reports').select('id,property_id,property_title,buyer_name,buyer_contact,sale_price,commission_rate,commission_amount,sold_at,status,notes,created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
       supabase.from('partner_agreements').select('role,status,full_name,identity_number,phone,address,commission_rate,signed_at,agreement_version').eq('user_id', user.id),
+      supabase.from('interest_confirmations').select('id,property_id,user_id,agent_id,owner_id,intent,readiness,stage,budget,budget_flexible,timeline,financing,down_payment,has_other_options,comparison_notes,priorities,deal_breakers,score,ai_verdict,ai_confidence,ai_summary,ai_signals,ai_analyzed_at,agent_notes,created_at,updated_at').or('owner_id.eq.' + user.id + ',agent_id.eq.' + user.id).order('updated_at', { ascending: false }).limit(100),
     ])
     const titles: Record<string, string> = {}
     for (const row of rows) titles[row.id] = row.title
@@ -88,11 +89,25 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       console.error('[homy] gagal memuat prospek AI:', error instanceof Error ? error.message : error)
     }
 
+    const interestRows = (interests.data ?? []) as unknown as Array<Record<string, unknown>>
     const people = await counterpartProfiles([
       ...inquiries.map((i) => String((i as { user_id?: string }).user_id ?? '')),
       ...(visits.data ?? []).map((v) => String(v.user_id ?? '')),
+      ...interestRows.map((row) => String(row.user_id ?? '')),
+      ...[...aiMap.values()].map((entry) => entry.userId),
     ])
     const visitsEnriched = (visits.data ?? []).map((v) => ({ ...v, property_title: titles[String(v.property_id)] ?? 'Properti', visitor: people[String(v.user_id)] ?? null }))
+
+    // Konfirmasi ketertarikan atas listing milik agen/pemilik (dipakai CRM Prospek + analitik).
+    const propertyMap: Record<string, { title: string; city: string | null; listing_type: string | null }> = {}
+    for (const row of rows) propertyMap[String(row.id)] = { title: String(row.title ?? 'Properti'), city: (row.city ?? null) as string | null, listing_type: (row.listing_type ?? null) as string | null }
+    const interestsEnriched = interestRows.map((row) => ({
+      ...row,
+      property_title: propertyMap[String(row.property_id ?? '')]?.title ?? titles[String(row.property_id ?? '')] ?? 'Properti',
+      property_city: propertyMap[String(row.property_id ?? '')]?.city ?? null,
+      listing_type: propertyMap[String(row.property_id ?? '')]?.listing_type ?? null,
+      buyer: people[String(row.user_id ?? '')] ?? null,
+    }))
 
     const inquiriesEnriched = inquiries.map((i) => {
       const uid = String((i as { user_id?: string }).user_id ?? '')
@@ -139,7 +154,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     const commissionTotal = (transactions.data ?? []).reduce((sum, row) => sum + Number(row.commission_amount ?? 0), 0)
 
     const metrics = role === 'agent'
-      ? { activeListings: rows.filter((p) => p.status === 'published').length, newLeads: openLeads, totalListings: rows.length, pendingListings: rows.filter((p) => p.status === 'pending').length, rejectedListings: rows.filter((p) => p.status === 'rejected').length, totalLeads: prospectList.length, aiProspects: aiMap.size, upcomingVisits, reports: transactions.data?.length ?? 0, commissionTotal }
+      ? { activeListings: rows.filter((p) => p.status === 'published').length, newLeads: openLeads, totalListings: rows.length, pendingListings: rows.filter((p) => p.status === 'pending').length, rejectedListings: rows.filter((p) => p.status === 'rejected').length, totalLeads: prospectList.length, aiProspects: aiMap.size, interests: interestsEnriched.length, interestNegotiation: interestsEnriched.filter((row) => ['negotiation', 'offer'].includes(String(row.stage ?? ''))).length, interestDeal: interestsEnriched.filter((row) => String(row.stage ?? '') === 'deal').length, interestLost: interestsEnriched.filter((row) => String(row.stage ?? '') === 'lost').length, interestReady: interestsEnriched.filter((row) => ['ready', 'committed'].includes(String(row.readiness ?? ''))).length, interestBuyLikely: interestsEnriched.filter((row) => String(row.ai_verdict ?? '') === 'buy_likely').length, upcomingVisits, reports: transactions.data?.length ?? 0, commissionTotal }
       : { properties: rows.length, publishedProperties: rows.filter((p) => p.status === 'published').length, inquiries: prospectList.length, aiProspects: aiMap.size, pendingProperties: rows.filter((p) => p.status === 'pending').length, rejectedProperties: rows.filter((p) => p.status === 'rejected').length, openLeads, upcomingVisits, reports: transactions.data?.length ?? 0, commissionTotal }
 
     const { data: availabilityRows } = await supabase
@@ -148,7 +163,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       .eq('user_id', user.id)
       .order('weekday', { ascending: true })
 
-    return NextResponse.json({ ...base, metrics, properties: rows, inquiries: prospectList, visits: visitsEnriched, transactions: transactions.data ?? [], agreements: agreements.data ?? [], availability: availabilityRows ?? [], payments: [] })
+    return NextResponse.json({ ...base, metrics, properties: rows, inquiries: prospectList, visits: visitsEnriched, interests: interestsEnriched, transactions: transactions.data ?? [], agreements: agreements.data ?? [], availability: availabilityRows ?? [], payments: [] })
   }
 
   if (role === 'admin' || role === 'super-admin') {
@@ -162,7 +177,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     if (!admin) {
       return NextResponse.json({ ...base, forbidden: true, metrics: { pendingApprovals: 0, published: 0, rejected: 0, activeUsers: 0, openReports: 0 } })
     }
-    const [rows, media, adminReports, profiles, roleRows, transactions, audit, flags, settings, partnerLeads] = await Promise.all([
+    const [rows, media, adminReports, profiles, roleRows, transactions, audit, flags, settings, partnerLeads, adminInterests] = await Promise.all([
       admin.from('properties').select('id,title,address,city,province,district,listing_type,property_type,price,price_period,status,owner_id,created_at,moderation_note,verified_at,ai_summary').order('created_at', { ascending: false }).limit(200),
       admin.from('property_media').select('property_id').limit(3000),
       admin.from('moderation_reports').select('id,property_id,reported_user_id,reason,status,resolution_note,created_at').order('created_at', { ascending: false }).limit(50),
@@ -173,6 +188,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       role === 'super-admin' ? admin.from('feature_flags').select('key,label,description,enabled,rollout,updated_at').order('key') : Promise.resolve({ data: [] as unknown[] }),
       role === 'super-admin' ? admin.from('platform_settings').select('key,label,value,updated_at').order('key') : Promise.resolve({ data: [] as unknown[] }),
       admin.from('partner_leads').select('id,kind,full_name,email,phone,company,position,city,province,website,branches,license_no,message,status,review_note,reviewed_at,created_at').order('created_at', { ascending: false }).limit(200),
+      admin.from('interest_confirmations').select('id,property_id,user_id,agent_id,owner_id,intent,readiness,stage,budget,budget_flexible,timeline,financing,down_payment,has_other_options,comparison_notes,priorities,deal_breakers,score,ai_verdict,ai_confidence,ai_summary,ai_signals,ai_analyzed_at,agent_notes,created_at,updated_at').order('updated_at', { ascending: false }).limit(300),
     ])
 
     const list = rows.data ?? []
@@ -183,7 +199,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     const ownerIds = Array.from(new Set(list.map((p) => p.owner_id).filter(Boolean))) as string[]
     const actorIds = Array.from(new Set((audit.data ?? []).map((a) => a.actor_id).filter(Boolean))) as string[]
     const txUserIds = Array.from(new Set((transactions.data ?? []).map((t) => t.user_id).filter(Boolean))) as string[]
-    const profileIds = Array.from(new Set([...ownerIds, ...actorIds, ...txUserIds])).slice(0, 200)
+    const interestUserIds = Array.from(new Set(((adminInterests.data ?? []) as Array<{ user_id?: string | null }>).map((row) => row.user_id).filter(Boolean))) as string[]
+    const profileIds = Array.from(new Set([...ownerIds, ...actorIds, ...txUserIds, ...interestUserIds])).slice(0, 200)
     const profileMap: Record<string, { name?: string; email?: string; phone?: string }> = {}
     if (profileIds.length) {
       const [profileRows, userRows] = await Promise.all([
@@ -241,6 +258,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       return acc
     }, {})
 
+    // Konfirmasi ketertarikan (pemantauan negosiasi & transaksi oleh admin).
+    const adminPropertyTitles: Record<string, string> = {}
+    for (const row of list) adminPropertyTitles[String(row.id)] = String(row.title ?? 'Properti')
+    const adminInterestsEnriched = ((adminInterests.data ?? []) as unknown as Array<Record<string, unknown>>).map((row) => ({
+      ...row,
+      property_title: adminPropertyTitles[String(row.property_id ?? '')] ?? 'Properti',
+      buyer: profileMap[String(row.user_id ?? '')] ?? null,
+      owner: profileMap[String(row.owner_id ?? '')] ?? null,
+    }))
+
     const metrics = {
       totalListings: list.length,
       pendingApprovals: list.filter((p) => p.status === 'pending').length,
@@ -259,6 +286,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       contactMessages: (partnerLeads.data ?? []).filter((row) => row.kind === 'contact').length,
       aiEvents: auditEnriched.filter((a) => String(a.action ?? '').startsWith('ai.')).length,
       aiCoverage: published.length ? Math.round((published.filter((p) => p.ai_summary).length / published.length) * 100) : 0,
+      interests: adminInterestsEnriched.length,
+      interestNegotiation: adminInterestsEnriched.filter((row) => ['negotiation', 'offer'].includes(String(row.stage ?? ''))).length,
+      interestDeal: adminInterestsEnriched.filter((row) => String(row.stage ?? '') === 'deal').length,
+      interestLost: adminInterestsEnriched.filter((row) => String(row.stage ?? '') === 'lost').length,
+      interestBuyLikely: adminInterestsEnriched.filter((row) => String(row.ai_verdict ?? '') === 'buy_likely').length,
     }
 
     return NextResponse.json({
@@ -275,6 +307,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       flags: flags.data ?? [],
       settings: settings.data ?? [],
       partnerLeads: partnerLeads.data ?? [],
+      interests: adminInterestsEnriched,
       ai: {
         configured: true,
         model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
@@ -285,12 +318,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     })
   }
 
-  const [favorites, inquiries, visits, rentals, payments] = await Promise.all([
+  const [favorites, inquiries, visits, rentals, payments, interests] = await Promise.all([
     supabase.from('favorites').select('property_id,created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
     supabase.from('inquiries').select('id,property_id,status,message,reply_message,replied_at,created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(20),
     supabase.from('visits').select('id,property_id,scheduled_at,status,notes,interest,buyer_feedback,completed_at,follow_up_sent_at').eq('user_id', user.id).order('scheduled_at', { ascending: true }).limit(20),
     supabase.from('rental_requests').select('id,property_id,start_date,end_date,status,duration_unit').eq('renter_id', user.id).order('created_at', { ascending: false }).limit(20),
     supabase.from('payments').select('id,amount,currency,payment_type,status,due_at,paid_at').eq('payer_id', user.id).order('created_at', { ascending: false }).limit(20),
+    supabase.from('interest_confirmations').select('id,property_id,stage,intent,readiness,score,ai_verdict,ai_confidence,ai_summary,ai_signals,ai_analyzed_at,budget,timeline,financing,updated_at,property:properties(id,title,city,district,listing_type,price,price_period,property_media(storage_path,media_type,sort_order))').eq('user_id', user.id).order('updated_at', { ascending: false }).limit(30),
   ])
   const favRowsRaw = (favorites.data ?? []) as unknown as Array<{ property_id?: string | null }>
   const visitRowsRaw = (visits.data ?? []) as unknown as Array<{ property_id?: string | null; status?: string | null }>
@@ -341,6 +375,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     return Math.round(values.reduce((total, value) => total + value, 0) / values.length)
   })()
   const pendingPayments = ((payments.data ?? []) as unknown as Array<{ status?: string | null }>).filter((p) => p.status === 'pending')
+  const interestRows = (interests.data ?? []) as unknown as Array<Record<string, unknown>>
+  const interestActive = interestRows.filter((row) => !['lost'].includes(String(row.stage ?? 'interest')))
   return NextResponse.json({
     ...base,
     metrics: {
@@ -350,11 +386,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       upcomingVisits,
       pendingPayments: pendingPayments.length,
       averageFavoritePrice,
+      interests: interestRows.length,
+      interestActive: interestActive.length,
+      interestReady: interestRows.filter((row) => ['ready', 'committed'].includes(String(row.readiness ?? ''))).length,
+      interestDeal: interestRows.filter((row) => String(row.stage ?? '') === 'deal').length,
+      interestNegotiation: interestRows.filter((row) => ['negotiation', 'offer'].includes(String(row.stage ?? ''))).length,
     },
     favorites: favoriteRows,
     inquiries: inquiryRows,
     visits: visitRows,
     payments: payments.data ?? [],
     rentals: rentals.data ?? [],
+    interests: interestRows,
   })
 }
