@@ -23,7 +23,7 @@ export default function UserInterestPage() {
         <DashboardGreeting
           welcome="Halo, {name}"
           headline="Konfirmasi Ketertarikan Anda."
-          description="Nyatakan seberapa serius Anda pada sebuah properti. Sistem dan Homy AI akan menilai apakah Anda siap bertransaksi atau masih membandingkan — dan hasilnya terhubung ke agen, pemilik, serta admin untuk memantau negosiasi."
+          description="Ceritakan kebutuhan dan rencana properti Anda. Homy Property akan membantu menemukan solusi terbaik — properti yang paling sesuai dengan anggaran dan kriteria Anda, pilihan pembiayaan, sampai langkah terbaik berikutnya."
         />
       </div>
       <InterestPanel mode="user" presetPropertyId={propertyId} />

@@ -108,7 +108,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
               <p className="mt-6 text-2xl sm:text-3xl font-bold text-[#0b3d2e]">{formatPriceWithPeriod(property.price, property.price_period)}</p>
 
               <a href={`/dashboard/user/interest?property=${property.id}`} className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#0b3d2e] px-5 py-3 text-sm font-semibold text-white sm:w-auto"><HeartHandshake className="size-4" /> Konfirmasi Ketertarikan</a>
-              <p className="mt-2 text-xs text-[#718078]">Nyatakan keseriusan Anda (anggaran, rencana waktu, pembanding). Homy AI menilai peluangnya dan agen/pemilik langsung melihatnya di CRM.</p>
+              <p className="mt-2 text-xs text-[#718078]">Isi formulir Konfirmasi Ketertarikan ini, dan Homy Property akan membantu Anda menemukan solusi terbaik untuk investasi maupun kebutuhan properti Anda.</p>
 
               <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {property.bedrooms ? <div className="rounded-xl bg-white p-4"><BedDouble className="text-[#c09b54]" /><p className="mt-2 text-sm text-[#65706c]">Kamar tidur</p><p className="font-semibold text-[#0b3d2e]">{property.bedrooms}</p></div> : null}

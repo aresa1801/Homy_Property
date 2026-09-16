@@ -96,7 +96,7 @@ export default function UserDashboard() {
         </SectionCard>
 
         <SectionCard title="Konfirmasi Ketertarikan" action="Kelola" id="interest">
-          <p className="text-sm text-[#718078]">Nyatakan seberapa serius Anda pada properti pilihan. Homy AI menilai apakah Anda siap bertransaksi atau masih membandingkan — hasilnya otomatis terhubung ke agen, pemilik, dan admin.</p>
+          <p className="text-sm text-[#718078]">Ceritakan kebutuhan dan rencana properti Anda. Homy Property akan membantu menemukan solusi terbaik untuk investasi maupun kebutuhan properti Anda.</p>
           <div className="mt-3">
             <InterestPanel compact />
           </div>

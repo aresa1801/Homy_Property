@@ -229,7 +229,7 @@ export function InterestPanel({ mode = 'user', compact = false, presetPropertyId
       <div className="space-y-3">
         {isLoading && <div className="h-16 animate-pulse rounded-xl bg-[#f7f3ec]" />}
         {!isLoading && !rows.length && (
-          <p className="text-sm text-[#718078]">Belum ada konfirmasi ketertarikan. Buka properti yang Anda minati, lalu isi <strong>Konfirmasi Ketertarikan</strong> supaya Homy AI bisa menilai keseriusan Anda.</p>
+          <p className="text-sm text-[#718078]">Belum ada konfirmasi ketertarikan. Buka properti yang Anda minati, lalu isi <strong>Konfirmasi Ketertarikan</strong> agar Homy Property dapat menyiapkan solusi terbaik untuk kebutuhan Anda.</p>
         )}
         {visible.map((row) => {
           const meta = verdictMeta(row.ai_verdict)
@@ -260,7 +260,7 @@ export function InterestPanel({ mode = 'user', compact = false, presetPropertyId
       {mode === 'user' && (
         <div className="rounded-2xl border border-[#e5dccd] bg-white p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm text-[#33433d]">Konfirmasi ini membantu <strong className="text-[#0b3d2e]">Homy AI</strong> menilai apakah Anda siap bertransaksi atau masih membandingkan properti lain — dan otomatis terhubung ke agen, pemilik, serta admin.</p>
+            <p className="text-sm text-[#33433d]">Ceritakan kebutuhan dan rencana Anda. Dengan mengisi <strong className="text-[#0b3d2e]">Konfirmasi Ketertarikan</strong> ini, Homy Property akan membantu menemukan solusi terbaik untuk investasi maupun kebutuhan properti Anda — dari properti yang paling sesuai, simulasi pembiayaan, hingga langkah terbaik berikutnya.</p>
             <button type="button" onClick={() => { setOpenForm(!openForm); setEditing(null) }} className="rounded-full bg-[#0b3d2e] px-4 py-2 text-xs font-semibold text-white">{openForm ? 'Tutup formulir' : 'Isi konfirmasi baru'}</button>
           </div>
 
@@ -309,7 +309,7 @@ export function InterestPanel({ mode = 'user', compact = false, presetPropertyId
               </label>
               <div className="sm:col-span-2 flex flex-wrap items-center gap-2">
                 <button type="button" disabled={busy} onClick={submit} className="rounded-full bg-[#0b3d2e] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60">{busy ? 'Menyimpan…' : editing ? 'Perbarui & analisis' : 'Kirim & analisis dengan Homy AI'}</button>
-                <span className="text-[11px] text-[#718078]">Data ini dibagikan ke agen/pemilik &amp; admin untuk memantau negosiasi.</span>
+                <span className="text-[11px] text-[#718078]">Semakin lengkap jawaban Anda, semakin tepat solusi yang Homy Property siapkan untuk Anda.</span>
               </div>
             </div>
           )}
