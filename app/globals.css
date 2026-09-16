@@ -161,3 +161,12 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Carousel beranda: sembunyikan scrollbar tapi tetap bisa di-scroll/di-drag. */
+.homy-carousel {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.homy-carousel::-webkit-scrollbar {
+  display: none;
+}
