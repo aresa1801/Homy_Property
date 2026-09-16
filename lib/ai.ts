@@ -4,6 +4,8 @@
  * Semua pemanggilan lewat helper ini supaya penanganan error & timeout konsisten.
  */
 
+import { plainify } from '@/lib/plain-text'
+
 const AI_BASE = (process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com').replace(/\/$/, '')
 const AI_MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-chat'
 
@@ -77,8 +79,11 @@ export async function aiChat(messages: AiMessage[], options: AiOptions = {}): Pr
     throw new AiError('Layanan AI menolak permintaan', status, detail)
   }
 
-  const text = payload.choices?.[0]?.message?.content?.trim()
-  if (!text) throw new AiError('AI tidak mengembalikan jawaban', 502, raw.slice(0, 300))
+  const rawText = payload.choices?.[0]?.message?.content?.trim()
+  if (!rawText) throw new AiError('AI tidak mengembalikan jawaban', 502, raw.slice(0, 300))
+  // Teks disajikan apa adanya oleh UI → buang sintaks markdown (mis. bintang) agar
+  // jawaban terbaca natural seperti ditulis manusia. Mode JSON dibiarkan utuh.
+  const text = options.json ? rawText : plainify(rawText)
   return { text, usage: payload.usage }
 }
 

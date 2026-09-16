@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { BadgeCheck, Loader2, MapPin, Sparkles, TriangleAlert } from 'lucide-react'
+import { plainify } from '@/lib/plain-text'
 
 type Recommendation = {
   id: string
@@ -130,7 +131,7 @@ export function CuratePanel({ compact = false }: { compact?: boolean }) {
           {result.summary && (
             <div className="rounded-2xl border border-[#e5dccd] bg-[#f7f3ec] p-4 text-sm text-[#20332c]">
               <p className="mb-1 text-xs font-semibold uppercase tracking-[.14em] text-[#a18a61]">Ringkasan AI</p>
-              {result.summary}
+              {plainify(result.summary)}
             </div>
           )}
 
@@ -148,15 +149,15 @@ export function CuratePanel({ compact = false }: { compact?: boolean }) {
                 <span className="shrink-0 rounded-full bg-[#edf2ed] px-2.5 py-1 text-xs font-semibold text-[#4e866d]">Skor {item.match_score}</span>
               </div>
               <p className="mt-2 text-sm font-semibold text-[#0b3d2e]">{rupiah(item.price)}{item.listing_type === 'rent' ? ' / bulan' : ''}</p>
-              <p className="mt-2 text-sm text-[#33433d]"><BadgeCheck className="mr-1 inline size-3.5 text-[#4e866d]" />{item.why}</p>
-              {item.watch_out && <p className="mt-1 text-xs text-[#9b762a]"><TriangleAlert className="mr-1 inline size-3.5" />{item.watch_out}</p>}
+              <p className="mt-2 text-sm text-[#33433d]"><BadgeCheck className="mr-1 inline size-3.5 text-[#4e866d]" />{plainify(item.why)}</p>
+              {item.watch_out && <p className="mt-1 text-xs text-[#9b762a]"><TriangleAlert className="mr-1 inline size-3.5" />{plainify(item.watch_out)}</p>}
             </a>
           ))}
 
           {result.advice && (
             <div className="rounded-2xl border border-[#e5dccd] bg-white p-4 text-sm text-[#33433d]">
               <p className="mb-1 text-xs font-semibold uppercase tracking-[.14em] text-[#a18a61]">Langkah berikutnya</p>
-              <p className="whitespace-pre-wrap">{result.advice}</p>
+              <p className="whitespace-pre-wrap">{plainify(result.advice)}</p>
             </div>
           )}
           {result.disclaimer && <p className="text-xs text-[#8a9a92]">{result.disclaimer}</p>}

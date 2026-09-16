@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Bot, Loader2, MapPin, Send, Sparkles, User } from 'lucide-react'
+import { plainify } from '@/lib/plain-text'
 
 type Source = { id: string; title?: string | null; city?: string | null; district?: string | null; listing_type?: string | null; price?: number | string | null }
 type Msg = { role: 'user' | 'assistant'; content: string; sources?: Source[] }
@@ -88,7 +89,7 @@ export function AiChat({
               <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[.12em] opacity-70">
                 {message.role === 'user' ? <><User className="size-3" /> Anda</> : <><Sparkles className="size-3" /> Homy AI</>}
               </div>
-              {message.content}
+              {plainify(message.content)}
               {!!message.sources?.length && (
                 <div className="mt-3 space-y-1 border-t border-[#e5dccd] pt-2">
                   <p className="text-[11px] font-semibold uppercase tracking-[.12em] text-[#a18a61]">Listing terkait</p>
