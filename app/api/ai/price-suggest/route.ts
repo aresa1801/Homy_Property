@@ -45,6 +45,7 @@ ATURAN:
 4. Ukuran area yang dipakai untuk per-m2: bangunan kalau ada, kalau tidak tanah.
 5. Alasan (rationale) maksimal 3 kalimat, bahasa Indonesia, menyebut angka pembanding nyata.
 6. "factors" = 3-5 poin singkat faktor yang menaikkan/menurunkan harga. "tips" = 2-4 saran praktis agar properti cepat terjual/tersewa.
+7. GAYA BAHASA: Indonesia sehari-hari yang sopan dan profesional. JANGAN pakai sintaks markdown di dalam teks (tanpa tanda bintang * atau **, tanpa #, tanpa _).
 
 Balas JSON dengan bentuk:
 {"recommended": number, "range_low": number, "range_high": number, "price_per_m2": number, "confidence": "rendah|sedang|tinggi", "rationale": "...", "factors": ["..."], "tips": ["..."]}`

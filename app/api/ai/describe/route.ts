@@ -58,6 +58,7 @@ ATURAN:
 5. "faq" 3-5 tanya-jawab yang paling mungkin ditanya calon pembeli/penyewa, jawabannya HANYA dari data.
 6. "keywords" 6-10 kata kunci pencarian (tanpa tanda baca).
 7. Jangan mengarang nomor telepon, alamat spesifik yang tidak ada, atau sertifikat yang tidak disebut.
+8. GAYA BAHASA: Indonesia sehari-hari yang sopan dan mengalir (bukan bahasa iklan kaku). JANGAN pakai sintaks markdown di dalam teks (tanpa tanda bintang * atau **, tanpa #, tanpa _).
 
 Balas JSON: {"title":"...","description":"...","ai_summary":"...","highlights":["..."],"faq":[{"q":"...","a":"..."}],"keywords":["..."]}`
 

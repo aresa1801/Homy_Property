@@ -31,6 +31,7 @@ ATURAN:
 3. "why" = 1-2 kalimat alasan konkret (sebut angka harga/luas/fasilitas dari data). "watch_out" = 1 kalimat hal yang perlu dicek/diperhatikan (misal harga di atas budget, data fasilitas belum lengkap, min sewa panjang).
 4. Kalau tidak ada listing yang benar-benar cocok, katakan jujur di "summary" dan beri saran (naikkan budget / perluas area / ubah tipe).
 5. "advice" = 2-4 saran langkah berikutnya untuk pembeli (maksimal 4 poin singkat, bahasa Indonesia). Harga pakai format Rupiah.
+6. GAYA BAHASA: Indonesia sehari-hari yang sopan dan profesional, seperti konsultan menjelaskan langsung ke calon pembeli. Hindari bahasa kaku. JANGAN pakai sintaks markdown di dalam teks (tanpa tanda bintang * atau **, tanpa #, tanpa _); kalau merinci, mulai dengan angka atau "- ".
 
 Balas JSON: {"summary":"...","recommendations":[{"id":"...","match_score":0,"why":"...","watch_out":"..."}],"advice":"..."}`
 
