@@ -17,8 +17,9 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, Heart, Image as ImageIcon, Loader2, MapPin } from 'lucide-react'
-import { DEMO_PROPERTY_IMAGES, firstMediaUrl, formatPriceWithPeriod, propertyLocation, propertyMeta, type PropertyRecord } from '@/lib/property-format'
+import { ChevronLeft, ChevronRight, Image as ImageIcon, MapPin } from 'lucide-react'
+import { FavoriteButton } from '@/components/favorite-button'
+import { firstMediaUrl, formatPriceWithPeriod, propertyLocation, propertyMeta, type PropertyRecord } from '@/lib/property-format'
 
 const CITY_KEY = 'homy.city'
 const AUTO_MS = 5000
@@ -78,7 +79,7 @@ export function RecommendationCarousel() {
         location: propertyLocation(row),
         price: formatPriceWithPeriod(row.price, row.price_period),
         meta: propertyMeta(row),
-        image: firstMediaUrl(row, supabaseUrl) ?? DEMO_PROPERTY_IMAGES[position % DEMO_PROPERTY_IMAGES.length] ?? null,
+        image: firstMediaUrl(row, supabaseUrl) ?? null,
         tag: tagFor(row, position < nearbyCount),
         type: row.listing_type === 'rent' ? 'Sewa' : 'Jual',
       })))
@@ -231,17 +232,15 @@ export function RecommendationCarousel() {
               <article
                 key={property.id}
                 data-carousel-card
-                className="group flex w-[78%] shrink-0 snap-start flex-col overflow-hidden rounded-2xl bg-white shadow-[0_10px_35px_rgba(20,42,32,.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(20,42,32,.14)] sm:w-[46%] lg:w-[31.8%]"
+                className="group relative flex w-[78%] shrink-0 snap-start flex-col overflow-hidden rounded-2xl bg-white shadow-[0_10px_35px_rgba(20,42,32,.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(20,42,32,.14)] sm:w-[46%] lg:w-[31.8%]"
               >
                 <a href={`/property/${property.id}`} className="relative block aspect-[1.3] overflow-hidden" aria-label={`Lihat detail ${property.title}`}>
                   {property.image
                     ? <img src={property.image} alt={property.title} className="size-full object-cover transition duration-500 group-hover:scale-105" />
                     : <span className="grid size-full place-items-center bg-[#f2f0ea] text-[#a18a61]"><ImageIcon className="size-6" /></span>}
                   <span className="absolute left-2 top-2 rounded-full bg-[#0b3d2e] px-2 py-1 text-[10px] font-semibold text-[#f6e2a8] sm:left-4 sm:top-4 sm:px-3 sm:py-1.5 sm:text-xs">{property.tag}</span>
-                  <span className="pointer-events-none absolute right-2 top-2 grid size-8 place-items-center rounded-full bg-white/90 text-[#0b3d2e] sm:right-4 sm:top-4 sm:size-9" aria-hidden>
-                    <Heart className="size-4 sm:size-5" />
-                  </span>
                 </a>
+                <FavoriteButton propertyId={property.id} propertyTitle={property.title} className="absolute right-2 top-2 z-10 sm:right-4 sm:top-4" />
                 <a href={`/property/${property.id}`} className="flex flex-1 flex-col p-3 sm:p-5">
                   <h3 className="font-serif text-sm leading-tight text-[#0b3d2e] sm:text-lg lg:text-xl">{property.title}</h3>
                   <p className="mt-1 flex items-center gap-1 text-[11px] text-[#65706c] sm:text-sm"><MapPin className="size-3.5 shrink-0" /><span className="truncate">{property.location}</span></p>

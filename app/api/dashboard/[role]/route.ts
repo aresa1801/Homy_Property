@@ -44,7 +44,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
 
   if (role === 'agent' || role === 'property-owner') {
     const propertySelect = 'id,title,city,province,district,status,listing_type,property_type,price,price_period,created_at,moderation_note,verified_at,ai_summary,property_media(storage_path,media_type,sort_order)'
-    const inquirySelect = 'id,property_id,user_id,status,message,reply_message,replied_at,follow_up_note,created_at'
+    const inquirySelect = 'id,property_id,user_id,status,message,reply_message,replied_at,follow_up_note,created_at,source,updated_at'
     const { data: ownProperties } = await supabase.from('properties').select(propertySelect).eq('owner_id', user.id).order('created_at', { ascending: false }).limit(100)
     const rows = ownProperties ?? []
     const ownIds = rows.length ? rows.map((p) => p.id) : ['00000000-0000-0000-0000-000000000000']
@@ -63,21 +63,84 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     const inquiries = Array.from(byId.values()).map((item) => ({ ...item, property_title: titles[String(item.property_id)] ?? 'Properti' }))
     inquiries.sort((a, b) => String((b as { created_at?: string }).created_at).localeCompare(String((a as { created_at?: string }).created_at)))
 
+    // Prospek dari Homy AI: setiap percakapan pengguna tentang listing ini dicatat sebagai prospek.
+    const aiMap = new Map<string, { count: number; last: string; lastAt: string; email: string | null; propertyId: string; userId: string }>()
+    try {
+      const { data: aiRows } = await supabase
+        .from('ai_conversations')
+        .select('property_id,user_id,user_email,question,created_at')
+        .in('property_id', ownIds)
+        .not('user_id', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(500)
+      for (const row of (aiRows ?? []) as unknown as Array<{ property_id?: string | null; user_id?: string | null; user_email?: string | null; question?: string | null; created_at?: string | null }>) {
+        const pid = String(row.property_id ?? '')
+        const uid = String(row.user_id ?? '')
+        if (!pid || !uid || uid === user.id) continue
+        const key = pid + ':' + uid
+        const entry = aiMap.get(key) ?? { count: 0, last: '', lastAt: '', email: null, propertyId: pid, userId: uid }
+        entry.count += 1
+        if (!entry.last) { entry.last = String(row.question ?? ''); entry.lastAt = String(row.created_at ?? '') }
+        if (!entry.email && row.user_email) entry.email = String(row.user_email)
+        aiMap.set(key, entry)
+      }
+    } catch (error) {
+      console.error('[homy] gagal memuat prospek AI:', error instanceof Error ? error.message : error)
+    }
+
     const people = await counterpartProfiles([
       ...inquiries.map((i) => String((i as { user_id?: string }).user_id ?? '')),
       ...(visits.data ?? []).map((v) => String(v.user_id ?? '')),
     ])
-
     const visitsEnriched = (visits.data ?? []).map((v) => ({ ...v, property_title: titles[String(v.property_id)] ?? 'Properti', visitor: people[String(v.user_id)] ?? null }))
-    const inquiriesEnriched = inquiries.map((i) => ({ ...i, from: people[String((i as { user_id?: string }).user_id ?? '')] ?? null }))
 
-    const openLeads = inquiriesEnriched.filter((i) => String((i as { status?: string }).status) === 'open').length
+    const inquiriesEnriched = inquiries.map((i) => {
+      const uid = String((i as { user_id?: string }).user_id ?? '')
+      const ai = aiMap.get(String((i as { property_id?: string }).property_id ?? '') + ':' + uid)
+      return {
+        ...i,
+        from: people[uid] ?? null,
+        ai_questions: ai?.count ?? 0,
+        ai_last_question: ai?.last ?? null,
+        ai_last_at: ai?.lastAt ?? null,
+      }
+    })
+
+    // Kalau ada percakapan AI yang belum punya baris prospek (data lama / gagal insert),
+    // tetap tampilkan sebagai prospek — hanya bisa dilihat, belum bisa diubah tahapnya.
+    const coveredKeys = new Set(inquiries.map((i) => String((i as { property_id?: string }).property_id ?? '') + ':' + String((i as { user_id?: string }).user_id ?? '')))
+    const syntheticProspects = [...aiMap.entries()]
+      .filter(([key]) => !coveredKeys.has(key))
+      .map(([key, ai]) => ({
+        id: 'ai:' + key,
+        property_id: ai.propertyId,
+        user_id: ai.userId,
+        status: 'open',
+        source: 'ai',
+        message: 'Pertanyaan lewat Homy AI: ' + ai.last,
+        created_at: ai.lastAt,
+        updated_at: ai.lastAt,
+        property_title: titles[ai.propertyId] ?? 'Properti',
+        from: people[ai.userId] ?? (ai.email ? { email: ai.email } : null),
+        ai_questions: ai.count,
+        ai_last_question: ai.last,
+        ai_last_at: ai.lastAt,
+        synthetic: true,
+      }))
+
+    const prospectList = [...syntheticProspects, ...inquiriesEnriched].sort((a, b) => {
+      const left = String((a as { updated_at?: string; created_at?: string }).updated_at ?? (a as { created_at?: string }).created_at ?? '')
+      const right = String((b as { updated_at?: string; created_at?: string }).updated_at ?? (b as { created_at?: string }).created_at ?? '')
+      return right.localeCompare(left)
+    })
+
+    const openLeads = prospectList.filter((i) => String((i as { status?: string }).status) === 'open').length
     const upcomingVisits = visitsEnriched.filter((v) => v.status !== 'cancelled' && v.status !== 'completed').length
     const commissionTotal = (transactions.data ?? []).reduce((sum, row) => sum + Number(row.commission_amount ?? 0), 0)
 
     const metrics = role === 'agent'
-      ? { activeListings: rows.filter((p) => p.status === 'published').length, newLeads: openLeads, totalListings: rows.length, pendingListings: rows.filter((p) => p.status === 'pending').length, rejectedListings: rows.filter((p) => p.status === 'rejected').length, totalLeads: inquiriesEnriched.length, upcomingVisits, reports: transactions.data?.length ?? 0, commissionTotal }
-      : { properties: rows.length, publishedProperties: rows.filter((p) => p.status === 'published').length, inquiries: inquiriesEnriched.length, pendingProperties: rows.filter((p) => p.status === 'pending').length, rejectedProperties: rows.filter((p) => p.status === 'rejected').length, openLeads, upcomingVisits, reports: transactions.data?.length ?? 0, commissionTotal }
+      ? { activeListings: rows.filter((p) => p.status === 'published').length, newLeads: openLeads, totalListings: rows.length, pendingListings: rows.filter((p) => p.status === 'pending').length, rejectedListings: rows.filter((p) => p.status === 'rejected').length, totalLeads: prospectList.length, aiProspects: aiMap.size, upcomingVisits, reports: transactions.data?.length ?? 0, commissionTotal }
+      : { properties: rows.length, publishedProperties: rows.filter((p) => p.status === 'published').length, inquiries: prospectList.length, aiProspects: aiMap.size, pendingProperties: rows.filter((p) => p.status === 'pending').length, rejectedProperties: rows.filter((p) => p.status === 'rejected').length, openLeads, upcomingVisits, reports: transactions.data?.length ?? 0, commissionTotal }
 
     const { data: availabilityRows } = await supabase
       .from('partner_availability')
@@ -85,7 +148,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       .eq('user_id', user.id)
       .order('weekday', { ascending: true })
 
-    return NextResponse.json({ ...base, metrics, properties: rows, inquiries: inquiriesEnriched, visits: visitsEnriched, transactions: transactions.data ?? [], agreements: agreements.data ?? [], availability: availabilityRows ?? [], payments: [] })
+    return NextResponse.json({ ...base, metrics, properties: rows, inquiries: prospectList, visits: visitsEnriched, transactions: transactions.data ?? [], agreements: agreements.data ?? [], availability: availabilityRows ?? [], payments: [] })
   }
 
   if (role === 'admin' || role === 'super-admin') {
@@ -240,7 +303,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     ...rentalRowsRaw.map((row) => String(row.property_id ?? '')),
   ].filter(Boolean)))
   const { data: refProperties } = refIds.length
-    ? await supabase.from('properties').select('id,title,city,province,district,status,listing_type,property_type,price,price_period,created_at').in('id', refIds)
+    ? await supabase.from('properties').select('id,title,city,province,district,status,listing_type,property_type,price,price_period,created_at,property_media(storage_path,media_type,sort_order)').in('id', refIds)
     : { data: [] as Array<Record<string, unknown>> }
   const refMap: Record<string, Record<string, unknown>> = {}
   for (const row of (refProperties ?? []) as unknown as Array<Record<string, unknown>>) refMap[String(row.id)] = row

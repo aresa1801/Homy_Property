@@ -50,7 +50,7 @@ async function confirmedMeetingBlock(propertyId: string): Promise<string> {
 }
 
 /**
- * Simpan rekaman percakapan AI (item "Record Percakapan").
+ * Simpan rekaman percakapan AI (item "Record Percakapan") + catat prospeknya.
  * Best-effort: kegagalan tidak boleh mengganggu jawaban ke pengguna.
  */
 async function recordConversation(input: {
@@ -80,6 +80,41 @@ async function recordConversation(input: {
       answer: input.answer.slice(0, 8000),
       sources: (input.sources ?? []) as Record<string, unknown>[],
     })
+
+    // Setiap pengguna yang bertanya lewat Homy AI dicatat sebagai PROSPEK
+    // untuk agen/pemilik listing bersangkutan (satu prospek per pembeli per properti).
+    if (input.propertyId && userId) {
+      try {
+        const { data: property } = await admin
+          .from('properties')
+          .select('id,owner_id,title')
+          .eq('id', input.propertyId)
+          .maybeSingle()
+        if (property?.id && property.owner_id && String(property.owner_id) !== userId) {
+          const { data: existing } = await admin
+            .from('inquiries')
+            .select('id')
+            .eq('property_id', input.propertyId)
+            .eq('user_id', userId)
+            .maybeSingle()
+          if (existing?.id) {
+            await admin.from('inquiries').update({ updated_at: new Date().toISOString() }).eq('id', existing.id)
+          } else {
+            const { error: prospectError } = await admin.from('inquiries').insert({
+              property_id: input.propertyId,
+              user_id: userId,
+              agent_id: property.owner_id,
+              status: 'open',
+              source: 'ai',
+              message: 'Pertanyaan lewat Homy AI: ' + input.question.slice(0, 800),
+            })
+            if (prospectError) console.error('[homy-ai] gagal mencatat prospek:', prospectError.message)
+          }
+        }
+      } catch (error) {
+        console.error('[homy-ai] gagal mencatat prospek:', error instanceof Error ? error.message : error)
+      }
+    }
   } catch (error) {
     console.error('[homy-ai] gagal menyimpan rekaman percakapan:', error instanceof Error ? error.message : error)
   }

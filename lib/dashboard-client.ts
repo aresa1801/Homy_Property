@@ -31,6 +31,14 @@ export type DashboardInquiry = {
   replied_at?: string | null
   follow_up_note?: string | null
   created_at?: string
+  updated_at?: string | null
+  source?: string | null
+  /** Jumlah pertanyaan yang dikirim calon pembeli lewat Homy AI. */
+  ai_questions?: number
+  ai_last_question?: string | null
+  ai_last_at?: string | null
+  /** true bila prospek ini hanya berasal dari percakapan AI (belum ada baris prospek penuh). */
+  synthetic?: boolean
   property?: DashboardProperty | null
   from?: { name?: string; email?: string; phone?: string } | null
 }

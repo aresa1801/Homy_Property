@@ -150,8 +150,20 @@ export function LeadsBoard({ data, loading, reload, type }: BoardProps & { type:
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
+  const [source, setSource] = useState<'all' | 'ai' | 'form'>('all')
+  const [query, setQuery] = useState('')
 
-  const leads = data.inquiries ?? []
+  const all = data.inquiries ?? []
+  const withAi = (lead: (typeof all)[number]) => (lead.ai_questions ?? 0) > 0 || lead.source === 'ai'
+  const leads = all.filter((lead) => {
+    if (source === 'ai' && !withAi(lead)) return false
+    if (source === 'form' && withAi(lead)) return false
+    const needle = query.toLowerCase().trim()
+    if (!needle) return true
+    const haystack = `${lead.from?.name ?? ''} ${lead.from?.email ?? ''} ${lead.property_title ?? ''} ${lead.message ?? ''}`.toLowerCase()
+    return haystack.includes(needle)
+  })
+  const aiTotal = all.filter(withAi).length
   const counts = Object.keys(STAGE_LABEL).map((stage) => [stage, leads.filter((lead) => (lead.status ?? 'open') === stage).length] as const)
 
   async function update(id: string, patch: Record<string, unknown>, successText: string) {
@@ -173,6 +185,21 @@ export function LeadsBoard({ data, loading, reload, type }: BoardProps & { type:
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      <div className="rounded-2xl border border-[#e5dccd] bg-white p-4 sm:p-5">
+        <p className="text-sm text-[#33433d]">
+          <strong className="text-[#0b3d2e]">{all.length}</strong> prospek tercatat. Setiap pengguna yang bertanya lewat <strong className="text-[#0b3d2e]">Homy AI</strong> tentang listing Anda otomatis masuk daftar ini sebagai prospek.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {([['all', `Semua (${all.length})`], ['ai', `Dari Homy AI (${aiTotal})`], ['form', `Dari form tanya (${all.length - aiTotal})`]] as const).map(([value, label]) => (
+            <button key={value} type="button" onClick={() => setSource(value)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${source === value ? 'bg-[#0b3d2e] text-white' : 'border border-[#d8ccbb] text-[#33433d]'}`}>{label}</button>
+          ))}
+          <label className="ml-auto flex items-center gap-2 rounded-lg border border-[#e8dfd3] px-3 py-1.5">
+            <Search className="size-3.5 text-[#718078]" />
+            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama, email, properti…" className="w-40 text-xs outline-none sm:w-56" />
+          </label>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-4 xl:grid-cols-5">
         {counts.map(([stage, total]) => (
           <div key={stage} className="rounded-2xl border border-[#e5dccd] bg-white p-3 shadow-[0_10px_30px_rgba(20,42,32,.04)] sm:p-5">
@@ -186,7 +213,7 @@ export function LeadsBoard({ data, loading, reload, type }: BoardProps & { type:
 
       <div className="grid gap-4 lg:grid-cols-2">
         {loading && <div className="h-28 animate-pulse rounded-2xl bg-white" />}
-        {!loading && !leads.length && <p className={ui.card + ' text-sm text-[#718078]'}>Belum ada {type === 'agent' ? 'prospek' : 'pertanyaan'} masuk. Begitu ada yang bertanya, semua tersimpan di sini.</p>}
+        {!loading && !leads.length && <p className={ui.card + ' text-sm text-[#718078]'}>Belum ada {type === 'agent' ? 'prospek' : 'pertanyaan'} masuk. Begitu ada yang bertanya — lewat form maupun Homy AI — semua tersimpan di sini.</p>}
         {leads.map((lead) => {
           const stage = STAGE_LABEL[String(lead.status ?? 'open')] ?? STAGE_LABEL.open
           const expanded = openId === lead.id
@@ -200,7 +227,16 @@ export function LeadsBoard({ data, loading, reload, type }: BoardProps & { type:
                 </div>
                 <span className={`${ui.badge} ${stage.className}`}>{stage.label}</span>
               </div>
+              {withAi(lead) && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-[#eef2ff] px-2.5 py-1 text-[11px] font-semibold text-[#3b4a8c]">Homy AI · {lead.ai_questions ?? 0} pertanyaan</span>
+                  {lead.ai_last_at && <span className="text-[11px] text-[#718078]">terakhir {shortDate(lead.ai_last_at)}</span>}
+                </div>
+              )}
               <p className="mt-3 line-clamp-3 text-sm leading-6 text-[#33433d]">{lead.message ?? 'Tidak ada pesan.'}</p>
+              {lead.ai_last_question && lead.ai_last_question !== lead.message && (
+                <p className="mt-2 rounded-xl bg-[#f7f9ff] p-3 text-xs leading-5 text-[#43508c]"><span className="font-semibold">Pertanyaan terakhir ke Homy AI:</span> {lead.ai_last_question}</p>
+              )}
               {lead.reply_message && (
                 <div className="mt-3 rounded-xl bg-[#edf2ed] p-3">
                   <p className="text-xs font-semibold uppercase tracking-wide text-[#4e866d]">Balasan Anda · {shortDate(lead.replied_at)}</p>
@@ -208,10 +244,12 @@ export function LeadsBoard({ data, loading, reload, type }: BoardProps & { type:
                 </div>
               )}
               <div className="mt-3 flex flex-wrap gap-2">
-                <button type="button" onClick={() => { setOpenId(expanded ? null : lead.id); setReply(lead.reply_message ?? ''); setNote(lead.follow_up_note ?? '') }} className={ui.ghost}>{expanded ? 'Tutup' : 'Tindak lanjut'}</button>
-                {lead.status !== 'closed' && <button type="button" disabled={busy} onClick={() => update(lead.id, { status: 'closed' }, 'Prospek ditandai selesai.')} className={ui.ghost}>Tandai selesai</button>}
+                {lead.synthetic
+                  ? <a href={`/property/${lead.property_id}`} className={ui.ghost}>Lihat listing</a>
+                  : <button type="button" onClick={() => { setOpenId(expanded ? null : lead.id); setReply(lead.reply_message ?? ''); setNote(lead.follow_up_note ?? '') }} className={ui.ghost}>{expanded ? 'Tutup' : 'Tindak lanjut'}</button>}
+                {!lead.synthetic && lead.status !== 'closed' && <button type="button" disabled={busy} onClick={() => update(lead.id, { status: 'closed' }, 'Prospek ditandai selesai.')} className={ui.ghost}>Tandai selesai</button>}
               </div>
-              {expanded && (
+              {expanded && !lead.synthetic && (
                 <div className="mt-4 space-y-3 border-t border-[#f2ede4] pt-4">
                   <div className="flex flex-wrap gap-2">
                     {Object.entries(STAGE_LABEL).map(([value, meta]) => (

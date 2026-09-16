@@ -4,11 +4,10 @@ import { SiteFooter } from '@/components/site-footer'
 import { SaveSearchButton } from '@/components/save-search-button'
 import { SiteHeader } from '@/components/site-header'
 import { useEffect, useMemo, useState } from 'react'
-import { BedDouble, Building2, Check, Heart, Home, Map, MapPin, Search, SlidersHorizontal } from 'lucide-react'
+import { BedDouble, Building2, Check, Home, Image as ImageIcon, Map, MapPin, Search, SlidersHorizontal } from 'lucide-react'
+import { FavoriteButton } from '@/components/favorite-button'
 import { Button } from '@/components/ui/button'
 import {
-  DEMO_PROPERTY_IMAGES,
-  FURNISHED_LABEL,
   PROPERTY_TYPE_LABEL,
   firstMediaUrl,
   formatPriceWithPeriod,
@@ -17,14 +16,7 @@ import {
   type PropertyRecord,
 } from '@/lib/property-format'
 
-const DEMO_HOMES: PropertyRecord[] = [
-  { id: 'demo-1', title: 'Modern Tropical Villa', city: 'Canggu, Bali', price: 4850000000, bedrooms: 4, bathrooms: 3, building_area: 280 },
-  { id: 'demo-2', title: 'Skyline Apartment', city: 'SCBD, Jakarta Selatan', price: 3200000000, bedrooms: 2, bathrooms: 2, building_area: 95 },
-  { id: 'demo-3', title: 'The Green Residence', city: 'Dago, Bandung', price: 2750000000, bedrooms: 3, bathrooms: 2, building_area: 180 },
-]
-
 export default function BuyPage() {
-  const [saved, setSaved] = useState<string[]>([])
   const [homes, setHomes] = useState<PropertyRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [city, setCity] = useState('')
@@ -53,9 +45,9 @@ export default function BuyPage() {
       .then((payload) => {
         if (cancelled) return
         const rows: PropertyRecord[] = Array.isArray(payload?.data) ? payload.data : []
-        setHomes(rows.length > 0 ? rows : DEMO_HOMES)
+        setHomes(rows)
       })
-      .catch(() => { if (!cancelled) setHomes(DEMO_HOMES) })
+      .catch(() => { if (!cancelled) setHomes([]) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
   }, [applied])
@@ -89,14 +81,15 @@ export default function BuyPage() {
           {!loading && filtered.length === 0 && <p className="rounded-2xl bg-white p-4 sm:p-6 text-sm text-[#65706c]">Belum ada properti untuk filter ini.</p>}
           {/* Dua kartu per baris (di HP maupun desktop) supaya daftar properti lebih ringkas. */}
           <div className="grid grid-cols-2 gap-3 sm:gap-6">
-            {filtered.map((home, i) => {
-              const image = firstMediaUrl(home, supabaseUrl) ?? DEMO_PROPERTY_IMAGES[i % DEMO_PROPERTY_IMAGES.length]
-              const isSaved = saved.includes(home.id)
+            {filtered.map((home) => {
+              const image = firstMediaUrl(home, supabaseUrl)
               return (
                 <article key={home.id} className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-[0_10px_35px_rgba(20,42,32,.07)]">
                   <div className="relative aspect-[1.25] overflow-hidden">
-                    <img src={image} alt={home.title} className="size-full object-cover transition duration-500 hover:scale-105" />
-                    <button aria-label={`Save ${home.title}`} onClick={() => setSaved((s) => isSaved ? s.filter((x) => x !== home.id) : [...s, home.id])} className="absolute right-2 top-2 grid size-8 place-items-center rounded-full bg-white/90 text-[#0b3d2e] sm:right-4 sm:top-4 sm:size-9"><Heart className={`size-4 sm:size-5 ${isSaved ? 'fill-[#a3282c] text-[#a3282c]' : ''}`} /></button>
+                    {image
+                      ? <img src={image} alt={home.title} className="size-full object-cover transition duration-500 hover:scale-105" />
+                      : <span className="grid size-full place-items-center bg-[#f2f0ea] text-[#a18a61]"><ImageIcon className="size-6" /></span>}
+                    <FavoriteButton propertyId={home.id} propertyTitle={home.title} className="absolute right-2 top-2 sm:right-4 sm:top-4" />
                   </div>
                   <div className="flex flex-1 flex-col p-3 sm:p-5">
                     <h2 className="font-serif text-sm leading-tight text-[#0b3d2e] sm:text-2xl">{home.title}</h2>

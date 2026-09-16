@@ -3,7 +3,8 @@
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 import { useEffect, useState } from 'react'
-import { ArrowLeft, BedDouble, Bath, Check, Heart, Home, MapPin, Ruler, Send, Sparkles } from 'lucide-react'
+import { ArrowLeft, BedDouble, Bath, Check, Home, MapPin, Ruler, Send, Sparkles } from 'lucide-react'
+import { FavoriteButton } from '@/components/favorite-button'
 import { Button } from '@/components/ui/button'
 import { AiChat } from '@/components/ai/ai-chat'
 import { VisitScheduler } from '@/components/ai/visit-scheduler'
@@ -100,7 +101,10 @@ export default function PropertyDetailClient({ id }: { id: string }) {
             <div className="mt-8">
               <span className="inline-block rounded-full bg-[#edf2ed] px-3 py-1 text-xs font-semibold uppercase tracking-wider text-[#0b3d2e]">{property.listing_type === 'rent' ? 'Disewakan' : 'Dijual'}</span>
               <h1 className="mt-4 font-serif text-2xl sm:text-4xl text-[#0b3d2e] md:text-5xl">{property.title}</h1>
-              <p className="mt-3 flex items-center gap-2 text-[#65706c]"><MapPin className="size-4" /> {propertyLocation(property)}</p>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <p className="flex items-center gap-2 text-[#65706c]"><MapPin className="size-4" /> {propertyLocation(property)}</p>
+                <FavoriteButton propertyId={property.id} propertyTitle={property.title} variant="plain" />
+              </div>
               <p className="mt-6 text-2xl sm:text-3xl font-bold text-[#0b3d2e]">{formatPriceWithPeriod(property.price, property.price_period)}</p>
 
               <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">

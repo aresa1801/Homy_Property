@@ -30,7 +30,7 @@ export default function AgentDashboard() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <MetricCard label="Total listing" value={String(metrics.totalListings ?? (data.properties ?? []).length)} change={`${metrics.activeListings ?? 0} tayang`} icon="home" />
-        <MetricCard label="Prospek baru" value={String(metrics.newLeads ?? 0)} change={`${metrics.totalLeads ?? 0} total prospek`} icon="users" />
+        <MetricCard label="Prospek baru" value={String(metrics.newLeads ?? 0)} change={`${metrics.totalLeads ?? 0} total prospek${metrics.aiProspects ? ` · ${metrics.aiProspects} dari Homy AI` : ''}`} icon="users" />
         <MetricCard label="Kunjungan mendatang" value={String(metrics.upcomingVisits ?? 0)} change="Lihat kalender & konfirmasi" icon="calendar" />
         <MetricCard label="Komisi dilaporkan" value={rupiah(metrics.commissionTotal ?? 0)} change={`${metrics.reports ?? 0} transaksi dilaporkan`} icon="wallet" />
       </div>

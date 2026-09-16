@@ -1,7 +1,10 @@
 'use client'
 
 import useSWR from 'swr'
+import { Image as ImageIcon, MapPin } from 'lucide-react'
 import { DashboardShell, SectionCard } from '@/components/dashboard-shell'
+import { FavoriteButton } from '@/components/favorite-button'
+import { firstMediaUrl, formatPriceWithPeriod, propertyLocation } from '@/lib/property-format'
 
 const fetcher = (url: string) => fetch(url).then((response) => {
   if (!response.ok) throw new Error('Gagal memuat data')
@@ -41,10 +44,36 @@ const copy = {
 } as const
 
 export function UserDashboardPage({ type }: { type: PageType }) {
-  const { data, error, isLoading } = useSWR('/api/dashboard/user', fetcher)
+  const { data, error, isLoading, mutate } = useSWR('/api/dashboard/user', fetcher)
   const current = copy[type]
   const rows = data?.[current.key] ?? []
   return <DashboardShell role="User"><div className="mb-5 sm:mb-8"><p className="text-sm font-semibold uppercase tracking-[.16em] text-[#a18a61]">Dasbor Pengguna</p><h2 className="mt-2 font-serif text-2xl sm:text-4xl text-[#0b3d2e]">{current.title}</h2><p className="mt-3 max-w-2xl text-[#718078]">{current.intro}</p></div><SectionCard title={current.title}><div className="space-y-3">{isLoading ? <p className="text-sm text-[#718078]">Memuat data...</p> : error ? <p role="alert" className="text-sm text-red-700">Data belum dapat dimuat. Silakan coba lagi.</p> : type === 'apply' ? <div className="grid gap-4 md:grid-cols-2"><a href="/onboarding?role=agent" className="group rounded-2xl border border-[#e5dccd] p-4 sm:p-5 transition hover:-translate-y-0.5 hover:border-[#c9a961] hover:bg-[#f7f3ec]"><h3 className="font-semibold text-[#0b3d2e]">Menjadi Agen Properti</h3><p className="mt-2 text-sm text-[#718078]">Buka formulir pendaftaran agen, lengkapi data Anda, lalu akses dasbor agen setelah tersimpan.</p><span className="mt-4 inline-block text-sm font-semibold text-[#9a783c]">Isi formulir agen →</span></a><a href="/onboarding?role=property_owner" className="group rounded-2xl border border-[#e5dccd] p-4 sm:p-5 transition hover:-translate-y-0.5 hover:border-[#c9a961] hover:bg-[#f7f3ec]"><h3 className="font-semibold text-[#0b3d2e]">Menjadi Pemilik Properti</h3><p className="mt-2 text-sm text-[#718078]">Buka formulir pendaftaran pemilik, kirim data properti Anda, lalu akses dasbor pemilik.</p><span className="mt-4 inline-block text-sm font-semibold text-[#9a783c]">Isi formulir pemilik →</span></a></div> : rows.length ? rows.map((row: Record<string, unknown>, index: number) => {
+    if (type === 'favorites') {
+      const property = (row.property ?? null) as Record<string, unknown> | null
+      const id = String(row.property_id ?? property?.id ?? '')
+      const title = String(property?.title ?? 'Properti')
+      const image = property ? firstMediaUrl(property as unknown as { property_media?: never[] }, process.env.NEXT_PUBLIC_SUPABASE_URL) : null
+      const status = String(property?.status ?? '')
+      return (
+        <div key={id || index} className="flex gap-3 rounded-xl border border-[#eee5d8] bg-white p-3">
+          <a href={`/property/${id}`} className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-[#f2f0ea] sm:size-24">
+            {image
+              ? <img src={image} alt={title} className="size-full object-cover" />
+              : <span className="grid size-full place-items-center text-[#a18a61]"><ImageIcon className="size-5" /></span>}
+          </a>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-semibold text-[#0b3d2e]">{title}</p>
+            <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-[#718078]"><MapPin className="size-3.5 shrink-0" />{property ? propertyLocation(property as never) : 'Lokasi menyusul'}</p>
+            <p className="mt-1 text-sm font-bold text-[#0b3d2e]">{property ? formatPriceWithPeriod(Number(property.price ?? 0), (property.price_period ?? null) as string | null) : '-'}</p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <a href={`/property/${id}`} className="text-xs font-semibold text-[#0b3d2e] underline">Lihat detail</a>
+              <FavoriteButton propertyId={id} propertyTitle={title} variant="plain" onChange={() => { void mutate() }} />
+            </div>
+            {status && status !== 'published' && <p className="mt-1 text-xs text-[#a18a61]">Status listing: {status === 'draft' ? 'draf' : status === 'pending' ? 'menunggu moderasi' : status}</p>}
+          </div>
+        </div>
+      )
+    }
     if (type === 'visits') {
       const interest = String(row.interest ?? 'pending')
       const status = String(row.status ?? '')

@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { SaveSearchButton } from '@/components/save-search-button'
-import { BadgeCheck, Building2, CalendarDays, Check, Heart, MapPin, Search, SlidersHorizontal, Sparkles } from 'lucide-react'
+import { BadgeCheck, Building2, CalendarDays, Check, Image as ImageIcon, MapPin, Search, SlidersHorizontal, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
+import { FavoriteButton } from '@/components/favorite-button'
 import {
-  DEMO_PROPERTY_IMAGES,
   FURNISHED_LABEL,
   PROPERTY_TYPE_LABEL,
   firstMediaUrl,
@@ -41,7 +41,6 @@ function monthlyRate(home: PropertyRecord) {
 }
 
 export default function RentPage() {
-  const [saved, setSaved] = useState<string[]>([])
   const [listings, setListings] = useState<PropertyRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [duration, setDuration] = useState<Duration>('monthly')
@@ -141,15 +140,16 @@ export default function RentPage() {
           )}
           {/* Dua kartu per baris (di HP maupun desktop) supaya daftar properti sewa lebih ringkas. */}
           <div className="grid grid-cols-2 gap-3 sm:gap-6">
-            {shown.map((home, i) => {
-              const image = firstMediaUrl(home, supabaseUrl) ?? DEMO_PROPERTY_IMAGES[i % DEMO_PROPERTY_IMAGES.length]
-              const isSaved = saved.includes(home.id)
+            {shown.map((home) => {
+              const image = firstMediaUrl(home, supabaseUrl)
               return (
                 <article key={home.id} className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-[0_10px_35px_rgba(20,42,32,.07)]">
                   <div className="relative aspect-[1.25] overflow-hidden">
-                    <img src={image} alt={home.title} className="size-full object-cover transition duration-500 hover:scale-105" />
+                    {image
+                      ? <img src={image} alt={home.title} className="size-full object-cover transition duration-500 hover:scale-105" />
+                      : <span className="grid size-full place-items-center bg-[#f2f0ea] text-[#a18a61]"><ImageIcon className="size-6" /></span>}
                     <div className="absolute left-2 top-2 rounded-full bg-[#0b3d2e] px-2 py-1 text-[10px] font-semibold text-[#f6e2a8] sm:left-4 sm:top-4 sm:px-3 sm:py-1.5 sm:text-xs">{home.price_period === 'yearly' ? 'Sewa Tahunan' : 'Sewa Bulanan'}</div>
-                    <button aria-label={'Simpan ' + home.title} onClick={() => setSaved((s) => (isSaved ? s.filter((x) => x !== home.id) : [...s, home.id]))} className="absolute right-2 top-2 grid size-8 place-items-center rounded-full bg-white/90 text-[#0b3d2e] sm:right-4 sm:top-4 sm:size-9"><Heart className={`size-4 sm:size-5 ${isSaved ? 'fill-[#a3282c] text-[#a3282c]' : ''}`} /></button>
+                    <FavoriteButton propertyId={home.id} propertyTitle={home.title} className="absolute right-2 top-2 sm:right-4 sm:top-4" />
                   </div>
                   <div className="flex flex-1 flex-col p-3 sm:p-5">
                     <h2 className="font-serif text-sm leading-tight text-[#0b3d2e] sm:text-2xl">{home.title}</h2>
