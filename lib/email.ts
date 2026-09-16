@@ -351,7 +351,7 @@ export async function sendVisitFollowUpEmail(input: VisitFollowUpInput) {
     if (!response.ok) {
       const detail = await response.text().catch(() => '')
       console.error('[homy-email] gagal kirim tindak lanjut:', response.status, detail.slice(0, 300))
-      return { ok: false, status: response.status, subject }
+      return { ok: false, status: response.status, reason: 'provider rejected the message', detail: detail.slice(0, 160), subject }
     }
     const payload = (await response.json().catch(() => ({}))) as { id?: string }
     return { ok: true, id: payload.id, subject }

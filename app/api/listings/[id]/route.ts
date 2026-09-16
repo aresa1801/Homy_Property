@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { parseMapPoint } from '@/lib/homy-maps'
+import { parseMapPoint, resolveMapPoint } from '@/lib/homy-maps'
 
 export const runtime = 'nodejs'
 
@@ -98,15 +98,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
 
   // Titik temu: kalau pengguna menempel link Google Maps baru, ambil koordinatnya.
+  // Link share pendek (maps.app.goo.gl) diselesaikan dulu lewat resolveMapPoint.
   const mapLink = String(body.map_url ?? '').trim()
   if (mapLink) {
-    const point = parseMapPoint(mapLink)
+    const point = parseMapPoint(mapLink) ?? (await resolveMapPoint(mapLink))
     if (point) {
       if (body.meeting_point_lat == null || body.meeting_point_lat === '') patch.meeting_point_lat = point.lat
       if (body.meeting_point_lng == null || body.meeting_point_lng === '') patch.meeting_point_lng = point.lng
-      if (patch.latitude == null && patch.longitude == null && body.latitude == null) {
-        // biarkan koordinat listing apa adanya; titik temu sudah punya koordinat sendiri
-      }
     }
   }
 

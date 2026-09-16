@@ -161,7 +161,7 @@ export async function POST(request: Request) {
     ok: true,
     interest: interested ? 'interested' : 'not_interested',
     notification: 'sent',
-    email: { ok: email.ok, skipped: Boolean(email.skipped), reason: email.reason ?? null, subject: email.subject },
+    email: { ok: email.ok, skipped: Boolean(email.skipped), reason: email.reason ?? null, status: email.status ?? null, providerDetail: email.detail ?? null, subject: email.subject },
     alternatives: alternatives.map((item) => ({ id: item.id, title: item.title, city: item.city, district: item.district, price: item.price, listing_type: item.listing_type })),
   })
 }

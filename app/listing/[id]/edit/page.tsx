@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, ImagePlus, Loader2, MapPin, Navigation, Save, Star, Trash2, TriangleAlert } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { mapEmbedUrl, mapOpenUrl, parseMapPoint } from '@/lib/homy-maps'
+import { mapEmbedUrl, mapOpenUrl, looksLikeMapLink, parseMapPoint } from '@/lib/homy-maps'
 
 const BUCKET = 'property-media'
 const MAX_PHOTOS = 12
@@ -49,6 +49,7 @@ export default function EditListingPage() {
   const [amenities, setAmenities] = useState<string[]>([])
   const [media, setMedia] = useState<Media[]>([])
   const [mapLink, setMapLink] = useState('')
+  const [resolving, setResolving] = useState(false)
   const fileInput = useRef<HTMLInputElement | null>(null)
 
   const set = (key: string, value: string) => setForm((current) => ({ ...current, [key]: value }))
@@ -96,15 +97,44 @@ export default function EditListingPage() {
   function applyMapLink(value: string) {
     setMapLink(value)
     const point = parseMapPoint(value)
-    if (!point) return
-    setForm((current) => ({
-      ...current,
-      map_url: value,
-      meeting_point_lat: String(point.lat),
-      meeting_point_lng: String(point.lng),
-      latitude: current.latitude || String(point.lat),
-      longitude: current.longitude || String(point.lng),
-    }))
+    if (point) {
+      setForm((current) => ({
+        ...current,
+        map_url: value,
+        meeting_point_lat: String(point.lat),
+        meeting_point_lng: String(point.lng),
+        latitude: current.latitude || String(point.lat),
+        longitude: current.longitude || String(point.lng),
+      }))
+      setResolving(false)
+      return
+    }
+    // Link share pendek (maps.app.goo.gl/…) belum memuat koordinat — minta server membuka tautannya.
+    if (!looksLikeMapLink(value)) { setResolving(false); return }
+    setResolving(true)
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 12_000)
+    fetch(`/api/maps/resolve?url=${encodeURIComponent(value)}`, { signal: controller.signal })
+      .then((response) => response.json())
+      .then((payload) => {
+        if (!payload?.point) {
+          setMessage({ tone: 'err', text: payload?.error ?? 'Koordinat tidak ditemukan di link itu. Isi latitude/longitude manual.' })
+          return
+        }
+        const lat = Number(payload.point.lat)
+        const lng = Number(payload.point.lng)
+        setForm((current) => ({
+          ...current,
+          map_url: value,
+          meeting_point_lat: String(lat),
+          meeting_point_lng: String(lng),
+          latitude: current.latitude || String(lat),
+          longitude: current.longitude || String(lng),
+        }))
+        setMessage({ tone: 'ok', text: 'Koordinat titik temu diambil dari link Google Maps. Jangan lupa simpan.' })
+      })
+      .catch(() => setMessage({ tone: 'err', text: 'Gagal membaca link Google Maps. Isi latitude/longitude manual kalau perlu.' }))
+      .finally(() => { clearTimeout(timer); setResolving(false) })
   }
 
   function useCurrentLocation() {
@@ -328,6 +358,7 @@ export default function EditListingPage() {
           <label className={`${label} sm:col-span-2`}>Link Google Maps
             <input className={field} value={mapLink} onChange={(e) => applyMapLink(e.target.value)} placeholder="https://maps.app.goo.gl/… atau https://www.google.com/maps/@-7.795,110.369,17z" />
           </label>
+          {resolving && <p className="text-xs font-semibold text-[#65706c] sm:col-span-2">Membaca koordinat dari link Google Maps…</p>}
           <label className={label}>Latitude titik temu<input className={field} value={form.meeting_point_lat ?? ''} onChange={(e) => set('meeting_point_lat', e.target.value)} /></label>
           <label className={label}>Longitude titik temu<input className={field} value={form.meeting_point_lng ?? ''} onChange={(e) => set('meeting_point_lng', e.target.value)} /></label>
           <label className={`${label} sm:col-span-2`}>Catatan titik temu

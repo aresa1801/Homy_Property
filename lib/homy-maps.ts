@@ -9,11 +9,13 @@
 export type MapPoint = { lat: number; lng: number }
 
 const PATTERNS: RegExp[] = [
+  /!3d(-?\d{1,3}(?:\.\d+)?)!4d(-?\d{1,3}(?:\.\d+)?)/, // data blob di URL maps (paling presisi)
   /@(-?\d{1,3}(?:\.\d+)?),\s*(-?\d{1,3}(?:\.\d+)?)/, // .../@-7.7956,110.3695,17z
-  /[?&](?:q|query|ll|center|destination)=(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/i,
-  /!3d(-?\d{1,3}(?:\.\d+)?)!4d(-?\d{1,3}(?:\.\d+)?)/, // data blob di URL maps
+  /[?&](?:q|query|ll|center|destination|daddr)=(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)/i,
   /^\s*(-?\d{1,3}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)\s*$/, // "lat, lng" polos
 ]
+
+const SHORT_LINK = /(maps\.app\.goo\.gl|goo\.gl|g\.co|maps\.google\.[a-z.]+)/i
 
 /** Ambil koordinat dari link Google Maps / teks "lat, lng". Null kalau tidak ketemu. */
 export function parseMapPoint(input?: string | null): MapPoint | null {
@@ -55,4 +57,46 @@ export function mapOpenUrl(lat?: number | string | null, lng?: number | string |
 /** Apakah link yang ditempel terlihat seperti tautan Google Maps yang sah. */
 export function looksLikeMapLink(value?: string | null): boolean {
   return /google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps|maps\.google\./i.test(String(value ?? ''))
+}
+
+/**
+ * Link share Google Maps dari aplikasi HP sering berupa tautan pendek
+ * (mis. https://maps.app.goo.gl/xxxx) yang TIDAK memuat koordinat.
+ * Fungsi ini mengikuti redirect-nya di server lalu mengambil koordinat.
+ * Tidak pernah melempar error — kembalikan null kalau gagal.
+ */
+export async function resolveMapPoint(input?: string | null): Promise<MapPoint | null> {
+  const text = String(input ?? '').trim()
+  if (!text) return null
+  const direct = parseMapPoint(text)
+  if (direct) return direct
+  if (!SHORT_LINK.test(text)) return null
+  const url = /^https?:\/\//i.test(text) ? text : `https://${text}`
+
+  async function follow(target: string, method: 'HEAD' | 'GET'): Promise<MapPoint | null> {
+    try {
+      const response = await fetch(target, {
+        method,
+        redirect: 'follow',
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; HomyBot/1.0)' },
+      })
+      const found = parseMapPoint(response.url)
+      if (found) return found
+      if (method === 'GET') {
+        const body = (await response.text()).slice(0, 400_000)
+        const fromBody = parseMapPoint(body)
+        if (fromBody) return fromBody
+        const embedded = body.match(/https:\/\/www\.google\.[a-z.]+\/maps[^"'<>\\ ]{0,400}/i)
+        if (embedded) {
+          const deeper = parseMapPoint(decodeURIComponent(embedded[0].replace(/\\u003d/g, '=').replace(/\\u0026/g, '&')))
+          if (deeper) return deeper
+        }
+      }
+    } catch { /* diabaikan */ }
+    return null
+  }
+
+  const viaHead = await follow(url, 'HEAD')
+  if (viaHead) return viaHead
+  return follow(url, 'GET')
 }
