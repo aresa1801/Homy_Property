@@ -9,6 +9,7 @@
  * Semua fungsi tidak pernah melempar error: kegagalan push tidak boleh merusak alur utama.
  */
 import webpush from 'web-push'
+import crypto from 'crypto'
 import { serviceClient } from '@/lib/visits'
 
 /** Kunci publik VAPID. Aman dibagikan; fallback ditulis agar tidak bergantung env saat build. */
@@ -36,6 +37,22 @@ function configure(): boolean {
 /** true kalau server punya kunci lengkap dan siap mengirim push. */
 export function pushConfigured(): boolean {
   return Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY)
+}
+
+/**
+ * Diagnosa: apakah kunci privat VAPID di server benar-benar cocok dengan kunci publik
+ * yang dipakai browser untuk berlangganan? Kalau tidak cocok, push service akan menolak
+ * (401) walau konfigurasi "terlihat" lengkap.
+ */
+export function vapidKeyPairMatches(): boolean {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return false
+  try {
+    const ecdh = crypto.createECDH('prime256v1')
+    ecdh.setPrivateKey(Buffer.from(VAPID_PRIVATE_KEY, 'base64url'))
+    return ecdh.getPublicKey().toString('base64url') === VAPID_PUBLIC_KEY
+  } catch {
+    return false
+  }
 }
 
 export type PushSubscriptionRow = { endpoint: string; p256dh: string; auth: string }

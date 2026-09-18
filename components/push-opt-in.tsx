@@ -28,6 +28,7 @@ export function PushOptIn({ compact = false }: { compact?: boolean }) {
   const [busy, setBusy] = useState(false)
   const [publicKey, setPublicKey] = useState<string>('')
   const [note, setNote] = useState<string>('')
+  const [testing, setTesting] = useState(false)
 
   const refresh = useCallback(async () => {
     if (!supported()) {
@@ -95,6 +96,22 @@ export function PushOptIn({ compact = false }: { compact?: boolean }) {
     }
   }
 
+  async function testPush() {
+    if (testing) return
+    setTesting(true)
+    setNote('')
+    try {
+      const response = await fetch('/api/push/test', { method: 'POST' })
+      const payload = await response.json().catch(() => ({}))
+      if (payload?.ok) setNote('Notifikasi tes terkirim ke ' + payload.sent + ' perangkat. Cek layar HP Anda.')
+      else setNote(String(payload?.error ?? 'Tes gagal dikirim.'))
+    } catch {
+      setNote('Tes gagal dikirim.')
+    } finally {
+      setTesting(false)
+    }
+  }
+
   async function disable() {
     if (busy) return
     setBusy(true)
@@ -137,14 +154,26 @@ export function PushOptIn({ compact = false }: { compact?: boolean }) {
           </p>
           {note && <p className="mt-1 text-[11px] leading-4 text-[#8a6d21]">{note}</p>}
           {state === 'denied' && <p className="mt-1 text-[11px] leading-4 text-[#a34438]">Izin diblokir di browser. Buka setelan situs → Notifikasi → Izinkan.</p>}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => (on ? void disable() : void enable())}
-            className={'mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60 ' + (on ? 'border border-[#e5dccd] bg-white text-[#a34438] hover:bg-[#fbeeec]' : 'bg-[#0b3d2e] text-white hover:bg-[#0f4a38]')}
-          >
-            {busy ? 'Memproses…' : on ? 'Matikan di perangkat ini' : 'Aktifkan notifikasi HP'}
-          </button>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => (on ? void disable() : void enable())}
+              className={'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition disabled:opacity-60 ' + (on ? 'border border-[#e5dccd] bg-white text-[#a34438] hover:bg-[#fbeeec]' : 'bg-[#0b3d2e] text-white hover:bg-[#0f4a38]')}
+            >
+              {busy ? 'Memproses…' : on ? 'Matikan di perangkat ini' : 'Aktifkan notifikasi HP'}
+            </button>
+            {on && (
+              <button
+                type="button"
+                disabled={testing}
+                onClick={() => { void testPush() }}
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#d8ccbb] bg-[#fbfaf7] px-3 py-1.5 text-xs font-semibold text-[#0b3d2e] transition hover:border-[#c9a961] disabled:opacity-60"
+              >
+                {testing ? 'Mengirim…' : 'Kirim tes notifikasi'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

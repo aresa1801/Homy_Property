@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { serviceClient } from '@/lib/visits'
-import { pushConfigured, VAPID_PUBLIC_KEY } from '@/lib/push'
+import { pushConfigured, vapidKeyPairMatches, VAPID_PUBLIC_KEY } from '@/lib/push'
 
 export const runtime = 'nodejs'
 
@@ -18,7 +18,7 @@ type SubscriptionBody = {
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const configured = pushConfigured()
+  const configured = pushConfigured() && vapidKeyPairMatches()
   if (!user) return NextResponse.json({ configured, publicKey: VAPID_PUBLIC_KEY, authenticated: false, devices: 0 })
   const admin = serviceClient()
   let devices = 0
