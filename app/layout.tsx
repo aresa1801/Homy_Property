@@ -1,7 +1,6 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import { LanguageProvider } from '@/components/language-provider'
-import { PwaRegister } from '@/components/pwa-register'
 import './globals.css'
 
 const SITE_URL = (process.env.HOMY_APP_URL || 'https://homyproperty.id').replace(/\/$/, '')
@@ -103,7 +102,13 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(orgJsonLd) }}
         />
-        <PwaRegister />
+        {/* Register the service worker during HTML parsing so crawlers (PWABuilder/Lighthouse)
+            and first visits detect it without waiting for React hydration. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js',{scope:'/'}).catch(function(){})}",
+          }}
+        />
         <LanguageProvider>{children}</LanguageProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}
       </body>
