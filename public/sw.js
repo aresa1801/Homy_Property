@@ -9,6 +9,12 @@ const APP_SHELL = [
   '/icon-maskable-512.png',
 ]
 
+/** Private/authenticated areas must never be written to the shared offline cache. */
+function isPrivate(url) {
+  const path = url.pathname
+  return path.startsWith('/api/') || path.startsWith('/dashboard') || path.startsWith('/message') || path.startsWith('/auth')
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
@@ -30,28 +36,40 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const request = event.request
   if (request.method !== 'GET') return
-  if (!request.url.startsWith(self.location.origin)) return
 
-  // Navigations: network first, fall back to cached shell, then the offline page.
+  let url
+  try {
+    url = new URL(request.url)
+  } catch {
+    return
+  }
+  if (url.origin !== self.location.origin) return
+
+  // Navigations: network first, then cached shell, then the offline page.
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone()
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => undefined)
+          if (!isPrivate(url)) {
+            const copy = response.clone()
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy)).catch(() => undefined)
+          }
           return response
         })
         .catch(() =>
           caches
             .match(request)
-            .then((cached) => cached || caches.match('/') || caches.match('/offline.html'))
+            .then((cached) => cached || caches.match('/'))
             .then((fallback) => fallback || caches.match('/offline.html')),
         ),
     )
     return
   }
 
-  // Other GETs: cache first for shell assets, otherwise network with cache fallback.
+  // Never serve cached API/dashboard data.
+  if (isPrivate(url)) return
+
+  // Static assets: cache first, then network; fall back to the offline page.
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached
