@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "id.homyproperty.twa",
+      "sha256_cert_fingerprints": [
+        "D3:F9:DF:7C:88:57:91:3E:BC:D8:A1:F2:27:CE:C8:01:D7:10:86:B1:2B:95:4B:51:65:E6:C4:8B:1B:2C:B9:AA"
+      ]
+    }
+  }
+]
