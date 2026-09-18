@@ -20,6 +20,17 @@ function homyPath(raw: string | undefined): string | null {
   return null
 }
 
+/** Finds a Homy URL inside free-form shared text (e.g. "cek rumah ini https://homyproperty.id/property/x"). */
+function homyUrlInText(text: string | undefined): string | null {
+  if (!text) return null
+  const matches = text.match(/https?:\/\/[^\s]+/g) ?? []
+  for (const candidate of matches) {
+    const path = homyPath(candidate)
+    if (path) return path
+  }
+  return null
+}
+
 /**
  * Web Share Target receiver: users can share a link/text from another app straight into Homy.
  * Homy links open directly; anything else lands on the sale listing browser.
@@ -28,6 +39,6 @@ export default async function ShareTargetPage({ searchParams }: { searchParams?:
   const params = ((await searchParams) ?? {}) as SearchParams
   const url = first(params.url)
   const text = first(params.text)
-  const direct = homyPath(url) ?? homyPath(text)
+  const direct = homyPath(url) ?? homyUrlInText(text)
   redirect(direct ?? '/buy')
 }
