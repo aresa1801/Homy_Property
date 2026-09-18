@@ -64,8 +64,10 @@ export type PushMessage = {
   kind?: string | null
 }
 
-/** Kirim satu pesan ke satu langganan. Return true kalau terkirim (atau langganan sudah mati). */
-async function sendOne(row: PushSubscriptionRow, payload: PushMessage): Promise<boolean> {
+type SendResult = { ok: boolean; error?: string }
+
+/** Kirim satu pesan ke satu langganan. */
+async function sendOne(row: PushSubscriptionRow, payload: PushMessage): Promise<SendResult> {
   try {
     await webpush.sendNotification(
       { endpoint: row.endpoint, keys: { p256dh: row.p256dh, auth: row.auth } },
@@ -78,7 +80,7 @@ async function sendOne(row: PushSubscriptionRow, payload: PushMessage): Promise<
       }),
       { TTL: 60 * 60 * 24, urgency: 'normal' },
     )
-    return true
+    return { ok: true }
   } catch (error) {
     const status = (error as { statusCode?: number }).statusCode
     // 404/410 = langganan sudah tidak ada di browser → bersihkan dari DB.
@@ -87,42 +89,71 @@ async function sendOne(row: PushSubscriptionRow, payload: PushMessage): Promise<
         const admin = serviceClient()
         if (admin) await admin.from('push_subscriptions').delete().eq('endpoint', row.endpoint)
       } catch { /* diamkan */ }
-      return true
+      return { ok: true, error: 'langganan mati (' + status + ') dihapus' }
     }
-    console.error('[homy-push] gagal kirim:', status ?? '', error instanceof Error ? error.message : error)
-    return false
+    const message = (error instanceof Error ? error.message : String(error)) || 'unknown'
+    console.error('[homy-push] gagal kirim:', status ?? '', message)
+    return { ok: false, error: (status ? status + ' ' : '') + message }
   }
 }
 
-/** Kirim push ke semua perangkat milik user tertentu. Return jumlah terkirim. */
-export async function sendPushToUser(userId: string, payload: PushMessage): Promise<number> {
-  if (!userId || !configure()) return 0
+/** Detail hasil pengiriman push ke satu user (dipakai endpoint tes & diagnosa). */
+export type PushDeliveryReport = {
+  sent: number
+  totalSubscriptions: number
+  failures: string[]
+}
+
+/** Kirim push ke semua perangkat milik user tertentu, sekaligus mengembalikan detail kegagalan. */
+export async function sendPushToUserVerbose(userId: string, payload: PushMessage): Promise<PushDeliveryReport> {
+  const report: PushDeliveryReport = { sent: 0, totalSubscriptions: 0, failures: [] }
+  if (!userId || !configure()) {
+    if (userId) report.failures.push('VAPID belum dikonfigurasi di server')
+    return report
+  }
   try {
     const admin = serviceClient()
-    if (!admin) return 0
+    if (!admin) {
+      report.failures.push('service client tidak tersedia')
+      return report
+    }
     const { data, error } = await admin
       .from('push_subscriptions')
       .select('endpoint,p256dh,auth')
       .eq('user_id', userId)
       .limit(20)
-    if (error || !data?.length) return 0
-    const rows = data as PushSubscriptionRow[]
-    let sent = 0
-    // Kirim berurutan dalam kelompok kecil supaya tidak membebani runtime serverless.
+    if (error) {
+      report.failures.push('baca langganan gagal: ' + error.message)
+      return report
+    }
+    const rows = (data ?? []) as PushSubscriptionRow[]
+    report.totalSubscriptions = rows.length
+    if (!rows.length) return report
     for (let i = 0; i < rows.length; i += 5) {
       const chunk = rows.slice(i, i + 5)
       const results = await Promise.all(chunk.map((row) => sendOne(row, payload)))
-      sent += results.filter(Boolean).length
+      results.forEach((result, index) => {
+        if (result.ok) report.sent += 1
+        else report.failures.push(chunk[index].endpoint.slice(0, 60) + ' → ' + (result.error ?? 'gagal'))
+      })
     }
-    if (sent) {
-      const endpoints = rows.map((row) => row.endpoint)
-      await admin.from('push_subscriptions').update({ last_seen_at: new Date().toISOString() }).in('endpoint', endpoints)
+    if (report.sent) {
+      await admin
+        .from('push_subscriptions')
+        .update({ last_seen_at: new Date().toISOString() })
+        .in('endpoint', rows.map((row) => row.endpoint))
     }
-    return sent
+    return report
   } catch (error) {
-    console.error('[homy-push] error:', error instanceof Error ? error.message : error)
-    return 0
+    report.failures.push(error instanceof Error ? error.message : String(error))
+    return report
   }
+}
+
+/** Kirim push ke semua perangkat milik user tertentu. Return jumlah terkirim. */
+export async function sendPushToUser(userId: string, payload: PushMessage): Promise<number> {
+  const report = await sendPushToUserVerbose(userId, payload)
+  return report.sent
 }
 
 /** Kirim push untuk sekumpulan notifikasi (biasanya 1 user per baris). */
