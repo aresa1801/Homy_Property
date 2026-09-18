@@ -1,4 +1,4 @@
-const CACHE_NAME = 'homy-shell-v3'
+const CACHE_NAME = 'homy-shell-v4'
 const APP_SHELL = [
   '/',
   '/offline.html',
