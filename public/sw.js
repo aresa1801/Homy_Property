@@ -1,4 +1,4 @@
-const CACHE_NAME = 'homy-shell-v4'
+const CACHE_NAME = 'homy-shell-v5'
 const APP_SHELL = [
   '/',
   '/offline.html',
@@ -83,5 +83,51 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(() => caches.match('/offline.html'))
     }),
+  )
+})
+
+/* ------------------------------------------------------------------ *
+ * Web Push — notifikasi ke HP (pertanyaan pembeli, kunjungan, listing).
+ * ------------------------------------------------------------------ */
+self.addEventListener('push', (event) => {
+  let payload = {}
+  try {
+    payload = event.data ? event.data.json() : {}
+  } catch {
+    payload = { title: 'Homy Property', body: event.data ? event.data.text() : '' }
+  }
+
+  const title = payload.title || 'Homy Property'
+  const options = {
+    body: payload.body || '',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    tag: payload.kind || 'homy',
+    renotify: true,
+    data: { url: payload.href || '/', kind: payload.kind || 'system' },
+  }
+
+  event.waitUntil(self.registration.showNotification(title, options))
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const target = (event.notification.data && event.notification.data.url) || '/'
+
+  event.waitUntil(
+    (async () => {
+      const clientList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+      for (const client of clientList) {
+        if (!('focus' in client)) continue
+        await client.focus()
+        try {
+          if ('navigate' in client && new URL(client.url).origin === self.location.origin) await client.navigate(target)
+        } catch {
+          /* abaikan */
+        }
+        return
+      }
+      if (self.clients.openWindow) await self.clients.openWindow(target)
+    })(),
   )
 })

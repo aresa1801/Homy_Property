@@ -4,6 +4,7 @@
  * Tidak pernah melempar error: kalau gagal, cukup dicatat di log supaya alur utama aman.
  */
 import { serviceClient } from '@/lib/visits'
+import { sendPushForNotifications } from '@/lib/push'
 
 export type NotificationKind =
   | 'inquiry.new' | 'inquiry.reply' | 'visit.new' | 'visit.confirmed' | 'visit.cancelled' | 'visit.completed'
@@ -38,6 +39,20 @@ export async function pushNotifications(rows: NotificationInput[]): Promise<numb
       console.error('[homy-notify] insert gagal:', error.message)
       return 0
     }
+
+    // Notifikasi yang sama juga dikirim ke HP lewat Web Push (kalau pengguna mengaktifkannya).
+    // Dibatasi waktunya supaya alur utama tetap cepat; kegagalan push tidak pernah menggagalkan notifikasi in-app.
+    try {
+      await Promise.race([
+        sendPushForNotifications(
+          clean.map((row) => ({ userId: row.user_id, title: row.title, body: row.body, href: row.href, kind: row.kind })),
+        ),
+        new Promise((resolve) => setTimeout(resolve, 5000)),
+      ])
+    } catch (pushError) {
+      console.error('[homy-notify] push ke HP gagal:', pushError instanceof Error ? pushError.message : pushError)
+    }
+
     return count ?? clean.length
   } catch (error) {
     console.error('[homy-notify] error:', error instanceof Error ? error.message : error)

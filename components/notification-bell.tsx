@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { BadgeCheck, Bell, BellRing, CalendarDays, CalendarX, CheckCircle2, Inbox, Loader2, MessageSquare, Search, Sparkles, Trash2, X, XCircle } from 'lucide-react'
+import { PushOptIn } from '@/components/push-opt-in'
 
 type NotificationItem = {
   id: string
@@ -190,6 +191,10 @@ export function NotificationBell({ variant = 'plain' }: { variant?: BellVariant 
                 </button>
               )
             })}
+          </div>
+
+          <div className="border-t border-[#eee7dc] bg-[#fbfaf7]">
+            <PushOptIn compact />
           </div>
 
           <div className="border-t border-[#eee7dc] bg-[#fbfaf7] px-4 py-2 text-center text-[11px] text-[#a09a8c]">Notifikasi diperbarui otomatis tiap 45 detik</div>
