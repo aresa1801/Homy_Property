@@ -20,6 +20,11 @@
   p { margin: 0 0 20px; color: #65706c; line-height: 1.6; font-size: 15px; }
   a.btn { display: inline-block; background: #0b3d2e; color: #fff; text-decoration: none; font-weight: 600; padding: 13px 22px; border-radius: 999px; font-size: 15px; }
   small { display: block; margin-top: 18px; color: #a18a61; font-size: 12px; }
+  #snap { display: none; margin: 0 0 18px; text-align: left; border-top: 1px solid #efe7db; padding-top: 14px; }
+  #snap h2 { font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: #8a8f8b; margin: 0 0 8px; }
+  #snap ul { list-style: none; margin: 0; padding: 0; }
+  #snap li { font-size: 13px; color: #3c4a44; padding: 7px 0; border-bottom: 1px dashed #efe7db; }
+  #snap time { display: block; color: #9aa39d; font-size: 11px; margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -27,9 +32,42 @@
     <img src="/icon-192.png" alt="Homy Property" width="72" height="72">
     <h1>Anda sedang offline</h1>
     <p>Koneksi internet tidak terdeteksi. Periksa jaringan Anda, lalu coba muat ulang halaman properti.</p>
+    <section id="snap" aria-live="polite">
+      <h2>Notifikasi terakhir</h2>
+      <ul id="snap-list"></ul>
+    </section>
     <a class="btn" href="/">Muat ulang Homy Property</a>
     <small>Homy Property — Temukan hunian terbaik</small>
   </main>
-  <script>window.addEventListener('online', function () { location.replace('/') })</script>
+  <script>
+    window.addEventListener('online', function () { location.replace('/') })
+    // Cuplikan notifikasi terakhir disimpan service worker saat Periodic Sync berjalan.
+    if ('caches' in window) {
+      caches.match('/homy-notifications.json').then(function (response) {
+        if (!response) return response
+        return response.json()
+      }).then(function (payload) {
+        var items = (payload && payload.items) || []
+        if (!items.length) return
+        var list = document.getElementById('snap-list')
+        items.forEach(function (item) {
+          var li = document.createElement('li')
+          var title = document.createElement('strong')
+          title.textContent = item.title || 'Notifikasi'
+          li.appendChild(title)
+          if (item.body) {
+            var body = document.createElement('span')
+            body.textContent = ' — ' + item.body
+            li.appendChild(body)
+          }
+          var when = document.createElement('time')
+          when.textContent = item.created_at ? new Date(item.created_at).toLocaleString('id-ID') : 'tersimpan di perangkat'
+          li.appendChild(when)
+          list.appendChild(li)
+        })
+        document.getElementById('snap').style.display = 'block'
+      }).catch(function () {})
+    }
+  </script>
 </body>
 </html>

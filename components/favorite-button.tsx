@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import useSWR from 'swr'
 import { Heart, Loader2 } from 'lucide-react'
+import { queueAction } from '@/lib/pwa-sync'
 
 const KEY = '/api/favorites'
 const fetcher = (url: string) => fetch(url).then((response) => response.json())
@@ -54,7 +55,14 @@ export function FavoriteButton({ propertyId, propertyTitle, size = 'md', classNa
       setNote(next ? 'Disimpan ke favorit Anda.' : 'Dihapus dari favorit.')
       onChange?.(Boolean(payload?.favorite ?? next))
     } catch (error) {
-      setNote(error instanceof Error ? error.message : 'Gagal menyimpan favorit.')
+      // Tidak ada koneksi? Simpan di antrean Background Sync supaya tetap tersimpan
+      // otomatis begitu jaringan kembali (service worker yang mengirim ulang).
+      if (error instanceof TypeError) {
+        await queueAction({ url: KEY, method: 'POST', body: JSON.stringify({ propertyId, action: next ? 'add' : 'remove' }), label: 'favorit' }).catch(() => undefined)
+        setNote('Tidak ada koneksi — favorit akan tersimpan otomatis saat online.')
+      } else {
+        setNote(error instanceof Error ? error.message : 'Gagal menyimpan favorit.')
+      }
     } finally {
       setBusy(false)
       void mutate()

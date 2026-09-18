@@ -309,6 +309,9 @@ export default function AgreementPage() {
 
             <div className="mt-8 flex flex-col items-start justify-between gap-4 border-t border-[#e8dfd3] pt-6 sm:flex-row sm:items-center">
               <p className="text-sm text-[#65706c]">Dengan menandatangani, Anda terdaftar sebagai <strong className="text-[#0b3d2e]">{PARTNER_ROLES.find((r) => r.value === role)?.label}</strong> dan langsung dapat memasang properti.</p>
+              <Button type="button" onClick={() => window.print()} variant="outline" className="rounded-full">
+                Unduh salinan (PDF)
+              </Button>
               <Button type="submit" disabled={submitting || !canSubmit} className="rounded-full bg-[#0b3d2e] px-6 text-white hover:bg-[#14553f]">
                 {submitting ? <><Loader2 className="animate-spin" data-icon="inline-start" /> Menyimpan...</> : <>{alreadySigned ? 'Perbarui & tanda tangani' : 'Tanda tangani & lanjut listing'} <ArrowRight data-icon="inline-end" /></>}
               </Button>

@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { BellOff, BellRing, Loader2 } from 'lucide-react'
+import { flushQueue, registerPeriodicSync } from '@/lib/pwa-sync'
 
 function supported(): boolean {
   return typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
@@ -50,6 +51,8 @@ export function PushOptIn({ compact = false }: { compact?: boolean }) {
       const registration = await navigator.serviceWorker.getRegistration()
       const existing = await registration?.pushManager.getSubscription()
       setState(existing ? 'on' : 'off')
+      // Sudah aktif → pastikan Periodic Sync terdaftar (penyegaran notifikasi di latar belakang).
+      if (existing) void registerPeriodicSync()
     } catch {
       setState('off')
     }
@@ -58,6 +61,14 @@ export function PushOptIn({ compact = false }: { compact?: boolean }) {
   useEffect(() => {
     void refresh()
   }, [refresh])
+
+  // Cadangan Background Sync: begitu jaringan kembali, kirim ulang aksi yang tertunda.
+  useEffect(() => {
+    const retry = () => void flushQueue()
+    window.addEventListener('online', retry)
+    retry()
+    return () => window.removeEventListener('online', retry)
+  }, [])
 
   async function enable() {
     if (busy) return
@@ -89,6 +100,8 @@ export function PushOptIn({ compact = false }: { compact?: boolean }) {
       }
       setState('on')
       setNote('Notifikasi HP aktif di perangkat ini.')
+      // Periodic Sync: segarkan notifikasi di latar belakang (butuh izin notifikasi + PWA terpasang).
+      void registerPeriodicSync()
     } catch {
       setNote('Tidak bisa mengaktifkan notifikasi di perangkat ini.')
     } finally {

@@ -1,0 +1,66 @@
+{
+  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+  "type": "AdaptiveCard",
+  "version": "1.5",
+  "metadata": {
+    "widget": "homy-properti-baru",
+    "source": "https://homyproperty.id",
+    "endpoint": "https://homyproperty.id/api/widgets/properti-baru"
+  },
+  "body": [
+    {
+      "type": "TextBlock",
+      "text": "Properti terbaru di Homy",
+      "weight": "Bolder",
+      "size": "Medium",
+      "style": "heading"
+    },
+    {
+      "type": "Container",
+      "$data": "${items}",
+      "separator": true,
+      "spacing": "Small",
+      "items": [
+        {
+          "type": "TextBlock",
+          "text": "${title}",
+          "wrap": true,
+          "weight": "Bolder",
+          "maxLines": 2
+        },
+        {
+          "type": "TextBlock",
+          "text": "${price}",
+          "spacing": "None",
+          "color": "Good",
+          "weight": "Bolder"
+        },
+        {
+          "type": "TextBlock",
+          "text": "${city}",
+          "spacing": "None",
+          "isSubtle": true,
+          "size": "Small",
+          "wrap": true
+        },
+        {
+          "type": "ActionSet",
+          "actions": [
+            {
+              "type": "Action.OpenUrl",
+              "title": "Lihat properti",
+              "url": "${href}"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "type": "Action.OpenUrl",
+      "title": "Jelajahi Homy Property",
+      "url": "https://homyproperty.id/buy"
+    }
+  ]
+}

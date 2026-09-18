@@ -8,7 +8,7 @@
   "scope": "/",
   "start_url": "/?source=pwa",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui", "tabbed"],
   "orientation": "portrait-primary",
   "background_color": "#f7f3ec",
   "theme_color": "#0b3d2e",
@@ -35,6 +35,41 @@
     { "protocol": "web+homy", "url": "/open?target=%s" }
   ],
   "edge_side_panel": { "preferred_width": 480 },
+  "tab_strip": {
+    "home_tab": {
+      "scope_patterns": [
+        { "origin": "https://homyproperty.id", "path": "/" },
+        { "origin": "https://homyproperty.id", "path": "/buy" },
+        { "origin": "https://homyproperty.id", "path": "/rent" },
+        { "origin": "https://homyproperty.id", "path": "/property" },
+        { "origin": "https://homyproperty.id", "path": "/dashboard" },
+        { "origin": "https://homyproperty.id", "path": "/message" }
+      ]
+    },
+    "new_tab_button": { "url": "/list" }
+  },
+  "note_taking": { "new_note_url": "/contact?source=note" },
+  "file_handlers": [
+    { "action": "/open-file", "accept": { "application/pdf": [".pdf"] } }
+  ],
+  "widgets": [
+    {
+      "name": "Properti Baru Homy",
+      "description": "Lima listing properti terbaru di Homy Property, langsung dari dashboard Windows.",
+      "tag": "homy-properti-baru",
+      "ms_ac_template": "/widgets/homy-properti.json",
+      "data": "/api/widgets/properti-baru",
+      "type": "application/json",
+      "auth": false,
+      "update": 3600,
+      "icons": [
+        { "src": "/icon-512.png", "sizes": "512x512" }
+      ],
+      "screenshots": [
+        { "src": "/screenshots/homy-mobile.png", "sizes": "1080x1920", "label": "Widget properti terbaru" }
+      ]
+    }
+  ],
   "launch_handler": { "client_mode": ["navigate-existing", "auto"] },
   "icons": [
     { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
