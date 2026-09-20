@@ -163,7 +163,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       .eq('user_id', user.id)
       .order('weekday', { ascending: true })
 
-    return NextResponse.json({ ...base, metrics, properties: rows, inquiries: prospectList, visits: visitsEnriched, interests: interestsEnriched, transactions: transactions.data ?? [], agreements: agreements.data ?? [], availability: availabilityRows ?? [], payments: [] })
+    const { data: verificationRows } = await supabase
+      .from('partner_verifications')
+      .select('*')
+      .eq('user_id', user.id)
+
+    return NextResponse.json({ ...base, metrics, properties: rows, inquiries: prospectList, visits: visitsEnriched, interests: interestsEnriched, transactions: transactions.data ?? [], agreements: agreements.data ?? [], availability: availabilityRows ?? [], verifications: verificationRows ?? [], payments: [] })
   }
 
   if (role === 'admin' || role === 'super-admin') {
@@ -268,6 +273,17 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       owner: profileMap[String(row.owner_id ?? '')] ?? null,
     }))
 
+    // Verifikasi mitra (KYC Agen/Pemilik) yang dikirim lewat /verify.
+    const { data: verificationRows } = await admin
+      .from('partner_verifications')
+      .select('*')
+      .order('submitted_at', { ascending: false, nullsFirst: false })
+      .limit(300)
+    const verifications = ((verificationRows ?? []) as Array<Record<string, unknown>>).map((row) => ({
+      ...row,
+      applicant: profileMap[String(row.user_id ?? '')] ?? null,
+    }))
+
     const metrics = {
       totalListings: list.length,
       pendingApprovals: list.filter((p) => p.status === 'pending').length,
@@ -286,6 +302,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       contactMessages: (partnerLeads.data ?? []).filter((row) => row.kind === 'contact').length,
       aiEvents: auditEnriched.filter((a) => String(a.action ?? '').startsWith('ai.')).length,
       aiCoverage: published.length ? Math.round((published.filter((p) => p.ai_summary).length / published.length) * 100) : 0,
+      verificationsPending: verifications.filter((row) => String(row.status ?? '') === 'pending').length,
+      verificationsApproved: verifications.filter((row) => String(row.status ?? '') === 'approved').length,
+      verificationsRejected: verifications.filter((row) => String(row.status ?? '') === 'rejected').length,
+      verificationsDraft: verifications.filter((row) => String(row.status ?? '') === 'draft').length,
       interests: adminInterestsEnriched.length,
       interestNegotiation: adminInterestsEnriched.filter((row) => ['negotiation', 'offer'].includes(String(row.stage ?? ''))).length,
       interestDeal: adminInterestsEnriched.filter((row) => String(row.stage ?? '') === 'deal').length,
@@ -307,6 +327,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       flags: flags.data ?? [],
       settings: settings.data ?? [],
       partnerLeads: partnerLeads.data ?? [],
+      verifications,
       interests: adminInterestsEnriched,
       ai: {
         configured: true,

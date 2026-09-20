@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { notifyUser } from '@/lib/notifications'
 
 const ADMIN_ROLES = ['admin', 'super_admin']
 const SUPER_ROLES = ['super_admin']
@@ -134,6 +135,89 @@ export async function POST(request: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     await audit('setting.updated', 'platform_setting', null, { key, value })
     return NextResponse.json({ ok: true, setting: data })
+  }
+
+  // ---------- Verifikasi mitra (Agen / Pemilik Properti) ----------
+  if (kind === 'verification.approve' || kind === 'verification.reject' || kind === 'verification.reopen') {
+    const id = String(body.id ?? '')
+    if (!id) return NextResponse.json({ error: 'ID verifikasi wajib' }, { status: 400 })
+    const { data: before } = await admin
+      .from('partner_verifications')
+      .select('id,user_id,requested_role,status,full_name,agreement_id,submitted_at')
+      .eq('id', id)
+      .maybeSingle()
+    if (!before) return NextResponse.json({ error: 'Data verifikasi tidak ditemukan' }, { status: 404 })
+
+    if (kind === 'verification.reject' && !note) {
+      return NextResponse.json({ error: 'Catatan alasan penolakan wajib diisi' }, { status: 400 })
+    }
+    if (kind === 'verification.approve' && !before.agreement_id) {
+      return NextResponse.json({ error: 'Mitra belum menandatangani Perjanjian Kerja Sama.' }, { status: 409 })
+    }
+
+    const status = kind === 'verification.approve' ? 'approved' : kind === 'verification.reject' ? 'rejected' : 'pending'
+    const patch: Record<string, unknown> = {
+      status,
+      reviewed_by: actor.id,
+      reviewed_at: now,
+      reviewer_note: note || null,
+      updated_at: now,
+    }
+    const { data: saved, error } = await admin
+      .from('partner_verifications')
+      .update(patch)
+      .eq('id', id)
+      .select('*')
+      .maybeSingle()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // Persetujuan = buka akses peran mitra (dan set peran utama bila masih 'user').
+    if (status === 'approved') {
+      const role = String(before.requested_role ?? '')
+      if (['agent', 'property_owner'].includes(role)) {
+        const { error: roleError } = await admin
+          .from('user_roles')
+          .upsert({ user_id: before.user_id, role, status: 'active', granted_at: now }, { onConflict: 'user_id,role' })
+        if (roleError) return NextResponse.json({ error: roleError.message }, { status: 500 })
+        try {
+          const { data: profile } = await admin.from('profiles').select('role').eq('id', before.user_id).maybeSingle()
+          if (!profile || profile.role === 'user') {
+            await admin.from('profiles').update({ role }).eq('id', before.user_id)
+          }
+        } catch { /* profil opsional */ }
+      }
+    }
+
+    await audit('verification.' + status, 'partner_verification', id, {
+      previous_status: before.status,
+      role: before.requested_role,
+      note,
+      full_name: before.full_name,
+    })
+
+    try {
+      const roleLabel = String(before.requested_role) === 'agent' ? 'Agen Properti' : 'Pemilik Properti'
+      await notifyUser({
+        userId: String(before.user_id),
+        kind: status === 'approved' ? 'verification.approved' : status === 'rejected' ? 'verification.rejected' : 'verification.submitted',
+        title:
+          status === 'approved'
+            ? `Verifikasi ${roleLabel} disetujui`
+            : status === 'rejected'
+              ? `Verifikasi ${roleLabel} perlu perbaikan`
+              : `Verifikasi ${roleLabel} sedang ditinjau ulang`,
+        body:
+          status === 'approved'
+            ? 'Akun mitra Anda aktif. Silakan mulai memasang listing properti.'
+            : status === 'rejected'
+              ? note || 'Silakan perbarui data/dokumen lalu kirim ulang.'
+              : 'Tim Homy meninjau ulang pengajuan Anda.',
+        href: '/verify',
+        data: { verification_id: id, role: before.requested_role, status },
+      })
+    } catch { /* notifikasi best effort */ }
+
+    return NextResponse.json({ ok: true, status, verification: saved })
   }
 
   return NextResponse.json({ error: 'Aksi tidak dikenal: ' + kind }, { status: 400 })

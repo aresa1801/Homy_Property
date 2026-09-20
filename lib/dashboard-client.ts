@@ -179,6 +179,53 @@ export type DashboardTransactionAdmin = DashboardTransaction & { user?: { name?:
 export type DashboardDuplicate = { key: string; count: number; ids: string[]; titles: string[] }
 export type DashboardRoleCount = { role: string; count: number }
 
+/** Verifikasi mitra (KYC Agen/Pemilik Properti) dari alur /verify. */
+export type DashboardVerification = {
+  id: string
+  user_id: string
+  requested_role?: string | null
+  status?: string | null
+  full_name?: string | null
+  nickname?: string | null
+  identity_type?: string | null
+  identity_number?: string | null
+  birth_place?: string | null
+  birth_date?: string | null
+  gender?: string | null
+  marital_status?: string | null
+  occupation?: string | null
+  phone?: string | null
+  whatsapp?: string | null
+  email?: string | null
+  company_name?: string | null
+  agency_license?: string | null
+  npwp?: string | null
+  address?: string | null
+  rt_rw?: string | null
+  village?: string | null
+  district?: string | null
+  city?: string | null
+  province?: string | null
+  postal_code?: string | null
+  domicile_same_as_ktp?: boolean | null
+  ktp_address?: string | null
+  identity_doc_path?: string | null
+  selfie_doc_path?: string | null
+  npwp_doc_path?: string | null
+  supporting_doc_path?: string | null
+  availability?: unknown
+  notes?: string | null
+  agreement_id?: string | null
+  agreement_version?: string | null
+  agreement_signed_at?: string | null
+  submitted_at?: string | null
+  reviewed_at?: string | null
+  reviewer_note?: string | null
+  created_at?: string | null
+  updated_at?: string | null
+  applicant?: { name?: string; email?: string; phone?: string } | null
+}
+
 export type DashboardPayload = {
   authenticated?: boolean
   role?: string
@@ -201,6 +248,7 @@ export type DashboardPayload = {
   payments?: DashboardPayment[]
   availability?: DashboardAvailability[]
   partnerLeads?: DashboardLead[]
+  verifications?: DashboardVerification[]
   ai?: { configured?: boolean; model?: string; listingsWithSummary?: number; listingsWithoutMedia?: number; amenitiesCoverage?: number }
 }
 

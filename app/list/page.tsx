@@ -435,7 +435,7 @@ export default function ListPage() {
 
   async function submit() {
     if (agreementGate !== 'ok') {
-      window.location.assign(`/agreement?role=${partnerRole}&next=/list`)
+      window.location.assign(`/verify?role=${partnerRole}&next=/list`)
       return
     }
     setSubmitting(true)
@@ -570,8 +570,11 @@ export default function ListPage() {
               <li className="flex items-start gap-3"><ShieldCheck className="mt-0.5 size-5 text-[#4e866d]" /> Setujui komisi 0,5% dan kewajiban pelaporan transaksi.</li>
             </ul>
             <div className="mt-8 flex flex-wrap gap-3">
-              <a href={`/agreement?role=${partnerRole}&next=/list`} className="inline-flex items-center gap-2 rounded-full bg-[#0b3d2e] px-6 py-3 text-sm font-semibold text-white hover:bg-[#14553f]">
-                <FileSignature className="size-4" /> Buka & tanda tangani perjanjian
+              <a href={`/verify?role=${partnerRole}`} className="inline-flex items-center gap-2 rounded-full bg-[#0b3d2e] px-6 py-3 text-sm font-semibold text-white hover:bg-[#14553f]">
+                <ShieldCheck className="size-4" /> Verifikasi mitra & tanda tangani
+              </a>
+              <a href={`/agreement?role=${partnerRole}&next=/list`} className="inline-flex items-center gap-2 rounded-full border border-[#d8ccbb] px-6 py-3 text-sm font-semibold text-[#33433d] hover:border-[#c9a961]">
+                <FileSignature className="size-4" /> Buka perjanjian saja
               </a>
               <a href="/dashboard/user" className="inline-flex items-center gap-2 rounded-full border border-[#d8ccbb] px-6 py-3 text-sm font-semibold text-[#33433d] hover:border-[#c9a961]">Kembali ke dasbor</a>
             </div>

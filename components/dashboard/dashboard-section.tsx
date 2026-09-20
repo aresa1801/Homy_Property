@@ -6,6 +6,7 @@ import { AnalyticsBoard, LeadsBoard, ListingBoard } from '@/components/dashboard
 import { AgreementBoard, AvailabilityBoard, BillingBoard, CalendarBoard, ListLauncher } from '@/components/dashboard/boards-ops'
 import { AiBoard, AiConversationsBoard } from '@/components/dashboard/boards-ai'
 import { AiMonitorBoard, AuditBoard, FlagsBoard, ModerationBoard, PartnershipBoard, PlatformBillingBoard, ReportsBoard, RolesBoard, SettingsBoard, UsersBoard } from '@/components/dashboard/boards-admin'
+import { VerificationBoard, VerificationReviewBoard } from '@/components/dashboard/boards-verify'
 
 export type SectionRole = 'agent' | 'property-owner' | 'admin' | 'super-admin'
 
@@ -22,6 +23,7 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
     conversations: { eyebrow: 'Rekaman', title: 'Rekam Percakapan', description: 'Riwayat tanya-jawab calon pembeli/penyewa dengan Homy AI tentang listing Anda. Pakai untuk memahami pertanyaan yang paling sering muncul dan menyiapkan jawaban terbaik.' },
     billing: { eyebrow: 'Keuangan', title: 'Penagihan & Komisi', description: 'Laporkan transaksi properti ke Homy dan pantau komisi penjualan 0,5% beserta status verifikasinya.' },
     agreement: { eyebrow: 'Kemitraan', title: 'Perjanjian Kerjasama', description: 'Status perjanjian mitra Anda, data perjanjian yang tersimpan, dan ringkasan kewajiban sebagai agen Homy.' },
+    verification: { eyebrow: 'Kemitraan', title: 'Verifikasi Mitra', description: 'Lengkapi data diri, dokumen identitas (KTP/SIM), alamat domisili, dan ketersediaan waktu. Setelah disetujui admin, Anda dapat langsung memasang listing properti.' },
     list: { eyebrow: 'Publikasi', title: 'Pasang Properti', description: 'Siapkan syarat publikasi, lanjutkan listing yang tertunda, dan mulai listing baru dari form lengkap yang terbaca AI.' },
     ai: { eyebrow: 'Kecerdasan Buatan', title: 'Asisten AI', description: 'Saran harga otomatis dari data harga rata-rata kecamatan/kota Anda, pembanding listing, dan tanya-jawab bebas dengan Homy AI.' },
   },
@@ -33,6 +35,7 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
     availability: { eyebrow: 'Jadwal', title: 'Kalender & Ketersediaan', description: 'Satu tempat untuk jadwal kunjungan calon pembeli dan pengaturan hari/jam Anda siap menerima meeting. Konfirmasi jadwal, ubah waktu, atur ketersediaan, lalu tindak lanjuti hasil kunjungan.' },
     conversations: { eyebrow: 'Rekaman', title: 'Rekam Percakapan', description: 'Riwayat tanya-jawab calon pembeli/penyewa dengan Homy AI tentang properti Anda. Pakai untuk memahami pertanyaan yang paling sering muncul dan menyiapkan jawaban terbaik.' },
     agreement: { eyebrow: 'Kemitraan', title: 'Perjanjian Kerjasama', description: 'Status perjanjian mitra Anda, data perjanjian yang tersimpan, dan ringkasan kewajiban sebagai pemilik properti.' },
+    verification: { eyebrow: 'Kemitraan', title: 'Verifikasi Mitra', description: 'Lengkapi data diri, dokumen identitas (KTP/SIM), alamat domisili, dan ketersediaan waktu. Setelah disetujui admin, Anda dapat langsung memasang listing properti.' },
     list: { eyebrow: 'Publikasi', title: 'Pasang Properti', description: 'Siapkan syarat publikasi, lanjutkan properti yang tertunda, dan mulai listing baru dari form lengkap yang terbaca AI.' },
     ai: { eyebrow: 'Kecerdasan Buatan', title: 'Asisten AI', description: 'Saran harga otomatis dari data harga rata-rata kecamatan/kota Anda, pembanding listing, dan tanya-jawab bebas dengan Homy AI.' },
   },
@@ -42,8 +45,10 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
     billing: { eyebrow: 'Keuangan', title: 'Penagihan & Komisi Mitra', description: 'Verifikasi laporan transaksi dari agen dan pemilik. Komisi 0,5% yang terverifikasi di sini adalah pendapatan platform — status ini tampil di dashboard mitra.' },
     reports: { eyebrow: 'Keamanan', title: 'Laporan & Penipuan', description: 'Tindak lanjuti laporan pengguna, plus pemeriksaan otomatis: duplikat judul listing dan listing tayang yang belum punya foto.' },
     ai: { eyebrow: 'Kecerdasan Buatan', title: 'Pemantauan AI', description: 'Pastikan Homy AI menjawab dari data listing yang tayang: status kunci AI, cakupan ringkasan AI, dan uji tanya-jawab langsung.' },
+    verifications: { eyebrow: 'Kemitraan', title: 'Verifikasi Agen & Pemilik', description: 'Tinjau pengajuan verifikasi mitra: data diri, alamat domisili, dokumen identitas (KTP/SIM), ketersediaan waktu, dan Perjanjian Kerja Sama yang sudah ditandatangani. Setujui untuk mengaktifkan peran mitra.' },
   },
   'super-admin': {
+    verifications: { eyebrow: 'Kemitraan', title: 'Verifikasi Agen & Pemilik', description: 'Tinjau pengajuan verifikasi mitra: data diri, alamat domisili, dokumen identitas (KTP/SIM), ketersediaan waktu, dan Perjanjian Kerja Sama. Setujui untuk mengaktifkan peran mitra.' },
     roles: { eyebrow: 'Akses', title: 'Peran & Izin', description: 'Komposisi peran seluruh akun dan pengaturan akses peran (pengguna, agen, pemilik, admin, super admin).' },
     billing: { eyebrow: 'Keuangan', title: 'Penagihan Platform', description: 'Pusat komisi Homy: laporan transaksi mitra, komisi terverifikasi (pendapatan platform), dan komisi yang masih menunggu.' },
     audit: { eyebrow: 'Jejak', title: 'Log Audit', description: 'Semua tindakan penting platform: moderasi listing, verifikasi komisi, perubahan peran, konfigurasi, dan flag.' },
@@ -86,6 +91,7 @@ export function DashboardSection({ role, section }: { role: SectionRole; section
       if (section === 'flags') return <FlagsBoard data={data} loading={loading} reload={reload} />
       if (section === 'audit') return <AuditBoard data={data} loading={loading} reload={reload} />
       if (section === 'partnership') return <PartnershipBoard data={data} loading={loading} reload={reload} />
+      if (section === 'verifications') return <VerificationReviewBoard data={data} loading={loading} reload={reload} />
       return null
     }
     const boards: Record<string, React.ReactNode> = {
@@ -100,6 +106,7 @@ export function DashboardSection({ role, section }: { role: SectionRole; section
       availability: <ScheduleBoard data={data} loading={loading} reload={reload} type={role} />,
       conversations: <AiConversationsBoard data={data} loading={loading} reload={reload} type={role} />,
       agreement: <AgreementBoard data={data} loading={loading} reload={reload} type={role} />,
+      verification: <VerificationBoard data={data} loading={loading} reload={reload} type={role} />,
       list: <ListLauncher data={data} loading={loading} reload={reload} type={role} />,
       ai: <AiBoard data={data} loading={loading} reload={reload} type={role} />,
     }
