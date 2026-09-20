@@ -157,6 +157,21 @@ export type SignColumn = {
   fields?: { label: string; value: string }[]
 }
 
+export type PdfImage = {
+  /** Byte gambar JPEG (dipasang apa adanya memakai filter DCTDecode). */
+  data: Uint8Array
+  /** Lebar piksel asli. */
+  width: number
+  /** Tinggi piksel asli. */
+  height: number
+  /** Keterangan di bawah gambar. */
+  caption?: string
+  /** Tinggi tampil maksimum (default 300 pt). */
+  maxHeight?: number
+  /** Tampilkan bingkai tipis (default true). */
+  frame?: boolean
+}
+
 export type PdfBlock =
   | { type: 'title'; text: string; sub?: string; badge?: string }
   | { type: 'meta'; lines: string[] }
@@ -169,6 +184,7 @@ export type PdfBlock =
   | { type: 'space'; size?: number }
   | { type: 'signature'; columns: SignColumn[]; note?: string }
   | { type: 'certificate'; title?: string; rows: { label: string; value: string }[]; note?: string }
+  | { type: 'image'; image: PdfImage }
   /** Blok atomic: semua isinya diusahakan tetap dalam satu halaman. */
   | { type: 'group'; blocks: PdfBlock[]; atomic?: boolean }
 
@@ -179,6 +195,17 @@ export type PdfDocument = {
   metaLines?: string[]
   blocks: PdfBlock[]
   footerNote?: string
+  /** Teks tanda air diagonal yang dicetak di setiap halaman (mis. "DRAFT"). */
+  watermark?: string
+}
+
+/** Hitung ukuran tampil gambar agar muat lebar konten & tinggi maksimum. */
+function imageDisplay(image: PdfImage) {
+  const width = Math.max(1, Number(image.width) || 1)
+  const height = Math.max(1, Number(image.height) || 1)
+  const maxHeight = image.maxHeight ?? 300
+  const scale = Math.min(1, CONTENT_WIDTH / width, maxHeight / height)
+  return { width: width * scale, height: height * scale }
 }
 
 function measureBlock(block: PdfBlock): number {
@@ -231,6 +258,11 @@ function measureBlock(block: PdfBlock): number {
     }
     case 'group':
       return block.blocks.reduce((total, child) => total + measureBlock(child), 0)
+    case 'image': {
+      const display = imageDisplay(block.image)
+      const caption = block.image.caption ? pdfWrap(block.image.caption, 8.6, false, CONTENT_WIDTH).length * 11.6 + 6 : 0
+      return display.height + caption + 14
+    }
     default:
       return 0
   }
@@ -260,7 +292,7 @@ function flatten(blocks: PdfBlock[]): Entry[] {
       })
       continue
     }
-    const atomic = block.type === 'signature' || block.type === 'certificate'
+    const atomic = block.type === 'signature' || block.type === 'certificate' || block.type === 'image'
     entries.push({ block, groupStart: true, groupHeight: measureBlock(block), atomic })
   }
   return entries
@@ -272,6 +304,7 @@ function flatten(blocks: PdfBlock[]): Entry[] {
 
 export function buildPdf(document: PdfDocument): Uint8Array {
   const pages: string[][] = []
+  const images: PdfImage[] = []
   let ops: string[] = []
   let y = PAGE.height - MARGIN.top
 
@@ -541,6 +574,30 @@ export function buildPdf(document: PdfDocument): Uint8Array {
         drawSignature(block)
         break
       }
+      case 'image': {
+        const display = imageDisplay(block.image)
+        const captionLines = block.image.caption ? pdfWrap(block.image.caption, 8.6, false, CONTENT_WIDTH) : []
+        const captionHeight = captionLines.length ? captionLines.length * 11.6 + 6 : 0
+        ensure(display.height + captionHeight + 12)
+        const name = `Im${images.length + 1}`
+        images.push(block.image)
+        const x = MARGIN.left + (CONTENT_WIDTH - display.width) / 2
+        const bottom = y - display.height
+        if (block.image.frame !== false) strokeRect(x, bottom, display.width, display.height, PANEL_EDGE, 0.8)
+        ops.push(
+          `q ${display.width.toFixed(2)} 0 0 ${display.height.toFixed(2)} ${x.toFixed(2)} ${bottom.toFixed(2)} cm /${name} Do Q`,
+        )
+        y = bottom
+        if (captionLines.length) {
+          y -= 6
+          for (const line of captionLines) {
+            y -= 11.6
+            text(MARGIN.left, y, 8.6, 'F3', MUTED, line)
+          }
+        }
+        y -= 8
+        break
+      }
       case 'certificate': {
         drawCertificate(block)
         break
@@ -556,6 +613,18 @@ export function buildPdf(document: PdfDocument): Uint8Array {
   const footerNote = pdfSanitize(document.footerNote ?? '')
   pages.forEach((pageOps, index) => {
     const baseline = MARGIN.bottom - 26
+    if (document.watermark) {
+      const label = pdfSanitize(document.watermark)
+      const size = 58
+      const width = pdfTextWidth(label, size, true)
+      const cos = Math.SQRT1_2
+      const sin = Math.SQRT1_2
+      const x0 = PAGE.width / 2 - (width * cos) / 2 + (size * sin) / 2
+      const y0 = PAGE.height / 2 - (width * sin) / 2 - (size * cos) / 2
+      pageOps.unshift(
+        `q 0.93 0.91 0.87 rg BT /F2 ${size} Tf ${cos.toFixed(4)} ${sin.toFixed(4)} ${(-sin).toFixed(4)} ${cos.toFixed(4)} ${x0.toFixed(2)} ${y0.toFixed(2)} Tm (${escapePdfText(label)}) Tj ET Q`,
+      )
+    }
     pageOps.push(`0.7 w ${RULE} RG ${MARGIN.left.toFixed(2)} ${(baseline + 12).toFixed(2)} m ${(PAGE.width - MARGIN.right).toFixed(2)} ${(baseline + 12).toFixed(2)} l S`)
     pageOps.push(`BT /F1 8.4 Tf ${MUTED} rg 1 0 0 1 ${MARGIN.left.toFixed(2)} ${baseline.toFixed(2)} Tm (${escapePdfText(footerNote.slice(0, 120))}) Tj ET`)
     const label = `Halaman ${index + 1} dari ${totalPages}`
@@ -564,14 +633,18 @@ export function buildPdf(document: PdfDocument): Uint8Array {
     pageOps.push(`BT /F1 8.4 Tf ${GOLD} rg 1 0 0 1 ${MARGIN.left.toFixed(2)} ${(baseline + 22).toFixed(2)} Tm (${escapePdfText(pdfSanitize(document.title).slice(0, 90))}) Tj ET`)
   })
 
-  return assemble(document, pages)
+  return assemble(document, pages, images)
 }
 
-function assemble(document: PdfDocument, pages: string[][]): Uint8Array {
+function assemble(document: PdfDocument, pages: string[][], images: PdfImage[]): Uint8Array {
   const objects: string[] = []
   const pageCount = pages.length
-  // 1 catalog, 2 pages, 3-5 fonts, lalu tiap halaman: page + stream
+  // 1 catalog, 2 pages, 3-5 fonts, lalu tiap halaman: page + stream, lalu objek gambar
   const firstPageObject = 6
+  const imageStart = firstPageObject + pageCount * 2
+  const xobject = images.length
+    ? ` /XObject << ${images.map((_, index) => `/Im${index + 1} ${imageStart + index} 0 R`).join(' ')} >>`
+    : ''
   const kids = pages.map((_, index) => `${firstPageObject + index * 2} 0 R`).join(' ')
 
   objects.push(`<< /Type /Catalog /Pages 2 0 R >>`)
@@ -585,11 +658,19 @@ function assemble(document: PdfDocument, pages: string[][]): Uint8Array {
     const streamObjectNumber = pageObjectNumber + 1
     objects.push(
       `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PAGE.width.toFixed(2)} ${PAGE.height.toFixed(2)}] ` +
-        `/Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents ${streamObjectNumber} 0 R >>`,
+        `/Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >>${xobject} >> /Contents ${streamObjectNumber} 0 R >>`,
     )
     const stream = pageOps.join('\n')
     objects.push(`<< /Length ${Buffer.byteLength(stream, 'latin1')} >>\nstream\n${stream}\nendstream`)
   })
+
+  for (const image of images) {
+    const bytes = Buffer.from(image.data)
+    objects.push(
+      `<< /Type /XObject /Subtype /Image /Width ${Math.round(image.width)} /Height ${Math.round(image.height)} ` +
+        `/ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${bytes.length} >>\nstream\n${bytes.toString('latin1')}\nendstream`,
+    )
+  }
 
   const infoTitle = `<< /Title (${escapePdfText(pdfSanitize(document.title))}) /Producer (Homy Property) /Creator (Homy Property - ${escapePdfText(pdfSanitize(document.badge ?? 'Digital'))}) >>`
   objects.push(infoTitle)

@@ -20,7 +20,9 @@ import {
   GENDER_OPTIONS,
   IDENTITY_TYPES,
   MARITAL_OPTIONS,
+  MAX_IDENTITY_UPLOAD_BYTES,
   MAX_UPLOAD_BYTES,
+  NATIONALITY_OPTIONS,
   REQUIREMENT_LABELS,
   SLOT_OPTIONS,
   VERIFICATION_BUCKET,
@@ -29,6 +31,7 @@ import {
   WEEKDAY_ORDER,
   defaultAvailability,
   fileExtension,
+  formatBytes,
   formatDateTimeId,
   isComplete,
   missingRequirements,
@@ -38,14 +41,76 @@ import {
   type VerificationRole,
 } from '@/lib/verification'
 
-type DocSlot = { key: 'identity_doc_path' | 'selfie_doc_path' | 'npwp_doc_path' | 'supporting_doc_path'; title: string; hint: string; required: boolean; accept: string }
+type DocSlot = {
+  key: 'identity_doc_path' | 'selfie_doc_path' | 'npwp_doc_path' | 'supporting_doc_path'
+  title: string
+  hint: string
+  required: boolean
+  accept: string
+  /** Batas ukuran per slot (default 5 MB). */
+  maxBytes?: number
+  /** Kompres otomatis di browser bila berkas melebihi batas (khusus foto identitas). */
+  compress?: boolean
+}
 
 const DOC_SLOTS: DocSlot[] = [
-  { key: 'identity_doc_path', title: 'Foto KTP / SIM', hint: 'Foto jelas seluruh bagian kartu, tidak terpotong dan tidak silau.', required: true, accept: 'image/jpeg,image/png,image/webp' },
-  { key: 'selfie_doc_path', title: 'Selfie dengan identitas', hint: 'Wajah Anda + kartu identitas terlihat dalam satu foto.', required: true, accept: 'image/jpeg,image/png,image/webp' },
-  { key: 'npwp_doc_path', title: 'NPWP (opsional)', hint: 'Kartu NPWP pribadi/badan usaha bila ada.', required: false, accept: 'image/jpeg,image/png,image/webp,application/pdf' },
-  { key: 'supporting_doc_path', title: 'Dokumen pendukung (opsional)', hint: 'Surat kuasa pemasaran, izin usaha, atau dokumen lain (PDF/JPG).', required: false, accept: 'image/jpeg,image/png,image/webp,application/pdf' },
+  { key: 'identity_doc_path', title: 'Foto KTP / SIM', hint: 'Foto seluruh bagian kartu, tidak terpotong dan tidak silau. Maks 1 MB — otomatis dikompres bila lebih besar.', required: true, accept: 'image/jpeg,image/png,image/webp', maxBytes: MAX_IDENTITY_UPLOAD_BYTES, compress: true },
+  { key: 'selfie_doc_path', title: 'Selfie dengan identitas', hint: 'Wajah Anda + kartu identitas dalam satu foto. Maks 1 MB — otomatis dikompres bila lebih besar.', required: true, accept: 'image/jpeg,image/png,image/webp', maxBytes: MAX_IDENTITY_UPLOAD_BYTES, compress: true },
+  { key: 'npwp_doc_path', title: 'NPWP (opsional)', hint: 'Kartu NPWP pribadi/badan usaha bila ada. Maks 5 MB.', required: false, accept: 'image/jpeg,image/png,image/webp,application/pdf' },
+  { key: 'supporting_doc_path', title: 'Dokumen pendukung (opsional)', hint: 'Surat kuasa pemasaran, izin usaha, atau dokumen lain (PDF/JPG). Maks 5 MB.', required: false, accept: 'image/jpeg,image/png,image/webp,application/pdf' },
 ]
+
+/** Kompres foto identitas di sisi klien supaya muat dalam batas 1 MB. */
+async function compressImageFile(file: File, limit: number): Promise<File | null> {
+  if (typeof document === 'undefined' || !/^image\/(jpeg|png|webp)$/.test(file.type)) return null
+  try {
+    const source = await loadImageSource(file)
+    if (!source) return null
+    const maxSide = 2200
+    const scale = Math.min(1, maxSide / Math.max(source.width, source.height))
+    const width = Math.max(1, Math.round(source.width * scale))
+    const height = Math.max(1, Math.round(source.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = width
+    canvas.height = height
+    const context = canvas.getContext('2d')
+    if (!context) return null
+    context.fillStyle = '#ffffff'
+    context.fillRect(0, 0, width, height)
+    context.drawImage(source.image, 0, 0, width, height)
+    for (const quality of [0.92, 0.85, 0.78, 0.7, 0.62, 0.55, 0.46, 0.38]) {
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob((value) => resolve(value), 'image/jpeg', quality))
+      if (blob && blob.size <= limit) return new File([blob], 'foto-identitas.jpg', { type: 'image/jpeg' })
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+async function loadImageSource(file: File): Promise<{ width: number; height: number; image: CanvasImageSource } | null> {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(file)
+      return { width: bitmap.width, height: bitmap.height, image: bitmap }
+    } catch {
+      /* lanjut ke fallback <img> */
+    }
+  }
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file)
+    const image = new Image()
+    image.onload = () => {
+      URL.revokeObjectURL(url)
+      resolve({ width: image.naturalWidth, height: image.naturalHeight, image })
+    }
+    image.onerror = () => {
+      URL.revokeObjectURL(url)
+      resolve(null)
+    }
+    image.src = url
+  })
+}
 
 const STEP_TITLES = ['Peran Mitra', 'Data Diri', 'Alamat Domisili', 'Dokumen Identitas', 'Ketersediaan Waktu', 'Perjanjian Kerja Sama', 'Tinjau & Kirim']
 
@@ -74,6 +139,13 @@ const emptyRecord = (role: VerificationRole): VerificationRecord => ({
   city: '',
   province: '',
   postal_code: '',
+  nationality: 'Indonesia',
+  identity_expiry: '',
+  bank_name: '',
+  bank_account_number: '',
+  bank_account_name: '',
+  emergency_name: '',
+  emergency_phone: '',
   domicile_same_as_ktp: true,
   ktp_address: '',
   ktp_city: '',
@@ -109,6 +181,8 @@ export default function VerifyPage() {
   const [signature, setSignature] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [uploads, setUploads] = useState<Record<string, { name: string; busy: boolean }>>({})
+  const [draftBusy, setDraftBusy] = useState(false)
+  const [nextTarget, setNextTarget] = useState<string | null>(null)
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({})
 
   useEffect(() => {
@@ -133,7 +207,10 @@ export default function VerifyPage() {
         setRecords(map)
         setSignedRoles((payload?.agreements ?? []).filter((row: { status?: string }) => row?.status === 'active').map((row: { role: string }) => row.role))
         setAgreementRows(Array.isArray(payload?.agreements) ? payload.agreements : [])
-        const requested = new URLSearchParams(window.location.search).get('role')
+        const params = new URLSearchParams(window.location.search)
+        const requested = params.get('role')
+        const rawNext = params.get('next')
+        if (rawNext && rawNext.startsWith('/')) setNextTarget(rawNext)
         const initialRole: VerificationRole | null = requested === 'agent' || requested === 'property_owner' ? requested : null
         if (initialRole) {
           const existing = map[initialRole]
@@ -241,6 +318,7 @@ export default function VerifyPage() {
   function missingStepFor(keys: string[]) {
     const order: Record<string, number> = {
       full_name: 1, identity_type: 1, identity_number: 1, birth_date: 1, gender: 1, phone: 1,
+      bank_name: 1, bank_account_number: 1, bank_account_name: 1,
       address: 2, city: 2, province: 2,
       identity_doc: 3, selfie_doc: 3,
       availability: 4,
@@ -273,22 +351,39 @@ export default function VerifyPage() {
 
   async function handleUpload(slot: DocSlot, file: File | null) {
     if (!file || !role) return
-    if (file.size > MAX_UPLOAD_BYTES) {
-      setError(`${slot.title}: ukuran maksimal 5 MB.`)
-      return
-    }
-    setUploads((current) => ({ ...current, [slot.key]: { name: file.name, busy: true } }))
+    const limit = slot.maxBytes ?? MAX_UPLOAD_BYTES
     setError(null)
+    setUploads((current) => ({ ...current, [slot.key]: { name: file.name, busy: true } }))
     try {
+      let payload: Blob | File = file
+      let payloadName = file.name
+      let payloadType = file.type || 'image/jpeg'
+      let compressedFrom: number | null = null
+      if (file.size > limit && slot.compress) {
+        const compressed = await compressImageFile(file, limit)
+        if (compressed) {
+          compressedFrom = file.size
+          payload = compressed
+          payloadName = compressed.name
+          payloadType = compressed.type
+        }
+      }
+      if (payload.size > limit) {
+        throw new Error(`ukuran ${formatBytes(payload.size)} melebihi batas ${formatBytes(limit)}`)
+      }
       const supabase = createClient() as any
-      const path = `${userId}/${slot.key}-${Date.now()}.${fileExtension(file.name)}`
+      const path = `${userId}/${slot.key}-${Date.now()}.${fileExtension(payloadName)}`
       const { error: uploadError } = await supabase.storage
         .from(VERIFICATION_BUCKET)
-        .upload(path, file, { upsert: true, contentType: file.type || 'image/jpeg', cacheControl: '3600' })
+        .upload(path, payload, { upsert: true, contentType: payloadType, cacheControl: '3600' })
       if (uploadError) throw new Error(uploadError.message)
       patch({ [slot.key]: path } as Partial<VerificationRecord>)
-      setUploads((current) => ({ ...current, [slot.key]: { name: file.name, busy: false } }))
-      setNotice(`${slot.title} berhasil diunggah.`)
+      setUploads((current) => ({ ...current, [slot.key]: { name: payloadName, busy: false } }))
+      setNotice(
+        compressedFrom
+          ? `${slot.title} berhasil diunggah (dikompres otomatis dari ${formatBytes(compressedFrom)} ke ${formatBytes(payload.size)}).`
+          : `${slot.title} berhasil diunggah.`,
+      )
     } catch (uploadFailure) {
       setUploads((current) => ({ ...current, [slot.key]: { name: '', busy: false } }))
       setError(`${slot.title} gagal diunggah: ${uploadFailure instanceof Error ? uploadFailure.message : 'coba lagi'}`)
@@ -303,6 +398,23 @@ export default function VerifyPage() {
       window.open(data.signedUrl, '_blank', 'noopener')
     } catch (viewFailure) {
       setError(viewFailure instanceof Error ? viewFailure.message : 'Tidak bisa membuka berkas')
+    }
+  }
+
+  async function downloadDraft() {
+    if (!role || !record) return
+    setDraftBusy(true)
+    setError(null)
+    setNotice(null)
+    try {
+      const saved = await persist('save')
+      if (!saved) return
+      setNotice('Draf Perjanjian sedang dibuat — unduhan akan dimulai otomatis.')
+      window.location.assign(`/api/agreement/draft?role=${role}`)
+    } catch {
+      setError('Gagal membuat draf perjanjian. Coba lagi.')
+    } finally {
+      setDraftBusy(false)
     }
   }
 
@@ -392,6 +504,11 @@ export default function VerifyPage() {
             </dl>
 
             <div className="mt-8 flex flex-wrap gap-3">
+              {nextTarget && (
+                <a href={nextTarget} className="inline-flex items-center gap-2 rounded-full bg-[#0b3d2e] px-6 py-3 text-sm font-semibold text-white hover:bg-[#14553f]">
+                  Lanjut ke {nextTarget} <ArrowRight className="size-4" />
+                </a>
+              )}
               {approved ? (
                 <>
                   <a href="/list" className="inline-flex items-center gap-2 rounded-full bg-[#0b3d2e] px-6 py-3 text-sm font-semibold text-white hover:bg-[#14553f]">
@@ -413,6 +530,9 @@ export default function VerifyPage() {
               )}
               <a href={`/api/agreement/pdf?role=${role}`} className="inline-flex items-center gap-2 rounded-full border border-[#d8ccbb] px-6 py-3 text-sm font-semibold text-[#33433d] hover:border-[#c9a961]">
                 <Download className="size-4" /> Unduh perjanjian (PDF)
+              </a>
+              <a href={`/api/agreement/draft?role=${role}`} className="inline-flex items-center gap-2 rounded-full border border-[#d8ccbb] px-6 py-3 text-sm font-semibold text-[#33433d] hover:border-[#c9a961]">
+                <FileText className="size-4" /> Unduh draft (PDF)
               </a>
             </div>
           </div>
@@ -610,6 +730,36 @@ export default function VerifyPage() {
                     </label>
                   </>
                 )}
+
+                <div className="rounded-2xl border border-[#e5dccd] bg-[#fdfcfa] p-4 sm:col-span-2">
+                  <p className="text-sm font-semibold text-[#0b3d2e]">Data pendukung perjanjian</p>
+                  <p className="mt-1 text-xs text-[#718078]">Dipakai pada Draft &amp; Perjanjian Kerja Sama (rekening komisi &amp; kontak darurat) serta lampiran identitas.</p>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <label className={labelClass}>Kewarganegaraan *
+                      <select className={inputClass} value={String(record.nationality ?? 'Indonesia')} onChange={(e) => patch({ nationality: e.target.value })}>
+                        {NATIONALITY_OPTIONS.map((option) => <option key={option} value={option}>{option}</option>)}
+                      </select>
+                    </label>
+                    <label className={labelClass}>Masa berlaku identitas
+                      <input type="date" className={inputClass} value={String(record.identity_expiry ?? '').slice(0, 10)} onChange={(e) => patch({ identity_expiry: e.target.value })} />
+                    </label>
+                    <label className={labelClass}>Nama bank *
+                      <input className={inputClass} value={String(record.bank_name ?? '')} onChange={(e) => patch({ bank_name: e.target.value })} placeholder="mis. BCA, Mandiri, BNI" />
+                    </label>
+                    <label className={labelClass}>Nomor rekening *
+                      <input className={inputClass} inputMode="numeric" value={String(record.bank_account_number ?? '')} onChange={(e) => patch({ bank_account_number: e.target.value.replace(/[^0-9]/g, '').slice(0, 26) })} placeholder="Nomor rekening komisi" />
+                    </label>
+                    <label className={labelClass}>Nama pemilik rekening *
+                      <input className={inputClass} value={String(record.bank_account_name ?? '')} onChange={(e) => patch({ bank_account_name: e.target.value })} placeholder="Sesuai buku tabungan" />
+                    </label>
+                    <label className={labelClass}>Nama kontak darurat
+                      <input className={inputClass} value={String(record.emergency_name ?? '')} onChange={(e) => patch({ emergency_name: e.target.value })} placeholder="Nama keluarga/kerabat" />
+                    </label>
+                    <label className={labelClass}>Telepon kontak darurat
+                      <input className={inputClass} inputMode="tel" value={String(record.emergency_phone ?? '')} onChange={(e) => patch({ emergency_phone: e.target.value })} placeholder="08xxxxxxxxxx" />
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -666,7 +816,7 @@ export default function VerifyPage() {
           {step === 3 && record && (
             <div>
               <h2 className="font-serif text-xl text-[#0b3d2e] sm:text-2xl">Dokumen Identitas</h2>
-              <p className="mt-2 text-sm text-[#718078]">Maksimal 5 MB per berkas (JPG, PNG, atau PDF). Berkas disimpan privat.</p>
+              <p className="mt-2 text-sm text-[#718078]">Foto KTP/SIM dan selfie maksimal 1 MB (otomatis dikompres bila lebih besar) · dokumen lain maksimal 5 MB. Berkas disimpan privat.</p>
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 {DOC_SLOTS.map((slot) => {
                   const path = record[slot.key] as string | null | undefined
@@ -759,6 +909,22 @@ export default function VerifyPage() {
               <p className="mt-2 text-sm text-[#718078]">
                 Versi {AGREEMENT_VERSION} · Komisi Homy {COMMISSION_RATE}% dari harga jual final. Baca seluruh pasal berikut sebelum menandatangani.
               </p>
+              <div className="mt-5 rounded-2xl border border-[#e5dccd] bg-[#fdfcfa] p-4">
+                <p className="flex items-center gap-2 font-semibold text-[#0b3d2e]"><FileText className="size-4" /> Draft Perjanjian siap diunduh</p>
+                <p className="mt-1 text-sm text-[#65706c]">
+                  Sistem merangkum seluruh data diri Anda ke dalam <strong>Draft Perjanjian</strong> berformat PDF — lengkap dengan nomor serial draf (mis.
+                  DRF/AGN/…), timestamp WIB, tanda air “DRAFT”, dan salinan KTP pada lampiran. Draf belum sah; versi final bertanda tangan diterbitkan setelah Anda menandatangani.
+                </p>
+                <button
+                  type="button"
+                  onClick={downloadDraft}
+                  disabled={draftBusy || busy || !record?.identity_doc_path}
+                  className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#0b3d2e] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#14553f] disabled:opacity-50"
+                >
+                  {draftBusy ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />} Unduh Draft Perjanjian (PDF)
+                </button>
+                {!record?.identity_doc_path && <p className="mt-2 text-xs text-[#9a783c]">Unggah foto KTP/SIM dulu di langkah “Dokumen Identitas” agar salinan identitas ikut masuk lampiran.</p>}
+              </div>
               <div className="mt-5 max-h-[26rem] overflow-y-auto rounded-2xl border border-[#eee5d8] bg-[#fdfcfa] p-4 text-sm leading-7 text-[#3f4b46]">
                 {clauses.map((clause) => (
                   <section key={clause.title} className="mb-5">
@@ -828,6 +994,9 @@ export default function VerifyPage() {
                   ['Jenis kelamin', GENDER_OPTIONS.find((option) => option.value === record.gender)?.label ?? '—'],
                   ['Telepon / WA', `${record.phone || '-'} / ${record.whatsapp || '-'}`],
                   ['Email', String(record.email ?? '') || '—'],
+                  ['Kewarganegaraan', String(record.nationality ?? 'Indonesia')],
+                  ['Rekening komisi', [record.bank_name, record.bank_account_number, record.bank_account_name ? `a.n. ${record.bank_account_name}` : ''].filter(Boolean).join(' · ') || '—'],
+                  ['Kontak darurat', [record.emergency_name, record.emergency_phone].filter(Boolean).join(' — ') || '—'],
                   ...(role === 'agent' ? ([['Agensi', String(record.company_name ?? '') || '—'], ['NPWP', String(record.npwp ?? '') || '—']] as [string, string][]) : []),
                 ]} />
                 <Summary title="Domisili" rows={[
@@ -856,14 +1025,24 @@ export default function VerifyPage() {
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={submitApplication}
-                disabled={busy || !isComplete(record)}
-                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#0b3d2e] px-6 py-3 text-sm font-semibold text-white hover:bg-[#14553f] disabled:opacity-50 sm:w-auto"
-              >
-                {busy ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />} Kirim pengajuan verifikasi
-              </button>
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={downloadDraft}
+                  disabled={draftBusy || busy || !record?.identity_doc_path}
+                  className="inline-flex items-center gap-2 rounded-full border border-[#d8ccbb] px-6 py-3 text-sm font-semibold text-[#33433d] hover:border-[#c9a961] disabled:opacity-50"
+                >
+                  {draftBusy ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />} Unduh Draft Perjanjian
+                </button>
+                <button
+                  type="button"
+                  onClick={submitApplication}
+                  disabled={busy || !isComplete(record)}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#0b3d2e] px-6 py-3 text-sm font-semibold text-white hover:bg-[#14553f] disabled:opacity-50 sm:w-auto"
+                >
+                  {busy ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />} Kirim pengajuan verifikasi
+                </button>
+              </div>
             </div>
           )}
 

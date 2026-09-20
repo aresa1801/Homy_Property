@@ -21,6 +21,7 @@ import {
 } from '@/lib/partner-agreement'
 import {
   agreementFingerprint,
+  draftSerial,
   fingerprintGroups,
   formatSignatureStampShort,
   formatSignatureTimestamp,
@@ -59,6 +60,13 @@ export type AgreementPartner = {
   city?: string | null
   province?: string | null
   postalCode?: string | null
+  nationality?: string | null
+  identityExpiry?: string | null
+  bankName?: string | null
+  bankAccountNumber?: string | null
+  bankAccountName?: string | null
+  emergencyName?: string | null
+  emergencyPhone?: string | null
 }
 
 export type AgreementPdfInput = {
@@ -76,6 +84,12 @@ export type AgreementPdfInput = {
   signedIp?: string | null
   /** User agent perangkat saat menandatangani (opsional, untuk sertifikat). */
   userAgent?: string | null
+  /** `draft` = Draf Perjanjian (belum sah); `final` = dokumen bertanda tangan (default). */
+  mode?: 'draft' | 'final'
+  /** Waktu pembuatan draf (dipakai untuk timestamp + serial draf). */
+  generatedAt?: string
+  /** Salinan foto identitas (JPEG) untuk Lampiran D pada draf. */
+  identityImage?: { data: Uint8Array; width: number; height: number } | null
 }
 
 function identityLabel(value?: string | null) {
@@ -120,27 +134,32 @@ function availabilityLines(rows?: AvailabilityEntry[] | null) {
 }
 
 export function buildAgreementPdf(input: AgreementPdfInput): Uint8Array {
+  const draft = input.mode === 'draft'
   const version = input.version ?? AGREEMENT_VERSION
-  const signedDate = new Date(input.signedAt)
-  const number = agreementNumber(input.role, input.userId, input.signedAt)
+  /** Waktu acuan: untuk draf = saat dokumen dibuat, untuk final = saat ditandatangani. */
+  const referenceAt = draft ? String(input.generatedAt ?? new Date().toISOString()) : input.signedAt
+  const signedDate = new Date(referenceAt)
+  const number = agreementNumber(input.role, input.userId, referenceAt)
   const roleLabel = PARTNER_ROLE_LABEL[input.role]
   const clauses = buildAgreementClauses(input.role)
   const partner = input.partner
 
   // Identitas penandatanganan elektronik (model DocuSign: serial + timestamp + sidik jari)
-  const serial = String(input.serial ?? '').trim() || signatureSerial(input.role, input.userId, input.signedAt)
-  const signatureKey = signatureId(input.role, input.userId, input.signedAt, version)
+  const serial =
+    String(input.serial ?? '').trim() ||
+    (draft ? draftSerial(input.role, input.userId, referenceAt) : signatureSerial(input.role, input.userId, input.signedAt))
+  const signatureKey = signatureId(input.role, input.userId, referenceAt, version)
   const fingerprint = agreementFingerprint({
     role: input.role,
     userId: input.userId,
     version,
-    signedAt: input.signedAt,
+    signedAt: referenceAt,
     fullName: String(partner.fullName ?? '-'),
     identityNumber: partner.identityNumber ?? null,
     serial,
   })
-  const signedStamp = formatSignatureTimestamp(input.signedAt)
-  const signedStampShort = formatSignatureStampShort(input.signedAt)
+  const signedStamp = formatSignatureTimestamp(referenceAt)
+  const signedStampShort = formatSignatureStampShort(referenceAt)
 
   const partnerRows: { label: string; value: string }[] = [
     { label: 'Nama lengkap', value: String(partner.fullName ?? '-') },
@@ -148,6 +167,8 @@ export function buildAgreementPdf(input: AgreementPdfInput): Uint8Array {
     { label: 'Peran mitra', value: roleLabel },
     { label: 'Jenis identitas', value: identityLabel(partner.identityType) },
     { label: 'Nomor identitas', value: String(partner.identityNumber ?? '-') },
+    { label: 'Masa berlaku identitas', value: formatDateId(partner.identityExpiry) },
+    { label: 'Kewarganegaraan', value: String(partner.nationality ?? 'Indonesia') },
     { label: 'Tempat, tanggal lahir', value: `${String(partner.birthPlace ?? '-')}, ${formatDateId(partner.birthDate)}` },
     { label: 'Jenis kelamin', value: partner.gender === 'female' ? 'Perempuan' : partner.gender === 'male' ? 'Laki-laki' : '-' },
     { label: 'Pekerjaan', value: String(partner.occupation ?? '-') },
@@ -155,6 +176,22 @@ export function buildAgreementPdf(input: AgreementPdfInput): Uint8Array {
     { label: 'WhatsApp', value: String(partner.whatsapp ?? '-') },
     { label: 'Email', value: String(partner.email ?? '-') },
     { label: 'Alamat domisili', value: fullAddress(partner) || '-' },
+    {
+      label: 'Rekening komisi',
+      value:
+        [partner.bankName, partner.bankAccountNumber, partner.bankAccountName ? `a.n. ${partner.bankAccountName}` : null]
+          .map((part) => String(part ?? '').trim())
+          .filter(Boolean)
+          .join(' · ') || '-',
+    },
+    {
+      label: 'Kontak darurat',
+      value:
+        [partner.emergencyName, partner.emergencyPhone]
+          .map((part) => String(part ?? '').trim())
+          .filter(Boolean)
+          .join(' — ') || '-',
+    },
     { label: 'Nama badan/agensi', value: String(partner.companyName ?? '-') },
     { label: 'Nomor izin/keagenan', value: String(partner.agencyLicense ?? '-') },
     { label: 'NPWP', value: String(partner.npwp ?? '-') },
@@ -173,22 +210,30 @@ export function buildAgreementPdf(input: AgreementPdfInput): Uint8Array {
     {
       type: 'title',
       text: AGREEMENT_TITLE,
-      sub: `Nomor: ${number}  ·  Versi dokumen: ${version}`,
-      badge: version,
+      sub: draft ? `DRAF — Nomor: ${number}  ·  Versi dokumen: ${version}` : `Nomor: ${number}  ·  Versi dokumen: ${version}`,
+      badge: draft ? 'DRAFT' : version,
     },
     {
       type: 'meta',
-      lines: [
-        `Status: DITANDATANGANI SECARA DIGITAL  ·  Tanggal tanda tangan: ${formatDateId(input.signedAt)} ${signedDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB`,
-        `Diterbitkan oleh ${COMPANY_LEGAL} melalui platform ${COMPANY_SITE} · Kontak kemitraan: ${COMPANY_EMAIL}`,
-      ],
+      lines: draft
+        ? [
+            `Status: DRAF — BELUM DITANDATANGANI  ·  Dibuat: ${formatSignatureTimestamp(referenceAt)}`,
+            `Serial draf: ${serial}`,
+            `Diterbitkan oleh ${COMPANY_LEGAL} melalui platform ${COMPANY_SITE} · Kontak kemitraan: ${COMPANY_EMAIL}`,
+          ]
+        : [
+            `Status: DITANDATANGANI SECARA DIGITAL  ·  Tanggal tanda tangan: ${formatDateId(input.signedAt)} ${signedDate.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })} WIB`,
+            `Diterbitkan oleh ${COMPANY_LEGAL} melalui platform ${COMPANY_SITE} · Kontak kemitraan: ${COMPANY_EMAIL}`,
+          ],
     },
     {
       type: 'note',
-      label: 'Catatan dokumen digital',
-      text:
-        'Salinan ini dihasilkan otomatis oleh sistem Homy Property dan sah sebagai arsip digital perjanjian yang ditandatangani melalui platform. ' +
-        'Keaslian dapat diverifikasi admin melalui ID verifikasi dan ID perjanjian pada lampiran di bawah. Simpan dokumen ini untuk keperluan administrasi Anda.',
+      label: draft ? 'Catatan draf perjanjian' : 'Catatan dokumen digital',
+      text: draft
+        ? 'Dokumen ini adalah DRAF Perjanjian Kerja Sama yang dihasilkan dari data formulir mitra. Draf belum sah dan belum mengikat para pihak sampai ditandatangani secara elektronik. ' +
+          'Setelah mitra menandatangani, sistem Homy Property akan menerbitkan versi final lengkap dengan serial tanda tangan, timestamp, dan sertifikat penandatanganan elektronik.'
+        : 'Salinan ini dihasilkan otomatis oleh sistem Homy Property dan sah sebagai arsip digital perjanjian yang ditandatangani melalui platform. ' +
+          'Keaslian dapat diverifikasi admin melalui ID verifikasi dan ID perjanjian pada lampiran di bawah. Simpan dokumen ini untuk keperluan administrasi Anda.',
     },
     { type: 'group', atomic: true, blocks: [
       { type: 'heading', text: 'Lampiran A — Data Mitra' },
@@ -212,9 +257,36 @@ export function buildAgreementPdf(input: AgreementPdfInput): Uint8Array {
       },
       { type: 'note', text: AGREEMENT_LAMPIRAN.join(' ') },
     ] },
-    { type: 'divider' },
-    { type: 'heading', text: 'Isi Perjanjian Kerja Sama' },
   ]
+
+  const identityImage = input.identityImage
+  if (identityImage) {
+    const identityName = identityLabel(partner.identityType)
+    blocks.push({
+      type: 'group',
+      atomic: true,
+      blocks: [
+        { type: 'heading', text: 'Lampiran D — Salinan Dokumen Identitas' },
+        {
+          type: 'paragraph',
+          text: `Salinan ${identityName} mitra yang diunggah melalui formulir perjanjian (maksimal 1 MB). Berkas asli tersimpan privat pada sistem Homy Property.`,
+        },
+        {
+          type: 'image',
+          image: {
+            data: identityImage.data,
+            width: identityImage.width,
+            height: identityImage.height,
+            maxHeight: 340,
+            caption: `Salinan ${identityName} — ${String(partner.fullName ?? 'Mitra Homy')}`,
+          },
+        },
+      ],
+    })
+  }
+
+  blocks.push({ type: 'divider' })
+  blocks.push({ type: 'heading', text: 'Isi Perjanjian Kerja Sama' })
 
   for (const clause of clauses) {
     const clauseBlocks: PdfBlock[] = [{ type: 'heading', text: clause.title }]
@@ -226,69 +298,115 @@ export function buildAgreementPdf(input: AgreementPdfInput): Uint8Array {
 
   blocks.push({ type: 'divider' })
   blocks.push({ type: 'group', atomic: true, blocks: [
-    { type: 'heading', text: 'Penandatanganan Elektronik' },
+    { type: 'heading', text: draft ? 'Penandatanganan Elektronik (Menunggu Mitra)' : 'Penandatanganan Elektronik' },
     {
       type: 'paragraph',
-      text:
-        'Perjanjian Kerja Sama ini ditandatangani secara elektronik oleh para pihak. Dengan tanda tangan digital ini, MITRA menyatakan telah membaca, memahami, dan menyetujui seluruh isi Perjanjian beserta lampirannya. Setiap tanda tangan memiliki nomor serial, waktu tanda tangan (WIB), dan sidik jari dokumen yang tercatat pada sistem Homy Property.',
+      text: draft
+        ? 'Perjanjian Kerja Sama ini masih berupa DRAF. Bagian tanda tangan di bawah belum diisi dan belum sah. Setelah mitra menandatangani secara elektronik melalui platform, sistem akan menerbitkan versi final dengan serial tanda tangan, waktu tanda tangan (WIB), sidik jari dokumen, dan sertifikat penandatanganan elektronik.'
+        : 'Perjanjian Kerja Sama ini ditandatangani secara elektronik oleh para pihak. Dengan tanda tangan digital ini, MITRA menyatakan telah membaca, memahami, dan menyetujui seluruh isi Perjanjian beserta lampirannya. Setiap tanda tangan memiliki nomor serial, waktu tanda tangan (WIB), dan sidik jari dokumen yang tercatat pada sistem Homy Property.',
     },
     {
       type: 'signature',
-      columns: [
-        {
-          label: `Pihak Kedua — Mitra (${roleLabel})`,
-          name: String(partner.fullName ?? '-'),
-          fields: [
-            { label: 'Nama', value: String(partner.fullName ?? '-') },
-            { label: 'Peran', value: roleLabel },
-            { label: 'No. serial', value: serial },
-            { label: 'Waktu ttd', value: signedStampShort },
-            { label: 'Email', value: String(partner.email ?? '-') },
+      columns: draft
+        ? [
+            {
+              label: `Pihak Kedua — Mitra (${roleLabel})`,
+              name: '(belum ditandatangani)',
+              fields: [
+                { label: 'Nama', value: String(partner.fullName ?? '-') },
+                { label: 'Peran', value: roleLabel },
+                { label: 'Status', value: 'Menunggu tanda tangan' },
+                { label: 'Serial draf', value: serial },
+                { label: 'Dibuat', value: signedStampShort },
+              ],
+            },
+            {
+              label: 'Pihak Pertama — Homy Property',
+              name: '(menunggu mitra)',
+              fields: [
+                { label: 'Nama', value: 'Admin Kemitraan Homy' },
+                { label: 'Peran', value: COMPANY_LEGAL },
+                { label: 'No. dokumen', value: number },
+                { label: 'Status', value: 'Menunggu mitra' },
+                { label: 'Email', value: COMPANY_EMAIL },
+              ],
+            },
+          ]
+        : [
+            {
+              label: `Pihak Kedua — Mitra (${roleLabel})`,
+              name: String(partner.fullName ?? '-'),
+              fields: [
+                { label: 'Nama', value: String(partner.fullName ?? '-') },
+                { label: 'Peran', value: roleLabel },
+                { label: 'No. serial', value: serial },
+                { label: 'Waktu ttd', value: signedStampShort },
+                { label: 'Email', value: String(partner.email ?? '-') },
+              ],
+            },
+            {
+              label: 'Pihak Pertama — Homy Property',
+              name: 'Admin Kemitraan Homy',
+              fields: [
+                { label: 'Nama', value: 'Admin Kemitraan Homy' },
+                { label: 'Peran', value: COMPANY_LEGAL },
+                { label: 'No. dokumen', value: number },
+                { label: 'Waktu ttd', value: signedStampShort },
+                { label: 'Email', value: COMPANY_EMAIL },
+              ],
+            },
           ],
-        },
-        {
-          label: 'Pihak Pertama — Homy Property',
-          name: 'Admin Kemitraan Homy',
-          fields: [
-            { label: 'Nama', value: 'Admin Kemitraan Homy' },
-            { label: 'Peran', value: COMPANY_LEGAL },
-            { label: 'No. dokumen', value: number },
-            { label: 'Waktu ttd', value: signedStampShort },
-            { label: 'Email', value: COMPANY_EMAIL },
-          ],
-        },
-      ],
-      note: `Ditandatangani secara elektronik melalui ${COMPANY_SITE} pada ${signedStamp}. Status dokumen: SAH sebagai arsip digital perjanjian.`,
+      note: draft
+        ? `Draf ini dibuat melalui ${COMPANY_SITE} pada ${signedStamp}. Status dokumen: DRAF — belum sah dan belum mengikat para pihak.`
+        : `Ditandatangani secara elektronik melalui ${COMPANY_SITE} pada ${signedStamp}. Status dokumen: SAH sebagai arsip digital perjanjian.`,
     },
   ] })
 
   blocks.push({ type: 'divider' })
   blocks.push({
     type: 'certificate',
-    title: 'Sertifikat Penandatanganan Elektronik',
-    rows: [
-      { label: 'Nomor dokumen', value: number },
-      { label: 'Versi dokumen', value: version },
-      { label: 'Serial tanda tangan', value: serial },
-      { label: 'ID tanda tangan', value: signatureKey },
-      { label: 'Ditandatangani oleh', value: `${String(partner.fullName ?? '-')} — ${roleLabel}` },
-      { label: 'Email mitra', value: String(partner.email ?? '-') },
-      { label: 'Waktu tanda tangan', value: signedStamp },
-      { label: 'Metode', value: `Tanda tangan elektronik (e-signature) melalui ${COMPANY_SITE}` },
-      { label: 'Alamat IP perangkat', value: String(input.signedIp ?? '-') },
-      { label: 'Perangkat', value: summarizeUserAgent(input.userAgent) },
-      { label: 'ID perjanjian', value: String(input.agreementId ?? '-') },
-      { label: 'ID verifikasi mitra', value: String(input.verificationId ?? '-') },
-      { label: 'Sidik jari dokumen (SHA-256)', value: fingerprintGroups(fingerprint, 8) },
-    ],
-    note:
-      'Sertifikat ini dihasilkan otomatis oleh sistem Homy Property dan menjadi bagian tidak terpisahkan dari Perjanjian Kerja Sama. Keaslian dokumen dapat diverifikasi admin Homy dengan mencocokkan nomor dokumen, serial tanda tangan, dan sidik jari SHA-256 di atas.',
+    title: draft ? 'Ringkasan Draf Perjanjian' : 'Sertifikat Penandatanganan Elektronik',
+    rows: draft
+      ? [
+          { label: 'Nomor dokumen', value: number },
+          { label: 'Versi dokumen', value: version },
+          { label: 'Serial draf', value: serial },
+          { label: 'ID dokumen draf', value: signatureKey },
+          { label: 'Dibuat pada', value: signedStamp },
+          { label: 'Mitra', value: `${String(partner.fullName ?? '-')} — ${roleLabel}` },
+          { label: 'Email mitra', value: String(partner.email ?? '-') },
+          { label: 'Status dokumen', value: 'DRAF — belum ditandatangani' },
+          { label: 'Dicetak dari', value: COMPANY_SITE },
+          { label: 'ID verifikasi mitra', value: String(input.verificationId ?? '-') },
+          { label: 'Sidik jari draf (SHA-256)', value: fingerprintGroups(fingerprint, 8) },
+        ]
+      : [
+          { label: 'Nomor dokumen', value: number },
+          { label: 'Versi dokumen', value: version },
+          { label: 'Serial tanda tangan', value: serial },
+          { label: 'ID tanda tangan', value: signatureKey },
+          { label: 'Ditandatangani oleh', value: `${String(partner.fullName ?? '-')} — ${roleLabel}` },
+          { label: 'Email mitra', value: String(partner.email ?? '-') },
+          { label: 'Waktu tanda tangan', value: signedStamp },
+          { label: 'Metode', value: `Tanda tangan elektronik (e-signature) melalui ${COMPANY_SITE}` },
+          { label: 'Alamat IP perangkat', value: String(input.signedIp ?? '-') },
+          { label: 'Perangkat', value: summarizeUserAgent(input.userAgent) },
+          { label: 'ID perjanjian', value: String(input.agreementId ?? '-') },
+          { label: 'ID verifikasi mitra', value: String(input.verificationId ?? '-') },
+          { label: 'Sidik jari dokumen (SHA-256)', value: fingerprintGroups(fingerprint, 8) },
+        ],
+    note: draft
+      ? 'Halaman ini menandai dokumen sebagai DRAF. Setelah mitra menandatangani secara elektronik, sistem Homy Property menerbitkan versi final lengkap dengan sertifikat penandatanganan elektronik, serial tanda tangan, timestamp, dan sidik jari SHA-256.'
+      : 'Sertifikat ini dihasilkan otomatis oleh sistem Homy Property dan menjadi bagian tidak terpisahkan dari Perjanjian Kerja Sama. Keaslian dokumen dapat diverifikasi admin Homy dengan mencocokkan nomor dokumen, serial tanda tangan, dan sidik jari SHA-256 di atas.',
   })
 
   return buildPdf({
     title: AGREEMENT_TITLE,
-    badge: version,
+    badge: draft ? 'DRAFT' : version,
     blocks,
-    footerNote: `${COMPANY_LEGAL} · Perjanjian Kerja Sama Mitra ${version} · ${COMPANY_SITE}`,
+    watermark: draft ? 'DRAFT' : undefined,
+    footerNote: draft
+      ? `${COMPANY_LEGAL} · DRAF Perjanjian Kerja Sama Mitra ${version} · ${COMPANY_SITE}`
+      : `${COMPANY_LEGAL} · Perjanjian Kerja Sama Mitra ${version} · ${COMPANY_SITE}`,
   })
 }

@@ -785,7 +785,7 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
         <ul className="mt-3 space-y-2 text-sm leading-6 text-[#33443d]">
           <li>1. Verifikasi identitas &amp; legalitas (KTP/izin usaha) sebelum menandai <strong>Disetujui</strong>.</li>
           <li>2. Untuk agensi/institusi, catat skema komisi bertingkat pada catatan verifikasi.</li>
-          <li>3. Setelah disetujui, minta mitra menandatangani Surat Perjanjian Kerja Sama di halaman <a href="/agreement?role=agent&next=/list" className="font-semibold text-[#0b3d2e] underline">Perjanjian</a>.</li>
+          <li>3. Setelah disetujui, minta mitra menandatangani Surat Perjanjian Kerja Sama di halaman <a href="/verify?role=agent&next=/list" className="font-semibold text-[#0b3d2e] underline">Perjanjian</a>.</li>
           <li>4. Komisi wajib: Agen 0,5% dan Pemilik Properti 2% dari harga transaksi final.</li>
           <li>5. Semua tindakan moderasi tercatat otomatis di <strong>Log Audit</strong>.</li>
         </ul>

@@ -49,6 +49,16 @@ export function signatureSerial(role: string, userId: string, signedAt: string) 
   return `SIG/${code}/${stampCompact(signedAt)}/${digest}`
 }
 
+/**
+ * Serial draf perjanjian, mis. `DRF/AGN/20260920/7F3A2C`.
+ * Dipakai pada Draft Perjanjian yang bisa diunduh mitra sebelum tanda tangan.
+ */
+export function draftSerial(role: string, userId: string, generatedAt: string) {
+  const code = ROLE_CODE[role] ?? 'MTR'
+  const digest = createHash('sha256').update(`draft|${role}|${userId}|${generatedAt}`).digest('hex').slice(0, 6).toUpperCase()
+  return `DRF/${code}/${stampCompact(generatedAt)}/${digest}`
+}
+
 /** ID tanda tangan ringkas, mis. `ES-V2-9F2C41`. */
 export function signatureId(role: string, userId: string, signedAt: string, version: string) {
   const digest = createHash('sha256').update(`${version}|${role}|${userId}|${signedAt}|sig`).digest('hex').slice(0, 6).toUpperCase()

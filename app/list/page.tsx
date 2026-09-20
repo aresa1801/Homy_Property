@@ -573,7 +573,7 @@ export default function ListPage() {
               <a href={`/verify?role=${partnerRole}`} className="inline-flex items-center gap-2 rounded-full bg-[#0b3d2e] px-6 py-3 text-sm font-semibold text-white hover:bg-[#14553f]">
                 <ShieldCheck className="size-4" /> Verifikasi mitra & tanda tangani
               </a>
-              <a href={`/agreement?role=${partnerRole}&next=/list`} className="inline-flex items-center gap-2 rounded-full border border-[#d8ccbb] px-6 py-3 text-sm font-semibold text-[#33433d] hover:border-[#c9a961]">
+              <a href={`/verify?role=${partnerRole}&next=/list`} className="inline-flex items-center gap-2 rounded-full border border-[#d8ccbb] px-6 py-3 text-sm font-semibold text-[#33433d] hover:border-[#c9a961]">
                 <FileSignature className="size-4" /> Buka perjanjian saja
               </a>
               <a href="/dashboard/user" className="inline-flex items-center gap-2 rounded-full border border-[#d8ccbb] px-6 py-3 text-sm font-semibold text-[#33433d] hover:border-[#c9a961]">Kembali ke dasbor</a>

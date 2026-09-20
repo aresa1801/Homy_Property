@@ -25,7 +25,7 @@ type Picked = { name: string; size: number; type: string; target: string | null;
 const RULES: { test: RegExp; target: string; label: string }[] = [
   { test: /^invoice[-_ ]?homy[-_ ]?([A-Za-z0-9-]+)\.pdf$/i, target: '/dashboard/agent/billing', label: 'Dasbor Penagihan & Komisi' },
   { test: /^invoice[-_ ]?([A-Za-z0-9-]+)\.pdf$/i, target: '/dashboard/agent/billing', label: 'Dasbor Penagihan & Komisi' },
-  { test: /perjanjian/i, target: '/agreement', label: 'Perjanjian Kerja Sama' },
+  { test: /perjanjian/i, target: '/verify', label: 'Perjanjian Kerja Sama' },
 ]
 
 function match(name: string) {
@@ -109,7 +109,7 @@ export default function OpenFilePage() {
 
       <div className="flex flex-wrap gap-3 text-sm font-semibold">
         <Link className="rounded-lg bg-[#0b3d2e] px-4 py-2 text-white" href="/dashboard/agent/billing">Buka Penagihan</Link>
-        <Link className="rounded-lg border border-[#d8ccbb] px-4 py-2 text-[#0b3d2e]" href="/agreement">Buka Perjanjian</Link>
+        <Link className="rounded-lg border border-[#d8ccbb] px-4 py-2 text-[#0b3d2e]" href="/verify">Buka Perjanjian</Link>
       </div>
     </main>
   )

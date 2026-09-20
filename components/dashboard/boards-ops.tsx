@@ -247,7 +247,7 @@ export function AgreementBoard({ data, loading, type }: BoardProps & { type: 'ag
   const key = ROLE_KEY[type]
   const agreement = (data.agreements ?? []).find((row) => row.role === key)
   const active = agreement?.status === 'active'
-  const signHref = `/agreement?role=${key}&next=/dashboard/${type}/listings`
+  const signHref = `/verify?role=${key}&next=/dashboard/${type}/listings`
   const obligations = [
     'Menjual/menyewakan properti dengan data yang benar dan tidak menyesatkan.',
     'Menyetujui komisi penjualan ' + String(COMMISSION[type]).replace('.', ',') + '% dari harga jual untuk Homy Property (Pasal 3).',
@@ -281,6 +281,7 @@ export function AgreementBoard({ data, loading, type }: BoardProps & { type: 'ag
               <span className="inline-flex rounded-full bg-[#fff7e3] px-3 py-1 text-xs font-semibold text-[#9b762a]">Belum ditandatangani</span>
               <p className="text-sm leading-6 text-[#718078]">{'Wajib sebelum memasang properti: daftar sebagai Mitra, tanda tangani perjanjian kerja sama, setujui komisi penjualan ' + String(COMMISSION[type]).replace('.', ',') + '%, dan laporkan setiap transaksi kepada Homy.'}</p>
               <a href={signHref} className={ui.btn}>Tanda tangani perjanjian</a>
+              <a href={`/api/agreement/draft?role=${key}`} className={ui.ghost + ' ml-2'}>Unduh draft (PDF)</a>
             </div>
           )}
         </div>
@@ -307,7 +308,7 @@ export function ListLauncher({ data, loading, reload, type }: BoardProps & { typ
   const drafts = listings.filter((item) => item.status === 'draft' || item.status === 'pending' || item.status === 'rejected')
   const [busy, setBusy] = useState<string | null>(null)
   const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
-  const signHref = `/agreement?role=${key}&next=/list`
+  const signHref = `/verify?role=${key}&next=/list`
 
   async function onResubmit(id: string) {
     setBusy(id)

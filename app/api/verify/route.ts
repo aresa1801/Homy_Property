@@ -3,7 +3,10 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { notifyUser } from '@/lib/notifications'
 import {
+  MAX_IDENTITY_UPLOAD_BYTES,
   REQUIREMENT_LABELS,
+  VERIFICATION_BUCKET,
+  formatBytes,
   missingRequirements,
   type AvailabilityEntry,
   type VerificationRecord,
@@ -14,16 +17,21 @@ const PARTNER_ROLES: VerificationRole[] = ['agent', 'property_owner']
 
 /** Kolom yang boleh ditulis pemohon (sisanya hanya admin/verifikasi). */
 const EDITABLE_FIELDS = [
-  'full_name', 'nickname', 'identity_type', 'identity_number', 'birth_place', 'birth_date',
+  'full_name', 'nickname', 'identity_type', 'identity_number', 'identity_expiry', 'nationality',
+  'birth_place', 'birth_date',
   'gender', 'marital_status', 'occupation', 'phone', 'whatsapp', 'email',
   'company_name', 'agency_license', 'npwp',
   'address', 'rt_rw', 'village', 'district', 'city', 'province', 'postal_code',
+  'bank_name', 'bank_account_number', 'bank_account_name', 'emergency_name', 'emergency_phone',
   'domicile_same_as_ktp', 'ktp_address', 'ktp_city', 'ktp_province',
   'identity_doc_path', 'selfie_doc_path', 'npwp_doc_path', 'supporting_doc_path',
   'notes',
 ] as const
 
 const DOC_FIELDS = ['identity_doc_path', 'selfie_doc_path', 'npwp_doc_path', 'supporting_doc_path'] as const
+
+/** Foto identitas (KTP/SIM) & selfie dibatasi 1 MB supaya ringan dan konsisten. */
+const IDENTITY_DOC_FIELDS = ['identity_doc_path', 'selfie_doc_path'] as const
 
 function serviceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
@@ -36,6 +44,25 @@ async function requireUser() {
   const supabase = await createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
   return user
+}
+
+/** Validasi ukuran berkas identitas di server (batas 1 MB) — klien tidak boleh jadi satu-satunya pengawal. */
+async function oversizedIdentityDocs(
+  admin: ReturnType<typeof serviceClient>,
+  userId: string,
+  patch: Record<string, unknown>,
+): Promise<string[]> {
+  const paths = IDENTITY_DOC_FIELDS
+    .map((field) => String(patch[field] ?? ''))
+    .filter((path) => path.startsWith(`${userId}/`))
+  if (!paths.length || !admin) return []
+  const { data, error } = await admin.storage.from(VERIFICATION_BUCKET).list(userId)
+  if (error || !Array.isArray(data)) return []
+  const sizes = new Map<string, number>()
+  for (const item of data as { name?: string; metadata?: { size?: number } }[]) {
+    if (item?.name) sizes.set(`${userId}/${item.name}`, Number(item.metadata?.size ?? 0))
+  }
+  return paths.filter((path) => (sizes.get(path) ?? 0) > MAX_IDENTITY_UPLOAD_BYTES)
 }
 
 function cleanAvailability(input: unknown, fallback?: AvailabilityEntry[] | null): AvailabilityEntry[] {
@@ -136,6 +163,17 @@ export async function POST(request: Request) {
 
   const patch = sanitizePatch(data, user.id)
   const availability = cleanAvailability(data.availability, existing?.availability ?? null)
+
+  const oversized = await oversizedIdentityDocs(admin, user.id, patch)
+  if (oversized.length) {
+    return NextResponse.json(
+      {
+        error: `Ukuran foto identitas melebihi batas ${formatBytes(MAX_IDENTITY_UPLOAD_BYTES)}. Kompres ulang KTP/SIM & selfie lalu unggah kembali.`,
+        fields: oversized,
+      },
+      { status: 413 },
+    )
+  }
 
   const draft: VerificationRecord = {
     ...(existing ?? { requested_role: role, status: 'draft' }),

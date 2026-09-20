@@ -36,6 +36,8 @@ export type VerificationRecord = {
   nickname?: string | null
   identity_type?: IdentityType | null
   identity_number?: string | null
+  identity_expiry?: string | null
+  nationality?: string | null
   birth_place?: string | null
   birth_date?: string | null
   gender?: 'male' | 'female' | null
@@ -54,6 +56,11 @@ export type VerificationRecord = {
   city?: string | null
   province?: string | null
   postal_code?: string | null
+  bank_name?: string | null
+  bank_account_number?: string | null
+  bank_account_name?: string | null
+  emergency_name?: string | null
+  emergency_phone?: string | null
   domicile_same_as_ktp?: boolean | null
   ktp_address?: string | null
   ktp_city?: string | null
@@ -77,6 +84,18 @@ export type VerificationRecord = {
 
 export const VERIFICATION_BUCKET = 'verification-docs'
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+/** Batas khusus foto identitas (KTP/SIM) & selfie — maksimal 1 MB sesuai permintaan. */
+export const MAX_IDENTITY_UPLOAD_BYTES = 1 * 1024 * 1024
+
+export const NATIONALITY_OPTIONS = ['Indonesia', 'Warga Negara Asing']
+
+/** Format ukuran berkas agar pesan validasi mudah dibaca (mis. "860 KB", "1 MB"). */
+export function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '0 KB'
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`
+  const mb = bytes / (1024 * 1024)
+  return `${mb % 1 === 0 ? mb.toFixed(0) : mb.toFixed(1)} MB`
+}
 
 export const VERIFICATION_ROLES: { value: VerificationRole; label: string; short: string; blurb: string }[] = [
   {
@@ -139,7 +158,7 @@ export const VERIFICATION_STEPS: { key: string; title: string; description: stri
   { key: 'address', title: 'Alamat Domisili', description: 'Alamat tempat tinggal & alamat KTP.' },
   { key: 'documents', title: 'Dokumen', description: 'Unggah KTP/SIM, selfie, dan dokumen pendukung.' },
   { key: 'availability', title: 'Ketersediaan', description: 'Atur waktu survey & komunikasi.' },
-  { key: 'agreement', title: 'Perjanjian', description: 'Baca dan tanda tangani perjanjian kerja sama.' },
+  { key: 'agreement', title: 'Perjanjian', description: 'Lengkapi data, unggah KTP, lalu tanda tangani perjanjian.' },
   { key: 'review', title: 'Tinjau & Kirim', description: 'Periksa kembali lalu kirim ke admin.' },
 ]
 
@@ -173,6 +192,7 @@ export const VERIFICATION_STATUS_META: Record<
 export type RequirementKey =
   | 'full_name' | 'identity_type' | 'identity_number' | 'birth_date' | 'gender' | 'phone'
   | 'address' | 'city' | 'province'
+  | 'bank_name' | 'bank_account_number' | 'bank_account_name'
   | 'identity_doc' | 'selfie_doc'
   | 'availability'
   | 'agreement'
@@ -180,7 +200,7 @@ export type RequirementKey =
 export function missingRequirements(record: Partial<VerificationRecord> | null | undefined): RequirementKey[] {
   const missing: RequirementKey[] = []
   if (!record) {
-    return ['full_name', 'identity_type', 'identity_number', 'birth_date', 'gender', 'phone', 'address', 'city', 'province', 'identity_doc', 'selfie_doc', 'availability', 'agreement']
+    return ['full_name', 'identity_type', 'identity_number', 'birth_date', 'gender', 'phone', 'address', 'city', 'province', 'bank_name', 'bank_account_number', 'bank_account_name', 'identity_doc', 'selfie_doc', 'availability', 'agreement']
   }
   const text = (value: unknown) => String(value ?? '').trim()
   if (text(record.full_name).length < 3) missing.push('full_name')
@@ -192,6 +212,9 @@ export function missingRequirements(record: Partial<VerificationRecord> | null |
   if (text(record.address).length < 5) missing.push('address')
   if (!text(record.city)) missing.push('city')
   if (!text(record.province)) missing.push('province')
+  if (text(record.bank_name).length < 2) missing.push('bank_name')
+  if (text(record.bank_account_number).replace(/\D/g, '').length < 6) missing.push('bank_account_number')
+  if (text(record.bank_account_name).length < 3) missing.push('bank_account_name')
   if (!text(record.identity_doc_path)) missing.push('identity_doc')
   if (!text(record.selfie_doc_path)) missing.push('selfie_doc')
   const availability = Array.isArray(record.availability) ? record.availability.filter((row) => row?.is_active) : []
@@ -210,7 +233,10 @@ export const REQUIREMENT_LABELS: Record<RequirementKey, string> = {
   address: 'Alamat domisili',
   city: 'Kota/kabupaten',
   province: 'Provinsi',
-  identity_doc: 'Foto KTP/SIM',
+  bank_name: 'Nama bank (rekening komisi)',
+  bank_account_number: 'Nomor rekening komisi',
+  bank_account_name: 'Nama pemilik rekening',
+  identity_doc: 'Foto KTP/SIM (maks 1 MB)',
   selfie_doc: 'Selfie dengan identitas',
   availability: 'Ketersediaan waktu',
   agreement: 'Perjanjian kerja sama',
