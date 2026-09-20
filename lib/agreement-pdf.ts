@@ -145,9 +145,12 @@ export function buildAgreementPdf(input: AgreementPdfInput): Uint8Array {
   const partner = input.partner
 
   // Identitas penandatanganan elektronik (model DocuSign: serial + timestamp + sidik jari)
-  const serial =
-    String(input.serial ?? '').trim() ||
-    (draft ? draftSerial(input.role, input.userId, referenceAt) : signatureSerial(input.role, input.userId, input.signedAt))
+  const providedSerial = String(input.serial ?? '').trim()
+  const serial = draft
+    ? providedSerial.startsWith('DRF/')
+      ? providedSerial
+      : draftSerial(input.role, input.userId, referenceAt)
+    : providedSerial || signatureSerial(input.role, input.userId, input.signedAt)
   const signatureKey = signatureId(input.role, input.userId, referenceAt, version)
   const fingerprint = agreementFingerprint({
     role: input.role,
