@@ -68,6 +68,10 @@ async function collectTargets(admin: NonNullable<ReturnType<typeof serviceClient
   const ids = Array.from(byUser.keys()).slice(0, MAX_RECIPIENTS)
   if (!ids.length) return []
 
+  // Staf platform (admin/super admin) tidak diingatkan sebagai mitra.
+  const { data: staffRows } = await admin.from('user_roles').select('user_id,role').in('user_id', ids).in('role', ADMIN_ROLES)
+  const staff = new Set(((staffRows ?? []) as Array<{ user_id?: string | null }>).map((row) => String(row.user_id ?? '')))
+
   const select = 'user_id,requested_role,status,full_name,phone,identity_type,identity_number,birth_date,gender,address,city,province,bank_name,bank_account_number,bank_account_name,identity_doc_path,selfie_doc_path,availability,agreement_id,submitted_at,updated_at'
   const since = new Date(Date.now() - COOLDOWN_DAYS * 86400000).toISOString()
 
@@ -92,6 +96,7 @@ async function collectTargets(admin: NonNullable<ReturnType<typeof serviceClient
 
   const targets: Target[] = []
   for (const userId of ids) {
+    if (staff.has(userId)) continue
     const roles = byUser.get(userId) ?? []
     const pending: string[] = []
     const missingLabels = new Set<string>()
