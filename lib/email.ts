@@ -446,3 +446,95 @@ export async function sendVisitFollowUpEmail(input: VisitFollowUpInput) {
     return { ok: false, error: 'request failed', subject }
   }
 }
+
+/* --------------------------------------------------------------------------- */
+/* Pengingat melengkapi verifikasi mitra (dikirim admin dari dasbor)            */
+/* --------------------------------------------------------------------------- */
+
+export type VerificationReminderMailInput = {
+  to: string
+  name?: string | null
+  roles: string[]
+  missing: string[]
+  percent?: number
+  message?: string | null
+}
+
+const VERIFY_ROLE_LABEL: Record<string, string> = { agent: 'Agen Properti', property_owner: 'Pemilik Properti' }
+
+export function verificationReminderSubject(input: VerificationReminderMailInput) {
+  const roles = (input.roles ?? []).map((role) => VERIFY_ROLE_LABEL[role] ?? role).join(' & ')
+  return roles ? `Lengkapi verifikasi ${roles} Anda di Homy` : 'Lengkapi verifikasi mitra Homy Anda'
+}
+
+function verificationReminderHtml(input: VerificationReminderMailInput) {
+  const roleText = (input.roles ?? []).map((role) => VERIFY_ROLE_LABEL[role] ?? role).join(' & ') || 'mitra'
+  const missing = (input.missing ?? []).filter(Boolean).slice(0, 12)
+  const percent = typeof input.percent === 'number' ? Math.max(0, Math.min(100, Math.round(input.percent))) : null
+  const greeting = input.name ? `<p style="margin:0 0 12px;color:#65706c">Halo ${escapeHtml(input.name)},</p>` : ''
+
+  const listBlock = missing.length
+    ? `<p style="margin:18px 0 8px;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:#a18a61">Yang masih perlu dilengkapi</p>
+       <ul style="margin:0;padding-left:20px;color:#33433d;line-height:1.9">${missing.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>`
+    : '<p style="margin:18px 0 0;color:#33433d;line-height:1.8">Semua bagian utama sudah terisi — silakan tinjau sekali lagi lalu kirim pengajuan verifikasi Anda.</p>'
+
+  const progress = percent !== null
+    ? `<div style="margin:18px 0 0;padding:14px 16px;border-radius:12px;background:#f7f3ec;border:1px solid #e8dfd3">
+         <p style="margin:0 0 8px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#a18a61">Kelengkapan data</p>
+         <p style="margin:0;font-size:20px;font-weight:700;color:#0b3d2e">${percent}%</p>
+       </div>`
+    : ''
+
+  const noteBlock = input.message
+    ? `<div style="margin:18px 0 0;padding:14px 16px;border-radius:12px;background:#fff7e3;border:1px solid #f0e2bd">
+         <p style="margin:0;color:#5b4a1f;line-height:1.7">${escapeHtml(input.message)}</p>
+       </div>`
+    : ''
+
+  const ctaRole = (input.roles ?? [])[0] ?? 'agent'
+
+  return `<!doctype html><html><body style="margin:0;background:#f7f3ec;font-family:'Segoe UI',Helvetica,Arial,sans-serif">
+  <div style="max-width:560px;margin:0 auto;padding:32px 20px">
+    <div style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:#0b3d2e;margin-bottom:20px">Homy<span style="color:#c9a961">.</span></div>
+    <div style="background:#ffffff;border:1px solid #e8dfd3;border-radius:16px;padding:28px">
+      <p style="margin:0 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#c9a961">Verifikasi mitra</p>
+      <h1 style="margin:0 0 16px;font-family:Georgia,serif;font-size:26px;line-height:1.3;color:#0b3d2e">Satu langkah lagi agar akun ${escapeHtml(roleText)} Anda aktif</h1>
+      ${greeting}
+      <p style="margin:0;color:#33433d;line-height:1.7">Verifikasi mitra Homy memastikan listing Anda terpercaya bagi pembeli &amp; penyewa. Lengkapi data berikut di halaman verifikasi — cukup sekali, butuh sekitar 5 menit.</p>
+      ${progress}
+      ${listBlock}
+      ${noteBlock}
+      <a href="${appUrl()}/verify?role=${encodeURIComponent(ctaRole)}" style="display:inline-block;margin-top:22px;background:#0b3d2e;color:#ffffff;text-decoration:none;padding:13px 22px;border-radius:10px;font-weight:600">Lanjutkan verifikasi</a>
+    </div>
+    <p style="margin:20px 0 0;font-size:12px;line-height:1.6;color:#8a938f">Email otomatis dari Homy Property. Anda menerima ini karena mendaftar sebagai mitra (agen/pemilik properti) di Homy.<br/>Pencarian properti terpercaya — <a href="${appUrl()}" style="color:#0b3d2e">${appUrl().replace(/^https?:\/\//, '')}</a></p>
+  </div></body></html>`
+}
+
+/** Kirim email pengingat verifikasi mitra. Tidak pernah melempar error — selalu return hasil. */
+export async function sendVerificationReminderEmail(input: VerificationReminderMailInput) {
+  const subject = verificationReminderSubject(input)
+  if (!input.to) return { ok: false, skipped: true, reason: 'missing recipient', subject }
+  const apiKey = process.env.RESEND_API_KEY
+  const from = process.env.HOMY_EMAIL_FROM || 'Homy Property <notifikasi@homy.id>'
+  if (!apiKey) {
+    console.warn(`[homy-email] RESEND_API_KEY belum di-set — pengingat verifikasi ke ${input.to} dilewati (${subject})`)
+    return { ok: false, skipped: true, reason: 'email provider not configured', subject }
+  }
+  try {
+    const response = await fetch(RESEND_ENDPOINT, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [input.to], subject, html: verificationReminderHtml(input) }),
+    })
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      console.error('[homy-email] gagal kirim pengingat verifikasi:', response.status, detail.slice(0, 300))
+      return { ok: false, status: response.status, reason: 'provider rejected the message', subject }
+    }
+    const payload = (await response.json().catch(() => ({}))) as { id?: string }
+    return { ok: true, id: payload.id, subject }
+  } catch (error) {
+    console.error('[homy-email] error pengingat verifikasi:', error instanceof Error ? error.message : error)
+    return { ok: false, error: 'request failed', subject }
+  }
+}

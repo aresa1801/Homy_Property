@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
-  BadgeCheck, Clock, Download, FileSignature, FileText, Home, IdCard, RefreshCw, ShieldCheck, Upload, X,
+  BadgeCheck, Bell, Clock, Download, FileSignature, FileText, Home, IdCard, RefreshCw, Send, ShieldCheck, Upload, X,
 } from 'lucide-react'
 import { MetricCard } from '@/components/dashboard-shell'
 import { adminAction, shortDateTime, ui, type DashboardPayload, type DashboardVerification } from '@/lib/dashboard-client'
@@ -18,6 +18,29 @@ const STATUS_META: Record<string, { label: string; className: string }> = {
 }
 
 const ROLE_LABEL: Record<string, string> = { agent: 'Agen Properti', property_owner: 'Pemilik Properti' }
+
+type ReminderTarget = {
+  userId: string
+  name: string | null
+  email: string | null
+  phone: string | null
+  roles: string[]
+  roleLabels: string[]
+  missing: string[]
+  percent: number
+  status: string
+  lastReminderAt: string | null
+  cooldown: boolean
+}
+
+type ReminderState = {
+  loading: boolean
+  targets: ReminderTarget[]
+  dueCount: number
+  emailConfigured: boolean
+  cooldownDays: number
+  error?: string
+}
 const DOC_FIELDS: Array<{ key: keyof DashboardVerification; label: string }> = [
   { key: 'identity_doc_path', label: 'KTP / SIM' },
   { key: 'selfie_doc_path', label: 'Selfie + identitas' },
@@ -181,6 +204,54 @@ export function VerificationReviewBoard({ data, loading, reload }: BoardProps) {
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
+  const [reminders, setReminders] = useState<ReminderState>({ loading: true, targets: [], dueCount: 0, emailConfigured: false, cooldownDays: 7 })
+  const [sending, setSending] = useState(false)
+
+  async function loadReminders() {
+    try {
+      const response = await fetch('/api/admin/verification-reminders')
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(String(body?.error ?? 'Gagal memuat daftar pengingat'))
+      setReminders({
+        loading: false,
+        targets: Array.isArray(body?.targets) ? body.targets : [],
+        dueCount: Number(body?.dueCount ?? 0),
+        emailConfigured: body?.emailConfigured === true,
+        cooldownDays: Number(body?.cooldownDays ?? 7),
+      })
+    } catch (error) {
+      setReminders((current) => ({ ...current, loading: false, error: error instanceof Error ? error.message : 'Gagal memuat pengingat' }))
+    }
+  }
+
+  useEffect(() => { void loadReminders() }, [])
+
+  async function sendReminders() {
+    const due = reminders.targets.filter((target) => !target.cooldown)
+    if (!due.length) return
+    setSending(true)
+    setMessage(null)
+    try {
+      const response = await fetch('/api/admin/verification-reminders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds: due.map((target) => target.userId) }),
+      })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(String(body?.error ?? 'Gagal mengirim pengingat'))
+      const sentCount = Array.isArray(body?.sent) ? body.sent.length : 0
+      const emailed = Array.isArray(body?.sent) ? body.sent.filter((item: { emailSent?: boolean }) => item.emailSent).length : 0
+      setMessage({
+        tone: 'ok',
+        text: `Pengingat terkirim ke ${sentCount} mitra${emailed ? ` (${emailed} lewat email)` : ''}. Pengingat berikutnya bisa dikirim setelah ${reminders.cooldownDays} hari.`,
+      })
+      await loadReminders()
+    } catch (error) {
+      setMessage({ tone: 'err', text: error instanceof Error ? error.message : 'Gagal mengirim pengingat' })
+    } finally {
+      setSending(false)
+    }
+  }
 
   const rows = data.verifications ?? []
   const filters: Array<[string, string]> = [['pending', 'Menunggu'], ['approved', 'Disetujui'], ['rejected', 'Ditolak'], ['draft', 'Draf'], ['all', 'Semua']]
@@ -216,6 +287,42 @@ export function VerificationReviewBoard({ data, loading, reload }: BoardProps) {
       </div>
 
       {message && <p className={`rounded-xl px-4 py-3 text-sm font-medium ${message.tone === 'ok' ? 'bg-[#edf2ed] text-[#0b3d2e]' : 'bg-[#fbeeec] text-[#b45c50]'}`}>{message.text}</p>}
+
+      <div className={ui.card}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="flex items-center gap-2 font-serif text-xl text-[#0b3d2e]"><Bell className="size-5 text-[#0b3d2e]" /> Pengingat verifikasi mitra</h3>
+            <p className="mt-1 text-sm text-[#718078]">
+              Agen &amp; pemilik yang belum melengkapi/mengirim verifikasi. Pengingat dikirim sebagai notifikasi in-app{reminders.emailConfigured ? ' + email' : ' (email belum aktif)'} dan dibatasi 1× per {reminders.cooldownDays} hari per mitra.
+            </p>
+          </div>
+          <button type="button" disabled={sending || reminders.loading || reminders.dueCount === 0} onClick={sendReminders} className={ui.btn + ' disabled:opacity-50'}>
+            <Send className="mr-1.5 inline size-4" /> {sending ? 'Mengirim…' : `Kirim pengingat (${reminders.dueCount})`}
+          </button>
+        </div>
+
+        {reminders.loading && <p className="mt-3 flex items-center gap-2 text-sm text-[#718078]"><RefreshCw className="size-4 animate-spin" /> Memuat daftar mitra…</p>}
+        {!reminders.loading && reminders.error && <p className="mt-3 text-sm text-[#b45c50]">{reminders.error}</p>}
+        {!reminders.loading && !reminders.error && reminders.targets.length === 0 && (
+          <p className="mt-3 text-sm text-[#718078]">Semua mitra aktif sudah melengkapi verifikasi. 🎉</p>
+        )}
+        {!reminders.loading && reminders.targets.length > 0 && (
+          <div className="mt-4 space-y-2">
+            {reminders.targets.map((target) => (
+              <div key={target.userId} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-[#f7f3ec] px-3 py-2 text-sm">
+                <div>
+                  <p className="font-medium text-[#20332c]">{target.name || 'Tanpa nama'}{target.roles.length > 1 ? ' · agen & pemilik' : ` · ${target.roleLabels[0] ?? ''}`}</p>
+                  <p className="text-xs text-[#718078]">{target.email || 'email belum ada'} · {target.phone || 'telepon belum ada'} · kelengkapan {target.percent}%</p>
+                  {target.missing.length > 0 && <p className="mt-0.5 text-xs text-[#a18a61]">Kurang: {target.missing.slice(0, 4).join(', ')}{target.missing.length > 4 ? ` +${target.missing.length - 4} lagi` : ''}</p>}
+                </div>
+                <span className={`${ui.badge} ${target.cooldown ? 'bg-[#f2f0ea] text-[#718078]' : 'bg-[#fff7e3] text-[#9b762a]'}`}>
+                  {target.cooldown ? `diingatkan ${shortDateTime(target.lastReminderAt)}` : 'siap diingatkan'}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         {filters.map(([value, label]) => (

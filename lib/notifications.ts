@@ -10,7 +10,7 @@ export type NotificationKind =
   | 'inquiry.new' | 'inquiry.reply' | 'visit.new' | 'visit.confirmed' | 'visit.cancelled' | 'visit.completed'
   | 'listing.approved' | 'listing.rejected' | 'listing.match' | 'alert.saved' | 'system'
   | 'interest.new' | 'interest.updated'
-  | 'verification.submitted' | 'verification.approved' | 'verification.rejected'
+  | 'verification.submitted' | 'verification.approved' | 'verification.rejected' | 'verification.reminder'
 
 export type NotificationInput = {
   userId: string

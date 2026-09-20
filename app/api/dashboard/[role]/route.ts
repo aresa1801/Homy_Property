@@ -42,7 +42,16 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
 
   const base = { authenticated: true, role }
 
+  // Peran pemanggil (dipakai untuk memastikan dasbor mitra tidak bisa dibuka tanpa peran tsb).
+  const { data: callerRoleRows } = await supabase.from('user_roles').select('role').eq('user_id', user.id)
+  const callerRoles = Array.isArray(callerRoleRows) ? callerRoleRows.map((row: { role: string }) => row.role) : []
+  const callerIsAdmin = callerRoles.some((role) => ADMIN_ROLES.includes(role))
+
   if (role === 'agent' || role === 'property-owner') {
+    const needed = role === 'agent' ? 'agent' : 'property_owner'
+    if (!callerIsAdmin && !callerRoles.includes(needed)) {
+      return NextResponse.json({ ...base, forbidden: true, metrics: {} })
+    }
     const propertySelect = 'id,title,city,province,district,status,listing_type,property_type,price,price_period,created_at,moderation_note,verified_at,ai_summary,property_media(storage_path,media_type,sort_order)'
     const inquirySelect = 'id,property_id,user_id,status,message,reply_message,replied_at,follow_up_note,created_at,source,updated_at'
     const { data: ownProperties } = await supabase.from('properties').select(propertySelect).eq('owner_id', user.id).order('created_at', { ascending: false }).limit(100)
