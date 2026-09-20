@@ -243,7 +243,7 @@ export function MessagesInbox() {
             Halaman Pesan menampilkan riwayat percakapan akun Anda dengan Homy AI. Masuk dengan akun Homy supaya percakapannya bisa dikelompokkan per properti.
           </p>
           <div className="mt-5 flex flex-wrap gap-2">
-            <Link href="/auth" className="inline-flex h-10 items-center rounded-lg bg-[#0b3d2e] px-4 text-sm font-semibold text-white hover:bg-[#14553f]">Masuk / daftar</Link>
+            <Link href="/auth/login?next=/message" className="inline-flex h-10 items-center rounded-lg bg-[#0b3d2e] px-4 text-sm font-semibold text-white hover:bg-[#14553f]">Masuk / daftar</Link>
             <Link href="/buy" className="inline-flex h-10 items-center rounded-lg border border-[#d8ccbb] px-4 text-sm font-semibold text-[#33433d]">Jelajahi properti</Link>
           </div>
         </div>

@@ -40,6 +40,15 @@ export default function Home() {
   useEffect(() => {
     createClient().auth.getUser().then(async ({ data }) => {
       if (!data.user) return
+      // Peran utama diambil dari user_roles (sumber otorisasi), bukan profiles.role.
+      const { data: roleRows } = await createClient().from('user_roles').select('role').eq('user_id', data.user.id)
+      const owned = Array.isArray(roleRows) ? roleRows.map((row: { role: string }) => row.role) : []
+      const priority = ['super_admin', 'admin', 'agent', 'property_owner']
+      const highest = priority.find((item) => owned.includes(item))
+      if (highest) {
+        setProfileRole(highest)
+        return
+      }
       const { data: profile } = await createClient().from('profiles').select('role').eq('id', data.user.id).maybeSingle()
       setProfileRole(profile?.role ?? 'user')
     })

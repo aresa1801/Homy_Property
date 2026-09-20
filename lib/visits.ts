@@ -14,6 +14,21 @@ const LEAD_MINUTES = 120
 const DEFAULT_DAYS = 14
 const MAX_SLOTS = 60
 
+/**
+ * Jadwal cadangan kalau agen/pemilik belum mengatur ketersediaan.
+ * Tanpa ini, pembeli tidak punya satu pun slot untuk properti tersebut
+ * (alur "Jadwalkan kunjungan" jadi buntu). Kunjungan tetap berstatus
+ * permintaan sehingga mitra bisa menyetujui atau menolaknya.
+ */
+const FALLBACK_AVAILABILITY: AvailabilityRow[] = [1, 2, 3, 4, 5, 6].map((weekday) => ({
+  weekday,
+  is_active: true,
+  start_time: '09:00',
+  end_time: '17:00',
+  slot_minutes: 60,
+  mode: 'onsite',
+}))
+
 export type AvailabilityRow = {
   user_id?: string | null
   weekday: number
@@ -181,6 +196,9 @@ export async function getVisitContext(propertyId: string, options?: { days?: num
   ])
 
   const availabilityRows = (availability.data ?? []) as AvailabilityRow[]
+  const activeRows = availabilityRows.filter((row) => row.is_active !== false)
+  // Kalau mitra belum mengisi jadwal, pakai jadwal kerja standar (Senin–Sabtu 09:00–17:00).
+  const effectiveRows = activeRows.length ? availabilityRows : FALLBACK_AVAILABILITY
   const taken = (visits.data ?? []).map((item: { scheduled_at?: string | null }) => new Date(String(item.scheduled_at)).toISOString())
   const agent = profile.data as { full_name?: string | null; phone?: string | null } | null
 
@@ -192,7 +210,7 @@ export async function getVisitContext(propertyId: string, options?: { days?: num
     agentPhone: agent?.phone ?? null,
     availability: availabilityRows,
     taken,
-    slots: buildSlots(availabilityRows, taken, { days: options?.days, now: options?.now }),
+    slots: buildSlots(effectiveRows, taken, { days: options?.days, now: options?.now }),
   }
 }
 
@@ -201,6 +219,16 @@ export function availabilityBlock(ctx: VisitContext) {
   const weekly = weeklySummary(ctx.availability)
   const lines = [`=== JADWAL KUNJUNGAN (WIB) ===`, `Agen/pemilik penanggung jawab: ${ctx.agentName || 'agen Homy'}`]
   if (!weekly) {
+    const fallbackSlots = ctx.slots.slice(0, 8)
+    if (fallbackSlots.length) {
+      lines.push('Agen/pemilik belum mengatur jadwal khusus, jadi Homy memakai jam kerja standar (Senin–Sabtu 09.00–17.00 WIB).')
+      lines.push(
+        'Slot terdekat yang masih kosong: ' +
+          fallbackSlots.map((slot) => `${slot.dayLabel} ${slot.timeLabel}${slot.mode === 'online' ? ' (online)' : ''}`).join(' | '),
+      )
+      lines.push('Kalau pengguna ingin survey/lihat unit, arahkan memilih salah satu slot di panel "Jadwalkan kunjungan" pada halaman ini — permintaan diteruskan ke agen/pemilik untuk dikonfirmasi.')
+      return lines.join('\n')
+    }
     lines.push('Agen/pemilik BELUM mengatur jadwal ketersediaan di Homy.')
     lines.push('Arahan: minta pengguna mengirim pertanyaan lewat form "Tanya pemilik" di halaman ini supaya agen/pemilik menghubungi balik untuk mengatur waktu survey.')
     return lines.join('\n')
