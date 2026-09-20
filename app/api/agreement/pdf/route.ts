@@ -92,6 +92,9 @@ export async function GET(request: Request) {
     agreementId: (agreement?.id as string | undefined) ?? record?.agreement_id ?? null,
     signedAt,
     version: String(record?.agreement_version ?? agreement?.agreement_version ?? AGREEMENT_VERSION),
+    serial: (agreement?.signature_serial as string | undefined) ?? null,
+    signedIp: (agreement?.signed_ip as string | undefined) ?? null,
+    userAgent: (agreement?.signed_user_agent as string | undefined) ?? null,
   })
 
   const fileName = `Perjanjian-Kerja-Sama-Homy-${slug(role === 'agent' ? 'Agen' : 'Pemilik')}-${slug(String(record?.full_name ?? agreement?.full_name ?? 'Mitra'))}.pdf`

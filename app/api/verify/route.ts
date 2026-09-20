@@ -92,7 +92,7 @@ export async function GET() {
 
   const [verifications, agreements, profile] = await Promise.all([
     admin.from('partner_verifications').select('*').eq('user_id', user.id),
-    admin.from('partner_agreements').select('id,role,status,agreement_version,signed_at,verification_id').eq('user_id', user.id),
+    admin.from('partner_agreements').select('id,role,status,agreement_version,signed_at,verification_id,signature_serial').eq('user_id', user.id),
     admin.from('profiles').select('full_name,phone').eq('id', user.id).maybeSingle(),
   ])
 

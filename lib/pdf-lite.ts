@@ -5,8 +5,10 @@
  * dapat diunduh mitra & diarsipkan admin. Mendukung:
  *  - font standar PDF (Helvetica / Helvetica-Bold / Helvetica-Oblique, WinAnsi)
  *  - judul, subjudul, pasal, paragraf, daftar butir, pasangan label-nilai, catatan,
- *    garis pemisah, dan blok tanda tangan
- *  - pemenggalan kata otomatis (word wrap), paginasi multi-halaman, nomor halaman
+ *    garis pemisah, blok tanda tangan, dan sertifikat penandatanganan
+ *  - paginasi multi-halaman dengan kontrol tata letak: blok "group" bersifat atomic
+ *    (satu pasal/section tidak terpotong antar halaman), heading tidak pernah
+ *    tertinggal sendiri di dasar halaman, dan paragraf terhindar dari baris yatim
  *  - warna brand Homy (hijau tua + emas) dan footer
  *
  * Semua teks dinormalisasi ke ASCII agar aman dienkode latin-1 (WinAnsiEncoding).
@@ -15,14 +17,19 @@
 const PAGE = { width: 595.28, height: 841.89 }
 const MARGIN = { top: 62, right: 56, bottom: 62, left: 56 }
 const CONTENT_WIDTH = PAGE.width - MARGIN.left - MARGIN.right
-const LINE_GAP = 24
 const FOOTER_HEIGHT = 26
+/** Sisa ruang yang boleh dipakai isi halaman (tanpa margin & footer). */
+const CONTENT_HEIGHT = PAGE.height - MARGIN.top - MARGIN.bottom - FOOTER_HEIGHT
+/** Batas aman blok atomic: kalau lebih tinggi dari ini, biarkan mengalir (pasal kepanjangan). */
+const MAX_ATOMIC_HEIGHT = CONTENT_HEIGHT - 24
 
 const INK = '0.109 0.109 0.109'
 const BRAND = '0.043 0.239 0.180'
 const GOLD = '0.604 0.470 0.235'
 const MUTED = '0.443 0.502 0.471'
 const RULE = '0.855 0.827 0.780'
+const PANEL = '0.984 0.980 0.969'
+const PANEL_EDGE = '0.898 0.878 0.839'
 
 const WIDTHS_REGULAR = [
   278, 278, 355, 556, 556, 889, 667, 191, 333, 333, 389, 584, 278, 333, 278, 278,
@@ -125,6 +132,31 @@ export function pdfWrap(text: string, size: number, bold: boolean, maxWidth: num
   return lines.length ? lines : ['']
 }
 
+/* ------------------------------------------------------------------ */
+/* Ukuran & tata letak blok (dipakai untuk keputusan pindah halaman)  */
+/* ------------------------------------------------------------------ */
+
+const PARAGRAPH_SIZE = 10.4
+const PARAGRAPH_LEAD = PARAGRAPH_SIZE * 1.46
+const BULLET_SIZE = 10.4
+const BULLET_LEAD = BULLET_SIZE * 1.46
+const HEADING_SIZE = 11.6
+const HEADING_LEAD = 15
+const HEADING_TOP_GAP = 20
+const KEYVALUE_LEAD = 14.6
+const KEYVALUE_LABEL_WIDTH = 150
+const NOTE_SIZE = 9.8
+const NOTE_LEAD = 13.6
+const SIGN_COLUMN_GAP = 18
+
+export type SignColumn = {
+  label: string
+  name: string
+  role?: string
+  /** baris label-nilai di dalam kotak tanda tangan */
+  fields?: { label: string; value: string }[]
+}
+
 export type PdfBlock =
   | { type: 'title'; text: string; sub?: string; badge?: string }
   | { type: 'meta'; lines: string[] }
@@ -135,10 +167,10 @@ export type PdfBlock =
   | { type: 'note'; text: string; label?: string }
   | { type: 'divider' }
   | { type: 'space'; size?: number }
-  | {
-      type: 'signature'
-      columns: { label: string; name: string; role?: string; meta?: string[] }[]
-    }
+  | { type: 'signature'; columns: SignColumn[]; note?: string }
+  | { type: 'certificate'; title?: string; rows: { label: string; value: string }[]; note?: string }
+  /** Blok atomic: semua isinya diusahakan tetap dalam satu halaman. */
+  | { type: 'group'; blocks: PdfBlock[]; atomic?: boolean }
 
 export type PdfDocument = {
   title: string
@@ -149,10 +181,101 @@ export type PdfDocument = {
   footerNote?: string
 }
 
+function measureBlock(block: PdfBlock): number {
+  switch (block.type) {
+    case 'title': {
+      const sub = block.sub ? pdfWrap(block.sub, 10.6, false, CONTENT_WIDTH).length : 0
+      return 22 + 11 + 8 + 6 + sub * 15.5 + 8
+    }
+    case 'meta':
+      return 6 + block.lines.length * 13 + 8
+    case 'heading':
+      return HEADING_TOP_GAP + pdfWrap(block.text, HEADING_SIZE, true, CONTENT_WIDTH).length * HEADING_LEAD + 6
+    case 'paragraph':
+      return pdfWrap(block.text, PARAGRAPH_SIZE, false, CONTENT_WIDTH).length * PARAGRAPH_LEAD + 5
+    case 'bullets':
+      return (
+        block.items.reduce(
+          (total, item) => total + Math.max(1, pdfWrap(item, BULLET_SIZE, false, CONTENT_WIDTH - 15).length) * BULLET_LEAD + 2,
+          0,
+        ) + 4
+      )
+    case 'keyvalues':
+      return (
+        block.rows.reduce(
+          (total, row) => total + Math.max(1, pdfWrap(row.value || '-', 10.2, false, CONTENT_WIDTH - KEYVALUE_LABEL_WIDTH).length) * KEYVALUE_LEAD + 2,
+          0,
+        ) + 6
+      )
+    case 'note': {
+      const lines = pdfWrap(block.text, NOTE_SIZE, false, CONTENT_WIDTH - 24).length
+      return lines * NOTE_LEAD + (block.label ? 15 : 0) + 22
+    }
+    case 'divider':
+      return 16
+    case 'space':
+      return block.size ?? 10
+    case 'signature': {
+      const columns = block.columns.slice(0, 2)
+      const rows = Math.max(...columns.map((column) => (column.fields ?? []).length), 1)
+      const height = 14 + 14 + 46 + 10 + rows * 12.6 + 12
+      return height + (block.note ? 14 : 0) + 12
+    }
+    case 'certificate': {
+      const lines = block.rows.reduce(
+        (total, row) => total + Math.max(1, pdfWrap(row.value || '-', 9.4, false, CONTENT_WIDTH - KEYVALUE_LABEL_WIDTH - 30).length) * 13.4,
+        0,
+      )
+      const note = block.note ? pdfWrap(block.note, 8.8, false, CONTENT_WIDTH - 30).length * 12.4 + 10 : 0
+      return 26 + 10 + lines + note + 16
+    }
+    case 'group':
+      return block.blocks.reduce((total, child) => total + measureBlock(child), 0)
+    default:
+      return 0
+  }
+}
+
+/** Tinggi perkiraan sekumpulan blok (dipakai untuk keputusan tata letak & pengujian). */
+export function measureBlocks(blocks: PdfBlock[]): number {
+  return blocks.reduce((total, block) => total + measureBlock(block), 0)
+}
+
+type Entry = { block: PdfBlock; groupStart: boolean; groupHeight: number; atomic: boolean }
+
+function flatten(blocks: PdfBlock[]): Entry[] {
+  const entries: Entry[] = []
+  for (const block of blocks) {
+    if (block.type === 'group') {
+      const inner = block.blocks
+      const total = inner.reduce((sum, child) => sum + measureBlock(child), 0)
+      const atomic = block.atomic !== false
+      inner.forEach((child, index) => {
+        entries.push({
+          block: child,
+          groupStart: index === 0,
+          groupHeight: total,
+          atomic: atomic && child.type !== 'space',
+        })
+      })
+      continue
+    }
+    const atomic = block.type === 'signature' || block.type === 'certificate'
+    entries.push({ block, groupStart: true, groupHeight: measureBlock(block), atomic })
+  }
+  return entries
+}
+
+/* ------------------------------------------------------------------ */
+/* Penulis PDF                                                        */
+/* ------------------------------------------------------------------ */
+
 export function buildPdf(document: PdfDocument): Uint8Array {
   const pages: string[][] = []
   let ops: string[] = []
   let y = PAGE.height - MARGIN.top
+
+  const bottomLimit = () => MARGIN.bottom + FOOTER_HEIGHT
 
   const newPage = () => {
     pages.push(ops)
@@ -161,7 +284,7 @@ export function buildPdf(document: PdfDocument): Uint8Array {
   }
 
   const ensure = (height: number) => {
-    if (y - height < MARGIN.bottom + FOOTER_HEIGHT) newPage()
+    if (y - height < bottomLimit()) newPage()
   }
 
   const text = (x: number, baseline: number, size: number, font: 'F1' | 'F2' | 'F3', color: string, value: string) => {
@@ -176,14 +299,26 @@ export function buildPdf(document: PdfDocument): Uint8Array {
     ops.push(`${color} rg ${x.toFixed(2)} ${baseline.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re f`)
   }
 
-  const paragraph = (value: string, opts: { size?: number; bold?: boolean; italic?: boolean; color?: string; indent?: number; width?: number } = {}) => {
-    const size = opts.size ?? 10.4
+  const strokeRect = (x: number, baseline: number, w: number, h: number, color: string, weight = 0.8) => {
+    ops.push(`${weight} w ${color} RG ${x.toFixed(2)} ${baseline.toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re S`)
+  }
+
+  const paragraph = (
+    value: string,
+    opts: { size?: number; bold?: boolean; italic?: boolean; color?: string; indent?: number; width?: number } = {},
+  ) => {
+    const size = opts.size ?? PARAGRAPH_SIZE
     const indent = opts.indent ?? 0
     const width = opts.width ?? CONTENT_WIDTH - indent
     const lines = pdfWrap(value, size, Boolean(opts.bold), width)
     const lineHeight = size * 1.46
     const font = opts.bold ? 'F2' : opts.italic ? 'F3' : 'F1'
     const color = opts.color ?? INK
+    // hindari baris yatim: kalau hanya 1 baris yang muat padahal ada >1 baris, pindah halaman
+    if (lines.length > 1) {
+      const fits = Math.floor((y - bottomLimit()) / lineHeight)
+      if (fits < 2) newPage()
+    }
     for (const line of lines) {
       ensure(lineHeight)
       y -= lineHeight
@@ -191,7 +326,98 @@ export function buildPdf(document: PdfDocument): Uint8Array {
     }
   }
 
-  for (const block of document.blocks) {
+  const drawSignature = (block: Extract<PdfBlock, { type: 'signature' }>) => {
+    const columns = block.columns.slice(0, 2)
+    if (!columns.length) return
+    const columnWidth = (CONTENT_WIDTH - SIGN_COLUMN_GAP) / 2
+    const padX = 12
+    const height = 14 + 14 + 46 + 10 + Math.max(...columns.map((column) => (column.fields ?? []).length), 1) * 12.6 + 12
+    ensure(height + (block.note ? 16 : 0) + 14)
+    const top = y
+    columns.forEach((column, index) => {
+      const x = MARGIN.left + index * (columnWidth + SIGN_COLUMN_GAP)
+      const boxBottom = top - height
+      rect(x, boxBottom, columnWidth, height, PANEL)
+      strokeRect(x, boxBottom, columnWidth, height, PANEL_EDGE, 0.8)
+      rect(x, top - 4, columnWidth, 4, GOLD)
+
+      text(x + padX, top - 20, 8.6, 'F2', GOLD, column.label.toUpperCase())
+      // baris tanda tangan (gaya surat: nama dalam huruf miring besar + garis)
+      text(x + padX, top - 50, 15.5, 'F3', BRAND, column.name)
+      rule(x + padX, x + columnWidth - padX, top - 56, BRAND, 0.8)
+      text(x + padX, top - 68, 8, 'F1', MUTED, 'Ditandatangani secara elektronik')
+
+      let cursor = top - 68 - 14
+      for (const field of column.fields ?? []) {
+        const valueLines = pdfWrap(field.value || '-', 8.9, false, columnWidth - padX * 2 - 78)
+        cursor -= 12.6
+        text(x + padX, cursor, 8.4, 'F1', MUTED, field.label)
+        text(x + padX + 78, cursor, 8.9, 'F1', INK, valueLines[0])
+        for (const extra of valueLines.slice(1)) {
+          cursor -= 12.6
+          text(x + padX + 78, cursor, 8.9, 'F1', INK, extra)
+        }
+      }
+    })
+    y = top - height
+    if (block.note) {
+      y -= 4
+      paragraph(block.note, { size: 8.8, italic: true, color: MUTED })
+    }
+    y -= 6
+  }
+
+  const drawCertificate = (block: Extract<PdfBlock, { type: 'certificate' }>) => {
+    const title = block.title ?? 'Sertifikat Penandatanganan Elektronik'
+    const labelWidth = KEYVALUE_LABEL_WIDTH
+    const prepared = block.rows.map((row) => ({
+      label: row.label,
+      lines: pdfWrap(row.value || '-', 9.4, false, CONTENT_WIDTH - labelWidth - 30),
+    }))
+    const rowsHeight = prepared.reduce((total, row) => total + Math.max(1, row.lines.length) * 13.4, 0)
+    const noteLines = block.note ? pdfWrap(block.note, 8.8, false, CONTENT_WIDTH - 30) : []
+    const height = 26 + 12 + rowsHeight + (noteLines.length ? noteLines.length * 12.4 + 10 : 0) + 14
+
+    ensure(height + 14)
+    const top = y
+    const boxBottom = top - height
+    rect(MARGIN.left, boxBottom, CONTENT_WIDTH, height, PANEL)
+    strokeRect(MARGIN.left, boxBottom, CONTENT_WIDTH, height, PANEL_EDGE, 0.8)
+    rect(MARGIN.left, top - 26, CONTENT_WIDTH, 26, BRAND)
+    text(MARGIN.left + 12, top - 17, 10, 'F2', '1 1 1', title)
+
+    let cursor = top - 26 - 6
+    for (const row of prepared) {
+      cursor -= 13.4
+      text(MARGIN.left + 14, cursor, 8.5, 'F1', MUTED, row.label)
+      text(MARGIN.left + 14 + labelWidth, cursor, 9.4, 'F1', INK, row.lines[0])
+      for (const extra of row.lines.slice(1)) {
+        cursor -= 13.4
+        text(MARGIN.left + 14 + labelWidth, cursor, 9.4, 'F1', INK, extra)
+      }
+    }
+    if (noteLines.length) {
+      cursor -= 10
+      for (const line of noteLines) {
+        cursor -= 12.4
+        text(MARGIN.left + 14, cursor, 8.8, 'F3', MUTED, line)
+      }
+    }
+    y = boxBottom - 10
+  }
+
+  const entries = flatten(document.blocks)
+
+  entries.forEach((entry, index) => {
+    const block = entry.block
+
+    // Blok atomic (satu pasal / tanda tangan / sertifikat) tidak dipotong halaman.
+    if (entry.groupStart && entry.atomic) {
+      const fits = y - entry.groupHeight - 2 >= bottomLimit()
+      const alreadyEmpty = PAGE.height - MARGIN.top - y < 40
+      if (!fits && entry.groupHeight + 6 <= MAX_ATOMIC_HEIGHT && !alreadyEmpty) newPage()
+    }
+
     switch (block.type) {
       case 'title': {
         ensure(74)
@@ -219,52 +445,62 @@ export function buildPdf(document: PdfDocument): Uint8Array {
         break
       }
       case 'heading': {
-        ensure(46)
-        y -= 20
-        const lines = pdfWrap(block.text, 11.6, true, CONTENT_WIDTH)
+        const lines = pdfWrap(block.text, HEADING_SIZE, true, CONTENT_WIDTH)
+        const headingHeight = HEADING_TOP_GAP + lines.length * HEADING_LEAD + 4
+        // heading tidak boleh tertinggal sendiri di dasar halaman:
+        // sisakan ruang untuk heading + 2 baris blok berikutnya.
+        const next = entries[index + 1]?.block
+        let reserve = 30
+        if (next && next.type === 'paragraph') reserve = Math.min(2, pdfWrap(next.text, PARAGRAPH_SIZE, false, CONTENT_WIDTH).length) * PARAGRAPH_LEAD
+        else if (next && next.type === 'bullets' && next.items[0]) reserve = Math.min(2, pdfWrap(next.items[0], BULLET_SIZE, false, CONTENT_WIDTH - 15).length) * BULLET_LEAD
+        else if (next && next.type === 'keyvalues' && next.rows[0]) reserve = 2 * KEYVALUE_LEAD
+        ensure(headingHeight + reserve)
+        y -= HEADING_TOP_GAP
         for (const line of lines) {
-          y -= 15
-          text(MARGIN.left, y, 11.6, 'F2', BRAND, line)
+          y -= HEADING_LEAD
+          text(MARGIN.left, y, HEADING_SIZE, 'F2', BRAND, line)
         }
-        y -= 3
+        y -= 4
         break
       }
       case 'paragraph': {
         paragraph(block.text)
-        y -= 3
+        y -= 2
         break
       }
       case 'bullets': {
         for (const item of block.items) {
-          const size = 10.4
-          const indent = 15
-          const lines = pdfWrap(item, size, false, CONTENT_WIDTH - indent)
-          const lineHeight = size * 1.46
-          ensure(lineHeight * lines.length + 2)
-          y -= lineHeight
+          const lines = pdfWrap(item, BULLET_SIZE, false, CONTENT_WIDTH - 15)
+          const blockHeight = Math.max(1, lines.length) * BULLET_LEAD + 2
+          // butir tidak terbelah di dasar halaman
+          if (lines.length > 1) {
+            const fits = Math.floor((y - bottomLimit()) / BULLET_LEAD)
+            if (fits < Math.min(2, lines.length)) newPage()
+          }
+          ensure(blockHeight)
+          y -= BULLET_LEAD
           rect(MARGIN.left + 4.4, y + 2.6, 2.8, 2.8, GOLD)
-          text(MARGIN.left + indent, y, size, 'F1', INK, lines[0])
+          text(MARGIN.left + 15, y, BULLET_SIZE, 'F1', INK, lines[0])
           for (const extra of lines.slice(1)) {
-            y -= lineHeight
-            text(MARGIN.left + indent, y, size, 'F1', INK, extra)
+            y -= BULLET_LEAD
+            text(MARGIN.left + 15, y, BULLET_SIZE, 'F1', INK, extra)
           }
         }
-        y -= 3
+        y -= 4
         break
       }
       case 'keyvalues': {
-        const labelWidth = 150
         for (const row of block.rows) {
-          const valueLines = pdfWrap(row.value || '-', 10.2, false, CONTENT_WIDTH - labelWidth)
-          const height = Math.max(valueLines.length, 1) * 14.6 + 2
+          const valueLines = pdfWrap(row.value || '-', 10.2, false, CONTENT_WIDTH - KEYVALUE_LABEL_WIDTH)
+          const height = Math.max(valueLines.length, 1) * KEYVALUE_LEAD + 2
           ensure(height)
           const startY = y
-          y -= 14.6
+          y -= KEYVALUE_LEAD
           text(MARGIN.left, y, 10.2, 'F2', MUTED, row.label)
-          text(MARGIN.left + labelWidth, y, 10.2, 'F1', INK, valueLines[0])
+          text(MARGIN.left + KEYVALUE_LABEL_WIDTH, y, 10.2, 'F1', INK, valueLines[0])
           for (const extra of valueLines.slice(1)) {
-            y -= 14.6
-            text(MARGIN.left + labelWidth, y, 10.2, 'F1', INK, extra)
+            y -= KEYVALUE_LEAD
+            text(MARGIN.left + KEYVALUE_LABEL_WIDTH, y, 10.2, 'F1', INK, extra)
           }
           rule(MARGIN.left, PAGE.width - MARGIN.right, startY - height + 6, RULE, 0.5)
         }
@@ -272,8 +508,8 @@ export function buildPdf(document: PdfDocument): Uint8Array {
         break
       }
       case 'note': {
-        const lines = pdfWrap(block.text, 9.8, false, CONTENT_WIDTH - 24)
-        const height = lines.length * 13.6 + (block.label ? 15 : 0) + 14
+        const lines = pdfWrap(block.text, NOTE_SIZE, false, CONTENT_WIDTH - 24)
+        const height = lines.length * NOTE_LEAD + (block.label ? 15 : 0) + 22
         ensure(height + 6)
         const top = y
         rect(MARGIN.left, top - height, CONTENT_WIDTH, height, '0.965 0.949 0.925')
@@ -284,15 +520,15 @@ export function buildPdf(document: PdfDocument): Uint8Array {
           text(MARGIN.left + 12, y, 9.6, 'F2', BRAND, block.label)
         }
         for (const line of lines) {
-          y -= 13.6
-          text(MARGIN.left + 12, y, 9.8, 'F1', INK, line)
+          y -= NOTE_LEAD
+          text(MARGIN.left + 12, y, NOTE_SIZE, 'F1', INK, line)
         }
         y -= 6
         break
       }
       case 'divider': {
-        ensure(14)
-        y -= 10
+        ensure(16)
+        y -= 12
         rule(MARGIN.left, PAGE.width - MARGIN.right, y, RULE, 0.7)
         y -= 4
         break
@@ -302,36 +538,17 @@ export function buildPdf(document: PdfDocument): Uint8Array {
         break
       }
       case 'signature': {
-        const needed = 108
-        ensure(needed)
-        y -= 16
-        const columnWidth = (CONTENT_WIDTH - 24) / 2
-        block.columns.slice(0, 2).forEach((column, index) => {
-          const x = MARGIN.left + index * (columnWidth + 24)
-          let cursor = y
-          text(x, cursor, 9.4, 'F1', MUTED, column.label)
-          cursor -= 34
-          text(x + 4, cursor, 12, 'F3', BRAND, column.name)
-          cursor -= 8
-          rule(x, x + columnWidth - 8, cursor, BRAND, 0.8)
-          cursor -= 13
-          text(x, cursor, 9.6, 'F2', INK, column.name)
-          if (column.role) {
-            cursor -= 12
-            text(x, cursor, 9, 'F1', MUTED, column.role)
-          }
-          for (const meta of column.meta ?? []) {
-            cursor -= 11.5
-            text(x, cursor, 8.8, 'F1', MUTED, meta)
-          }
-        })
-        y -= 92
+        drawSignature(block)
+        break
+      }
+      case 'certificate': {
+        drawCertificate(block)
         break
       }
       default:
         break
     }
-  }
+  })
 
   pages.push(ops)
 

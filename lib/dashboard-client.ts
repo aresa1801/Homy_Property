@@ -112,6 +112,7 @@ export type DashboardAgreement = {
   commission_rate?: number | string
   signed_at?: string
   agreement_version?: string
+  signature_serial?: string | null
 }
 
 export type DashboardUser = {
@@ -218,6 +219,7 @@ export type DashboardVerification = {
   agreement_id?: string | null
   agreement_version?: string | null
   agreement_signed_at?: string | null
+  signature_serial?: string | null
   submitted_at?: string | null
   reviewed_at?: string | null
   reviewer_note?: string | null

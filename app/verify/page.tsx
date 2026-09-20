@@ -99,6 +99,7 @@ export default function VerifyPage() {
   const [record, setRecord] = useState<VerificationRecord | null>(null)
   const [records, setRecords] = useState<Record<string, VerificationRecord>>({})
   const [signedRoles, setSignedRoles] = useState<string[]>([])
+  const [agreementRows, setAgreementRows] = useState<{ role: string; status?: string; agreement_version?: string; signed_at?: string; signature_serial?: string | null }[]>([])
   const [step, setStep] = useState(0)
   const [maxStep, setMaxStep] = useState(0)
   const [busy, setBusy] = useState(false)
@@ -131,6 +132,7 @@ export default function VerifyPage() {
         const map = (payload?.verifications ?? {}) as Record<string, VerificationRecord>
         setRecords(map)
         setSignedRoles((payload?.agreements ?? []).filter((row: { status?: string }) => row?.status === 'active').map((row: { role: string }) => row.role))
+        setAgreementRows(Array.isArray(payload?.agreements) ? payload.agreements : [])
         const requested = new URLSearchParams(window.location.search).get('role')
         const initialRole: VerificationRole | null = requested === 'agent' || requested === 'property_owner' ? requested : null
         if (initialRole) {
@@ -162,6 +164,9 @@ export default function VerifyPage() {
   }, [missing])
 
   const agreementSigned = Boolean(record?.agreement_signed_at) || signedRoles.includes(String(role))
+  const activeAgreement = agreementRows.find((row) => row.role === String(role))
+  const agreementSerial = activeAgreement?.signature_serial ?? null
+  const agreementStamp = activeAgreement?.signed_at ?? record?.agreement_signed_at ?? null
 
   function pickRole(nextRole: VerificationRole) {
     const existing = records[nextRole]
@@ -325,6 +330,13 @@ export default function VerifyPage() {
         agreement_version: AGREEMENT_VERSION,
       })
       setSignedRoles((current) => (role && !current.includes(role) ? [...current, role] : current))
+      if (payload?.agreement) {
+        const savedRow = payload.agreement as { role?: string; signed_at?: string; signature_serial?: string | null; agreement_version?: string }
+        setAgreementRows((current) => [
+          ...current.filter((row) => row.role !== role),
+          { role: String(role), status: 'active', signed_at: savedRow.signed_at, signature_serial: savedRow.signature_serial ?? null, agreement_version: savedRow.agreement_version ?? AGREEMENT_VERSION },
+        ])
+      }
       setNotice('Perjanjian berhasil ditandatangani. Salinan PDF dapat diunduh di bawah.')
     } catch {
       setError('Terjadi gangguan jaringan saat menandatangani perjanjian.')
@@ -764,7 +776,11 @@ export default function VerifyPage() {
               {agreementSigned ? (
                 <div className="mt-6 rounded-2xl border border-[#bfd8cb] bg-[#f4faf6] p-4">
                   <p className="flex items-center gap-2 font-semibold text-[#0b3d2e]"><BadgeCheck className="size-4" /> Perjanjian sudah ditandatangani</p>
-                  <p className="mt-2 text-sm text-[#65706c]">Ditandatangani pada {formatDateTimeId(record?.agreement_signed_at)} · versi {record?.agreement_version ?? AGREEMENT_VERSION}</p>
+                  <p className="mt-2 text-sm text-[#65706c]">Ditandatangani pada {formatDateTimeId(agreementStamp)} · versi {record?.agreement_version ?? AGREEMENT_VERSION}</p>
+                  <dl className="mt-3 space-y-1 text-xs text-[#65706c]">
+                    <div className="flex justify-between gap-3"><dt>Serial tanda tangan</dt><dd className="font-mono font-semibold text-[#0b3d2e]">{agreementSerial ?? '—'}</dd></div>
+                    <div className="flex justify-between gap-3"><dt>Timestamp</dt><dd className="text-[#3f4b46]">{formatDateTimeId(agreementStamp)} WIB</dd></div>
+                  </dl>
                   <a href={`/api/agreement/pdf?role=${role}`} className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#0b3d2e] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#14553f]">
                     <Download className="size-4" /> Unduh PDF perjanjian
                   </a>
@@ -825,7 +841,8 @@ export default function VerifyPage() {
                 <Summary title="Ketersediaan" rows={availability.filter((row) => row.is_active).map((row) => [`${WEEKDAY_LABELS[row.weekday]}`, `${row.start_time}-${row.end_time} · slot ${row.slot_minutes}m`] as [string, string])} />
                 <Summary title="Perjanjian" rows={[
                   ['Versi', record.agreement_version ?? AGREEMENT_VERSION],
-                  ['Ditandatangani', formatDateTimeId(record.agreement_signed_at)],
+                  ['Ditandatangani', `${formatDateTimeId(agreementStamp)} WIB`],
+                  ['Serial tanda tangan', agreementSerial ?? '—'],
                   ['Komisi', `${COMMISSION_RATE}% dari harga jual final`],
                 ]} />
               </div>

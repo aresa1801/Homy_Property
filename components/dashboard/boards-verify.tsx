@@ -8,7 +8,7 @@ import { MetricCard } from '@/components/dashboard-shell'
 import { adminAction, shortDateTime, ui, type DashboardPayload, type DashboardVerification } from '@/lib/dashboard-client'
 import type { BoardProps } from '@/components/dashboard/boards-listing'
 import { AGREEMENT_VERSION, COMMISSION_RATE } from '@/lib/partner-agreement'
-import { REQUIREMENT_LABELS, WEEKDAY_LABELS, completionPercent, missingRequirements, type VerificationRecord } from '@/lib/verification'
+import { REQUIREMENT_LABELS, WEEKDAY_LABELS, completionPercent, formatDateTimeId, missingRequirements, type VerificationRecord } from '@/lib/verification'
 
 const STATUS_META: Record<string, { label: string; className: string }> = {
   draft: { label: 'Draf', className: 'bg-[#f2f0ea] text-[#718078]' },
@@ -148,6 +148,27 @@ export function VerificationBoard({ data, loading, type }: BoardProps & { type: 
             </ul>
           )}
         </div>
+
+        <div className={ui.card + ' xl:col-span-2'}>
+          <h3 className="flex items-center gap-2 font-serif text-xl text-[#0b3d2e]"><FileSignature className="size-5 text-[#0b3d2e]" /> Perjanjian kerja sama</h3>
+          {signedAt ? (
+            <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
+              {[
+                ['Versi dokumen', String(record?.agreement_version ?? agreement?.agreement_version ?? AGREEMENT_VERSION)],
+                ['Waktu tanda tangan', `${formatDateTimeId(signedAt)}`],
+                ['Serial tanda tangan', agreement?.signature_serial ? String(agreement.signature_serial) : '—'],
+                ['Komisi Homy', `${COMMISSION_RATE}% dari harga jual final`],
+              ].map(([label, value]) => (
+                <div key={String(label)} className="flex justify-between gap-3 rounded-xl bg-[#f7f3ec] px-3 py-2">
+                  <dt className="text-[#718078]">{label}</dt>
+                  <dd className="text-right font-medium text-[#20332c]">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <p className="mt-3 text-sm text-[#718078]">Perjanjian belum ditandatangani. Buka halaman verifikasi untuk membaca dan menandatangani Perjanjian Kerja Sama.</p>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -284,6 +305,13 @@ export function VerificationReviewBoard({ data, loading, reload }: BoardProps) {
                       </ul>
                     )}
                   </div>
+
+                  <Detail title="Perjanjian kerja sama" rows={[
+                    ['Versi', record.agreement_version],
+                    ['Waktu tanda tangan', record.agreement_signed_at ? formatDateTimeId(record.agreement_signed_at) : null],
+                    ['Serial tanda tangan', record.signature_serial],
+                    ['ID perjanjian', record.agreement_id],
+                  ]} />
 
                   {record.reviewer_note && <p className="rounded-xl bg-[#f7f3ec] p-3 text-xs text-[#718078]">Catatan review sebelumnya: {record.reviewer_note}</p>}
 

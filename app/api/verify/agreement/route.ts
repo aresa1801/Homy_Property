@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { COMMISSION_RATE, AGREEMENT_VERSION, AGREEMENT_CONSENTS } from '@/lib/partner-agreement'
+import { signatureSerial } from '@/lib/agreement-sign'
 import { REQUIREMENT_LABELS, missingRequirements, type VerificationRecord, type VerificationRole } from '@/lib/verification'
 
 const PARTNER_ROLES: VerificationRole[] = ['agent', 'property_owner']
@@ -13,8 +14,23 @@ function serviceClient() {
   return createAdminClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
 }
 
+/** Alamat IP perangkat mitra dari header proxy Vercel (untuk sertifikat tanda tangan). */
+function clientIp(request: Request) {
+  const forwarded = request.headers.get('x-forwarded-for') ?? ''
+  const first = forwarded.split(',')[0]?.trim()
+  const candidate = first || request.headers.get('x-real-ip') || request.headers.get('cf-connecting-ip') || ''
+  return candidate ? candidate.slice(0, 64) : null
+}
+
 /** Data form perjanjian diambil dari verifikasi + profil supaya mitra tidak mengetik ulang. */
-function agreementPayload(record: VerificationRecord, userId: string, signature: string, email: string) {
+function agreementPayload(
+  record: VerificationRecord,
+  userId: string,
+  signature: string,
+  email: string,
+  signedAt: string,
+  client: { ip: string | null; userAgent: string | null },
+) {
   const address = [
     record.address,
     record.rt_rw ? `RT/RW ${record.rt_rw}` : null,
@@ -41,9 +57,12 @@ function agreementPayload(record: VerificationRecord, userId: string, signature:
     signature_name: signature.slice(0, 160),
     agreement_version: AGREEMENT_VERSION,
     status: 'active',
-    signed_at: new Date().toISOString(),
+    signed_at: signedAt,
     verification_id: record.id ?? null,
     identity_type: record.identity_type ?? null,
+    signed_ip: client.ip,
+    signed_user_agent: client.userAgent ? client.userAgent.slice(0, 300) : null,
+    signature_serial: signatureSerial(record.requested_role, userId, signedAt),
   }
 }
 
@@ -95,7 +114,11 @@ export async function POST(request: Request) {
     )
   }
 
-  const payload = agreementPayload(record, user.id, signature, user.email ?? '')
+  const signedAt = new Date().toISOString()
+  const payload = agreementPayload(record, user.id, signature, user.email ?? '', signedAt, {
+    ip: clientIp(request),
+    userAgent: request.headers.get('user-agent'),
+  })
   const { data: agreement, error } = await admin
     .from('partner_agreements')
     .upsert(payload, { onConflict: 'user_id,role' })
@@ -121,7 +144,7 @@ export async function POST(request: Request) {
       action: 'agreement.signed',
       entity_type: 'partner_agreement',
       entity_id: String((agreement as { id?: string } | null)?.id ?? ''),
-      metadata: { role, version: AGREEMENT_VERSION, commission_rate: COMMISSION_RATE, verification_id: record.id ?? null },
+      metadata: { role, version: AGREEMENT_VERSION, commission_rate: COMMISSION_RATE, verification_id: record.id ?? null, serial: payload.signature_serial, ip: payload.signed_ip },
     })
   } catch { /* best effort */ }
 

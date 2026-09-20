@@ -53,7 +53,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       supabase.from('inquiries').select(inquirySelect).eq('agent_id', user.id).order('created_at', { ascending: false }).limit(100),
       supabase.from('visits').select('id,property_id,user_id,scheduled_at,status,notes,interest,buyer_feedback,completed_at,follow_up_sent_at').eq('agent_id', user.id).order('scheduled_at', { ascending: true }).limit(100),
       supabase.from('transaction_reports').select('id,property_id,property_title,buyer_name,buyer_contact,sale_price,commission_rate,commission_amount,sold_at,status,notes,created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
-      supabase.from('partner_agreements').select('role,status,full_name,identity_number,phone,address,commission_rate,signed_at,agreement_version').eq('user_id', user.id),
+      supabase.from('partner_agreements').select('role,status,full_name,identity_number,phone,address,commission_rate,signed_at,agreement_version,signature_serial').eq('user_id', user.id),
       supabase.from('interest_confirmations').select('id,property_id,user_id,agent_id,owner_id,intent,readiness,stage,budget,budget_flexible,timeline,financing,down_payment,has_other_options,comparison_notes,priorities,deal_breakers,score,ai_verdict,ai_confidence,ai_summary,ai_signals,ai_analyzed_at,agent_notes,created_at,updated_at').or('owner_id.eq.' + user.id + ',agent_id.eq.' + user.id).order('updated_at', { ascending: false }).limit(100),
     ])
     const titles: Record<string, string> = {}
@@ -279,8 +279,21 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       .select('*')
       .order('submitted_at', { ascending: false, nullsFirst: false })
       .limit(300)
+    // Serial tanda tangan diambil dari partner_agreements agar admin bisa mencocokkan sertifikat.
+    const verifyUserIds = Array.from(new Set(((verificationRows ?? []) as Array<{ user_id?: string | null }>).map((row) => row.user_id).filter(Boolean))) as string[]
+    const serialMap: Record<string, string> = {}
+    if (verifyUserIds.length) {
+      const { data: serialRows } = await admin
+        .from('partner_agreements')
+        .select('user_id,role,signature_serial,signed_at')
+        .in('user_id', verifyUserIds.slice(0, 300))
+      for (const row of (serialRows ?? []) as Array<{ user_id: string; role: string; signature_serial?: string | null; signed_at?: string | null }>) {
+        serialMap[`${row.user_id}:${row.role}`] = String(row.signature_serial ?? '')
+      }
+    }
     const verifications = ((verificationRows ?? []) as Array<Record<string, unknown>>).map((row) => ({
       ...row,
+      signature_serial: serialMap[`${String(row.user_id)}:${String(row.requested_role)}`] || null,
       applicant: profileMap[String(row.user_id ?? '')] ?? null,
     }))
 
