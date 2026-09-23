@@ -13,7 +13,7 @@
 
 import type { VerificationRole } from '@/lib/verification'
 
-export const AGREEMENT_VERSION = 'v2.0'
+export const AGREEMENT_VERSION = 'v2.1'
 export const AGREEMENT_TITLE = 'Perjanjian Kerja Sama Kemitraan Properti'
 export const COMMISSION_RATE = 0.5
 export const COMPANY_NAME = 'Homy Property'
@@ -21,6 +21,14 @@ export const COMPANY_LEGAL = 'Homy Property Indonesia'
 export const COMPANY_EMAIL = 'mitra@homyproperty.id'
 export const COMPANY_SITE = 'homyproperty.id'
 export const REVIEW_SLA_DAYS = 2
+
+/** Rekening resmi HOMY untuk penagihan komisi properti yang terjual atau tersewa. */
+export const COMPANY_BANK = {
+  bank: 'Bank Central Asia (BCA)',
+  bankShort: 'BCA',
+  accountNumber: '5211082705',
+  accountHolder: 'Anastasia Evi Rahma Dewi',
+} as const
 
 export type AgreementClause = {
   title: string
@@ -198,6 +206,7 @@ function commonClauses(role: VerificationRole): AgreementClause[] {
       title: 'Pasal 13 — Pembayaran Komisi & Pajak',
       items: [
         'Pembayaran komisi dilakukan maksimal 7 (tujuh) hari kerja setelah pelunasan transaksi atau setelah invoice resmi HOMY diterbitkan.',
+        `Pembayaran komisi ditransfer ke rekening resmi HOMY: ${COMPANY_BANK.bank} nomor ${COMPANY_BANK.accountNumber} atas nama ${COMPANY_BANK.accountHolder}. Komisi ditagihkan ketika properti berhasil TERJUAL atau TERSEWA melalui platform HOMY.`,
         'Pembayaran dilakukan melalui rekening resmi HOMY; MITRA tidak diperkenankan mentransfer ke rekening pribadi mana pun atas nama HOMY tanpa konfirmasi tertulis.',
         'Setiap pajak yang timbul atas penghasilan MITRA menjadi tanggungan MITRA sesuai peraturan perpajakan yang berlaku; pajak atas jasa platform menjadi tanggungan HOMY.',
         'Keterlambatan pembayaran komisi lebih dari 14 hari kalender dapat dikenai pembekuan akun sampai pelunasan.',
@@ -296,7 +305,7 @@ export function buildAgreementClauses(role: VerificationRole): AgreementClause[]
 export const AGREEMENT_LAMPIRAN = [
   'Lampiran A — Data Mitra (nama, identitas, kontak, domisili, data usaha) diambil otomatis dari form verifikasi.',
   'Lampiran B — Ketersediaan waktu layanan mitra (hari, jam, mode lokasi/online).',
-  'Lampiran C — Ringkasan komisi 0,5% dan contoh perhitungan.',
+  'Lampiran C — Ringkasan komisi 0,5%, contoh perhitungan, dan rekening resmi pembayaran komisi.',
 ] as const
 
 /** Nomor perjanjian yang deterministik & mudah dirujuk admin. */

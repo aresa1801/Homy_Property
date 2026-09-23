@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { AiChat } from '@/components/ai/ai-chat'
+import { BcaPaymentCard } from '@/components/bca-payment-card'
 import { MetricCard } from '@/components/dashboard-shell'
 import { ModerationQueue } from '@/components/moderation-queue'
 import type { BoardProps } from '@/components/dashboard/boards-listing'
@@ -185,6 +186,7 @@ export function PlatformBillingBoard({ data, loading, reload, type }: BoardProps
         <MetricCard label="Komisi menunggu" value={rupiah(metrics.commissionPending ?? 0)} change="Belum diverifikasi admin" icon="sparkles" />
       </div>
       {message && <Toast message={message} />}
+      <BcaPaymentCard title="Rekening penagihan komisi platform" subtitle="Rekening resmi HOMY untuk komisi properti yang terjual atau tersewa" />
       <div className={ui.card}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>

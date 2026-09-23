@@ -1,10 +1,11 @@
+import type { ReactNode } from 'react'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 
 export type LegalSection = { heading: string; paragraphs: string[] }
 
 /** Kerangka halaman statis (Privasi, Ketentuan) dengan headbar & footer seragam. */
-export function LegalPage({ eyebrow, title, intro, updated, sections }: { eyebrow: string; title: string; intro: string; updated: string; sections: LegalSection[] }) {
+export function LegalPage({ eyebrow, title, intro, updated, sections, aside }: { eyebrow: string; title: string; intro: string; updated: string; sections: LegalSection[]; aside?: ReactNode }) {
   return (
     <main className="min-h-screen bg-[#f7f3ec] text-[#1c1c1c]">
       <SiteHeader />
@@ -27,6 +28,7 @@ export function LegalPage({ eyebrow, title, intro, updated, sections }: { eyebro
           <p className="rounded-xl bg-[#f7f3ec] p-4 text-sm leading-6 text-[#33433d]">
             Pertanyaan tentang dokumen ini? Hubungi kami di <a className="font-semibold text-[#0b3d2e] underline" href="mailto:support@homyproperty.id">support@homyproperty.id</a> atau melalui halaman <a className="font-semibold text-[#0b3d2e] underline" href="/contact">Kontak</a>.
           </p>
+          {aside ? <div className="mt-5">{aside}</div> : null}
         </div>
       </section>
       <SiteFooter />

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { BadgeCheck, CalendarDays, CheckCircle2, FileSignature, Plus, RefreshCw, WalletCards } from 'lucide-react'
+import { BcaPaymentCard } from '@/components/bca-payment-card'
 import { MetricCard } from '@/components/dashboard-shell'
 import { resubmitListing, rupiah, runAction, shortDate, shortDateTime, STATUS_LABEL, ui, VISIT_LABEL, type DashboardPayload, type DashboardVisit } from '@/lib/dashboard-client'
 import type { BoardProps } from '@/components/dashboard/boards-listing'
@@ -47,6 +48,8 @@ export function BillingBoard({ data, loading, reload, type }: BoardProps & { typ
       </div>
 
       {message && <p className={`rounded-xl px-4 py-3 text-sm font-medium ${message.tone === 'ok' ? 'bg-[#edf2ed] text-[#0b3d2e]' : 'bg-[#fbeeec] text-[#b45c50]'}`}>{message.text}</p>}
+
+      <BcaPaymentCard />
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
         <div className={ui.card}>

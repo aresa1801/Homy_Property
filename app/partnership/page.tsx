@@ -1,6 +1,7 @@
 import { ArrowRight, BadgeCheck, Building2, CheckCircle2, FileSignature, Handshake, LayoutDashboard, LineChart, Megaphone, Network, ShieldCheck, Sparkles, Store, Users } from 'lucide-react'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
+import { BcaPaymentCard } from '@/components/bca-payment-card'
 import { PartnershipForm } from '@/components/partnership-form'
 
 export const metadata = { title: 'Open Partnership — Homy Property' }
@@ -130,6 +131,7 @@ export default function PartnershipPage() {
               {['Menandatangani Surat Perjanjian Kerja Sama digital', 'Menyajikan data properti yang benar & tidak menyesatkan', 'Melaporkan setiap transaksi maksimal 3 hari kerja', 'Menjaga kerahasiaan data calon pembeli/penyewa'].map((item) => <li key={item} className="flex gap-2"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[#c9a961]" />{item}</li>)}
             </ul>
           </div>
+          <BcaPaymentCard subtitle="Bayar komisi Homy setelah properti berhasil terjual atau tersewa" />
           <div className="rounded-2xl bg-white p-4 sm:p-6 shadow-[0_10px_30px_rgba(20,42,32,.05)] md:p-8">
             <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Pertanyaan umum</h3>
             <div className="mt-4 space-y-4">
