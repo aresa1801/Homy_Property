@@ -5,6 +5,10 @@ import { rateLimit, clientKey } from '@/lib/rate-limit'
 import { notifyUser } from '@/lib/notifications'
 import { isTransactReady } from '@/lib/notary'
 
+// Data per-pengguna — jangan di-cache.
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 const clean = (value: unknown, max = 500) => (typeof value === 'string' ? value.trim().slice(0, max) : '')
 
 type NotaryRow = { id: string; name: string | null; office_name: string | null; province: string | null; kabupaten: string | null; kecamatan: string | null; whatsapp: string | null; phone: string | null }
@@ -54,7 +58,7 @@ export async function GET() {
     .order('created_at', { ascending: false })
     .limit(50)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ data: data ?? [] })
+  return NextResponse.json({ data: data ?? [] }, { headers: { 'Cache-Control': 'no-store' } })
 }
 
 /**

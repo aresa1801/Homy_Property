@@ -3,6 +3,10 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { serviceClient } from '@/lib/visits'
 import { isTransactReady } from '@/lib/notary'
 
+// Direktori harus selalu segar (data bergantung pada status aktif notaris) — jangan pernah di-cache.
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 type NotaryAreaRow = { province: string | null; kabupaten: string | null; kecamatan: string | null }
 type NotaryRow = {
   id: string
@@ -105,5 +109,5 @@ export async function GET(request: Request) {
     /* status opsional — langsung balas direktori */
   }
 
-  return NextResponse.json({ data: rows, authenticated, can_request, reason, optional: true })
+  return NextResponse.json({ data: rows, authenticated, can_request, reason, optional: true }, { headers: { 'Cache-Control': 'no-store' } })
 }
