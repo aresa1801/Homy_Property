@@ -14,7 +14,10 @@ const clean = (value: unknown, max = 500) => (typeof value === 'string' ? value.
 type NotaryRow = { id: string; name: string | null; office_name: string | null; province: string | null; kabupaten: string | null; kecamatan: string | null; whatsapp: string | null; phone: string | null }
 
 const norm = (value: unknown) => String(value ?? '').trim().toLowerCase()
-const has = (haystack: unknown, needle: string) => needle.length >= 3 && norm(haystack).includes(needle)
+const has = (haystack: unknown, needle: string) => {
+  const target = norm(needle)
+  return target.length >= 3 && norm(haystack).includes(target)
+}
 
 /** Rekomendasi notaris aktif untuk sebuah wilayah (level kecamatan/kabupaten/provinsi). */
 async function recommend(admin: ReturnType<typeof serviceClient>, area: { province?: string; kabupaten?: string; kecamatan?: string }) {

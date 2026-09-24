@@ -28,7 +28,10 @@ type NotaryRow = {
 }
 
 const norm = (value: unknown) => String(value ?? '').trim().toLowerCase()
-const has = (haystack: unknown, needle: string) => norm(haystack).includes(needle)
+const has = (haystack: unknown, needle: string) => {
+  const target = norm(needle)
+  return target.length >= 2 && norm(haystack).includes(target)
+}
 
 /** Cocokkan notaris dengan filter wilayah (kecamatan/kabupaten/provinsi) + kata kunci. */
 function matches(row: NotaryRow, filters: { province?: string; kabupaten?: string; kecamatan?: string; q?: string }) {

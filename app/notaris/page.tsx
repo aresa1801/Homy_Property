@@ -35,7 +35,10 @@ type NotaryRow = {
 }
 
 const norm = (value: unknown) => String(value ?? '').trim().toLowerCase()
-const has = (haystack: unknown, needle: string) => needle.length >= 3 && norm(haystack).includes(needle)
+const has = (haystack: unknown, needle: string) => {
+  const target = norm(needle)
+  return target.length >= 3 && norm(haystack).includes(target)
+}
 
 async function fetchNotaries(filters: { province: string; kabupaten: string; kecamatan: string; q: string }): Promise<NotaryRow[]> {
   if (!SUPABASE_URL || !SUPABASE_KEY) return []
