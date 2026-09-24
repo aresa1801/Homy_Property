@@ -13,6 +13,8 @@ import {
   VOLUME_OPTIONS,
   type PartnerKind,
 } from '@/lib/partnership'
+import { AREAS_MAX, areaLabel, type NotaryArea } from '@/lib/notary'
+import { PROVINCES } from '@/lib/regions'
 
 const field = 'h-11 w-full rounded-lg border border-[#d8ccbb] bg-white px-3 text-sm text-[#20332c] outline-none focus:border-[#0b3d2e]'
 const label = 'flex flex-col gap-1.5 text-xs font-semibold text-[#65706c]'
@@ -44,6 +46,7 @@ type FormState = {
   doc_url: string
   message: string
   agree_terms: boolean
+  areas: NotaryArea[]
 }
 
 const EMPTY: FormState = {
@@ -72,6 +75,7 @@ const EMPTY: FormState = {
   doc_url: '',
   message: '',
   agree_terms: false,
+  areas: [{ province: '', kabupaten: '', kecamatan: '' }],
 }
 
 function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
@@ -122,14 +126,25 @@ export function PartnershipForm() {
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((prev) => ({ ...prev, [key]: value }))
   const toggle = (key: 'focus_areas' | 'services', item: string) =>
     setForm((prev) => ({ ...prev, [key]: prev[key].includes(item) ? prev[key].filter((entry) => entry !== item) : [...prev[key], item] }))
+  const updateArea = (index: number, patch: Partial<NotaryArea>) =>
+    setForm((prev) => ({ ...prev, areas: prev.areas.map((area, i) => (i === index ? { ...area, ...patch } : area)) }))
+  const addArea = () => setForm((prev) => (prev.areas.length >= AREAS_MAX ? prev : { ...prev, areas: [...prev.areas, { province: '', kabupaten: '', kecamatan: '' }] }))
+  const removeArea = (index: number) => setForm((prev) => ({ ...prev, areas: prev.areas.length <= 1 ? prev.areas : prev.areas.filter((_, i) => i !== index) }))
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
     setBusy(true)
     setResult(null)
     try {
+      const cleanAreas = form.areas.filter((area) => area.province || area.kabupaten || area.kecamatan)
+      if (form.kind === 'notary' && cleanAreas.length === 0) {
+        setResult({ tone: 'err', text: 'Isi minimal satu wilayah kerja notaris (provinsi/kabupaten/kecamatan).' })
+        return
+      }
       const payload = {
         ...form,
+        areas: form.kind === 'notary' ? cleanAreas : undefined,
+        coverage_area: form.kind === 'notary' && cleanAreas.length ? cleanAreas.map((area) => areaLabel(area)).join(', ').slice(0, 200) : form.coverage_area,
         branches: form.branches || null,
         founded_year: form.founded_year || null,
         team_size: form.team_size || null,
@@ -204,7 +219,35 @@ export function PartnershipForm() {
       )}
 
       <Section title={isNotary ? 'Wilayah kerja & layanan' : 'Kapasitas & area fokus'}>
-        <label className={label}>{isNotary ? 'Wilayah kerja' : 'Wilayah kerja / cakupan'}<input value={form.coverage_area} onChange={(event) => set('coverage_area', event.target.value)} className={field} placeholder={isNotary ? 'mis. Jakarta Selatan, Depok, Tangerang' : 'mis. Jabodetabek'} /></label>
+        {isNotary ? (
+          <div className="space-y-3">
+            <p className="text-xs text-[#65706c]">Tambahkan wilayah praktik/kantor sampai level kecamatan atau kabupaten. Direktori notaris Homy memakai data ini untuk merekomendasikan kantor Anda ke transaksi di wilayah tersebut (maks {AREAS_MAX}).</p>
+            {form.areas.map((area, index) => (
+              <div key={index} className="grid gap-3 rounded-xl border border-[#efe7db] p-3 sm:grid-cols-[1.2fr_1fr_1fr_auto]">
+                <label className={label}>Provinsi
+                  <select value={area.province} onChange={(event) => updateArea(index, { province: event.target.value })} className={field}>
+                    <option value="">— Pilih —</option>
+                    {PROVINCES.map((province) => <option key={province} value={province}>{province}</option>)}
+                  </select>
+                </label>
+                <label className={label}>Kabupaten / Kota
+                  <input value={area.kabupaten} onChange={(event) => updateArea(index, { kabupaten: event.target.value })} className={field} placeholder="mis. Sleman" />
+                </label>
+                <label className={label}>Kecamatan
+                  <input value={area.kecamatan} onChange={(event) => updateArea(index, { kecamatan: event.target.value })} className={field} placeholder="mis. Depok" />
+                </label>
+                <div className="flex items-end">
+                  <button type="button" onClick={() => removeArea(index)} disabled={form.areas.length <= 1} className="rounded-lg border border-[#e0d5c4] px-3 py-2 text-xs font-semibold text-[#8a4b45] disabled:opacity-40">Hapus</button>
+                </div>
+              </div>
+            ))}
+            {form.areas.length < AREAS_MAX ? (
+              <button type="button" onClick={addArea} className="rounded-lg border border-[#e0d5c4] px-4 py-2 text-xs font-semibold text-[#0b3d2e]">+ Tambah wilayah</button>
+            ) : null}
+          </div>
+        ) : (
+          <label className={label}>Wilayah kerja / cakupan<input value={form.coverage_area} onChange={(event) => set('coverage_area', event.target.value)} className={field} placeholder="mis. Jabodetabek" /></label>
+        )}
         <div className="grid gap-4 sm:grid-cols-2">
           <label className={label}>{isOwner ? 'Jumlah properti yang akan dipasang' : isNotary ? 'Estimasi klien per bulan' : 'Listing siap tayang'}
             <input inputMode="numeric" value={form.listings_ready} onChange={(event) => set('listings_ready', event.target.value.replace(/[^0-9]/g, ''))} className={field} placeholder="mis. 10" />

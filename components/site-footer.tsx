@@ -7,6 +7,7 @@ const LINKS = [
   { label: 'Sewa', href: '/rent' },
   { label: 'Pesan', href: '/message' },
   { label: 'Partnership', href: '/partnership' },
+  { label: 'Notaris & PPAT', href: '/notaris' },
   { label: 'Privasi', href: '/privacy' },
   { label: 'Ketentuan', href: '/terms' },
   { label: 'Kontak', href: '/contact' },

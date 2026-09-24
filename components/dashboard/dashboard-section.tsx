@@ -46,6 +46,7 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
     reports: { eyebrow: 'Keamanan', title: 'Laporan & Penipuan', description: 'Tindak lanjuti laporan pengguna, plus pemeriksaan otomatis: duplikat judul listing dan listing tayang yang belum punya foto.' },
     ai: { eyebrow: 'Kecerdasan Buatan', title: 'Pemantauan AI', description: 'Pastikan Homy AI menjawab dari data listing yang tayang: status kunci AI, cakupan ringkasan AI, dan uji tanya-jawab langsung.' },
     verifications: { eyebrow: 'Kemitraan', title: 'Verifikasi Agen & Pemilik', description: 'Tinjau pengajuan verifikasi mitra: data diri, alamat domisili, dokumen identitas (KTP/SIM), ketersediaan waktu, dan Perjanjian Kerja Sama yang sudah ditandatangani. Setujui untuk mengaktifkan peran mitra.' },
+    partnership: { eyebrow: 'Kemitraan', title: 'Calon Mitra & Partnership', description: 'Pengajuan kemitraan dari halaman Open Partnership (agen, pemilik, agensi, institusi, notaris/PPAT) dan pesan dari halaman Kontak: verifikasi, hubungi, setujui, atau tolak — keputusan otomatis mengirim email balasan ke calon mitra. Notaris yang disetujui tayang di direktori /notaris, dan pengajuan pendampingan notaris ditindaklanjuti di sini.' },
   },
   'super-admin': {
     verifications: { eyebrow: 'Kemitraan', title: 'Verifikasi Agen & Pemilik', description: 'Tinjau pengajuan verifikasi mitra: data diri, alamat domisili, dokumen identitas (KTP/SIM), ketersediaan waktu, dan Perjanjian Kerja Sama. Setujui untuk mengaktifkan peran mitra.' },

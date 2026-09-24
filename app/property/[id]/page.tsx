@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { hideDetailAddress } from '@/lib/property-format'
 import PropertyDetailClient from './property-detail-client'
+import { NotaryRecommendCard } from '@/components/notary-recommend'
 
 const SITE_URL = (process.env.HOMY_APP_URL || 'https://homyproperty.id').replace(/\/$/, '')
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -189,6 +190,19 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
         />
       ) : null}
       <PropertyDetailClient id={id} />
+      {listing ? (
+        <div className="bg-[#fbf9f5] pb-10">
+          <div className="mx-auto max-w-7xl px-5 lg:px-8">
+            <NotaryRecommendCard
+              propertyId={listing.id}
+              propertyTitle={listing.title ?? undefined}
+              province={listing.province}
+              kabupaten={listing.city}
+              kecamatan={listing.district}
+            />
+          </div>
+        </div>
+      ) : null}
     </>
   )
 }

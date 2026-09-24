@@ -1,0 +1,46 @@
+/**
+ * Homy — daftar provinsi Indonesia (untuk dropdown wilayah kerja mitra/notaris).
+ * Cukup untuk pemilihan cepat; kabupaten/kecamatan diisi bebas sesuai SK/area praktik.
+ */
+export const PROVINCES = [
+  'Aceh',
+  'Sumatera Utara',
+  'Sumatera Barat',
+  'Riau',
+  'Kepulauan Riau',
+  'Jambi',
+  'Bengkulu',
+  'Sumatera Selatan',
+  'Kepulauan Bangka Belitung',
+  'Lampung',
+  'Banten',
+  'DKI Jakarta',
+  'Jawa Barat',
+  'Jawa Tengah',
+  'DI Yogyakarta',
+  'Jawa Timur',
+  'Bali',
+  'Nusa Tenggara Barat',
+  'Nusa Tenggara Timur',
+  'Kalimantan Barat',
+  'Kalimantan Tengah',
+  'Kalimantan Selatan',
+  'Kalimantan Timur',
+  'Kalimantan Utara',
+  'Sulawesi Utara',
+  'Gorontalo',
+  'Sulawesi Tengah',
+  'Sulawesi Barat',
+  'Sulawesi Selatan',
+  'Sulawesi Tenggara',
+  'Maluku',
+  'Maluku Utara',
+  'Papua',
+  'Papua Barat',
+  'Papua Barat Daya',
+  'Papua Tengah',
+  'Papua Pegunungan',
+  'Papua Selatan',
+] as const
+
+export type Province = (typeof PROVINCES)[number]

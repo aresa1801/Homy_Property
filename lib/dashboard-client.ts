@@ -172,6 +172,64 @@ export type DashboardLead = {
   review_note?: string | null
   reviewed_at?: string | null
   created_at?: string
+  entity_type?: string | null
+  npwp?: string | null
+  founded_year?: number | null
+  team_size?: number | null
+  listings_ready?: number | null
+  coverage_area?: string | null
+  services?: string | null
+  focus_areas?: string | null
+  preferred_contact?: string | null
+  doc_url?: string | null
+  agree_terms?: boolean | null
+  last_emailed_at?: string | null
+  last_email_status?: string | null
+  last_email_subject?: string | null
+  metadata?: Record<string, unknown> | null
+}
+
+export type DashboardNotary = {
+  id: string
+  lead_id?: string | null
+  name?: string | null
+  office_name?: string | null
+  sk_no?: string | null
+  phone?: string | null
+  whatsapp?: string | null
+  email?: string | null
+  website?: string | null
+  province?: string | null
+  kabupaten?: string | null
+  kecamatan?: string | null
+  services?: string | null
+  focus_areas?: string | null
+  notes?: string | null
+  status?: string | null
+  featured?: boolean | null
+  verified_at?: string | null
+  created_at?: string
+  notary_areas?: Array<{ province?: string | null; kabupaten?: string | null; kecamatan?: string | null }> | null
+}
+
+export type DashboardNotaryRequest = {
+  id: string
+  user_id?: string | null
+  property_id?: string | null
+  notary_id?: string | null
+  source?: string | null
+  intent?: string | null
+  buyer_name?: string | null
+  contact_phone?: string | null
+  contact_email?: string | null
+  province?: string | null
+  kabupaten?: string | null
+  kecamatan?: string | null
+  message?: string | null
+  status?: string | null
+  admin_note?: string | null
+  created_at?: string
+  updated_at?: string | null
 }
 
 export type DashboardFlag = { key: string; label: string; description?: string | null; enabled: boolean; rollout: number; updated_at?: string }
@@ -250,6 +308,8 @@ export type DashboardPayload = {
   payments?: DashboardPayment[]
   availability?: DashboardAvailability[]
   partnerLeads?: DashboardLead[]
+  notaries?: DashboardNotary[]
+  notaryRequests?: DashboardNotaryRequest[]
   verifications?: DashboardVerification[]
   ai?: { configured?: boolean; model?: string; listingsWithSummary?: number; listingsWithoutMedia?: number; amenitiesCoverage?: number }
 }

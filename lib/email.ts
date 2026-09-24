@@ -538,3 +538,133 @@ export async function sendVerificationReminderEmail(input: VerificationReminderM
     return { ok: false, error: 'request failed', subject }
   }
 }
+
+/* --------------------------------------------------------------------------- */
+/* Balasan email ke calon mitra (Partnership) — setelah admin verifikasi        */
+/* --------------------------------------------------------------------------- */
+
+export type PartnerStatus = 'reviewing' | 'contacted' | 'approved' | 'rejected'
+
+export type PartnerMailInput = {
+  to: string
+  fullName?: string | null
+  kind?: string | null
+  kindLabel?: string | null
+  status: PartnerStatus
+  note?: string | null
+}
+
+const PARTNER_KIND_TEXT: Record<string, string> = {
+  agent: 'Agen Properti',
+  owner: 'Pemilik Properti',
+  agency: 'Agensi / Broker Properti',
+  institution: 'Institusi Korporat',
+  notary: 'Notaris / PPAT & Mitra Legal',
+  contact: 'Pesan Kontak',
+}
+
+function partnerCopy(input: PartnerMailInput) {
+  const kindLabel = input.kindLabel || PARTNER_KIND_TEXT[String(input.kind ?? '')] || 'Mitra Homy'
+  const isNotary = String(input.kind ?? '') === 'notary'
+  const dashboard = `${appUrl()}/partnership`
+  switch (input.status) {
+    case 'contacted':
+      return {
+        subject: `Tim Homy akan menghubungi Anda (${kindLabel})`,
+        eyebrow: 'Kemitraan diperbarui',
+        heading: 'Pendaftaran Anda sudah kami tangani',
+        body: `Terima kasih sudah mendaftar sebagai <strong>${escapeHtml(kindLabel)}</strong>. Tim partnership Homy sudah menerima data Anda dan akan menghubungi lewat WhatsApp/telepon/email yang Anda cantumkan untuk langkah berikutnya.`,
+        accent: '#3f6b9c',
+        cta: 'Lihat halaman kemitraan',
+        url: dashboard,
+      }
+    case 'approved':
+      return {
+        subject: `Selamat! Kemitraan ${kindLabel} Anda disetujui`,
+        eyebrow: 'Kemitraan disetujui',
+        heading: 'Selamat, kemitraan Anda disetujui 🎉',
+        body: isNotary
+          ? `Pengajuan <strong>Notaris / PPAT &amp; Mitra Legal</strong> Anda <strong>disetujui</strong>. Kantor Anda akan tampil sebagai rekomendasi di direktori notaris Homy untuk wilayah kerja yang Anda daftarkan (bersifat opsional/rujukan, tidak mengikat). Tim Homy juga akan mengarahkan transaksi properti yang butuh layanan AJB/PPAT ke kantor Anda.`
+          : `Pengajuan <strong>${escapeHtml(kindLabel)}</strong> Anda <strong>disetujui</strong>. Tim Homy akan membantu proses aktivasi akun mitra, penandatanganan Perjanjian Kerja Sama, dan onboarding listing/CRM.`,
+        accent: '#4e866d',
+        cta: isNotary ? 'Lihat direktori notaris' : 'Buka halaman kemitraan',
+        url: isNotary ? `${appUrl()}/notaris` : dashboard,
+      }
+    case 'rejected':
+      return {
+        subject: `Pengajuan kemitraan Homy perlu dilengkapi`,
+        eyebrow: 'Kemitraan perlu tindak lanjut',
+        heading: 'Pengajuan Anda belum dapat kami setujui',
+        body: `Terima kasih atas minat Anda bergabung sebagai <strong>${escapeHtml(kindLabel)}</strong>. Saat ini pengajuan Anda <strong>belum dapat kami setujui</strong>. Silakan perbaiki sesuai catatan di bawah, lalu ajukan ulang — kami senang meninjau kembali.`,
+        accent: '#b45c50',
+        cta: 'Ajukan ulang kemitraan',
+        url: dashboard,
+      }
+    default:
+      return {
+        subject: `Pengajuan kemitraan Homy sedang ditinjau (${kindLabel})`,
+        eyebrow: 'Kemitraan ditinjau',
+        heading: 'Pengajuan Anda sedang kami tinjau',
+        body: `Terima kasih sudah mendaftar sebagai <strong>${escapeHtml(kindLabel)}</strong>. Tim partnership Homy sedang memverifikasi data Anda. Kami akan mengabari lagi lewat email ini setelah peninjauan selesai.`,
+        accent: '#c9a961',
+        cta: 'Lihat halaman kemitraan',
+        url: dashboard,
+      }
+  }
+}
+
+function partnerHtml(input: PartnerMailInput) {
+  const copy = partnerCopy(input)
+  const note = (input.note || '').trim()
+  const noteBlock = note
+    ? `<div style="margin:20px 0;padding:16px;border-radius:12px;background:#f7f3ec;border:1px solid #e8dfd3">
+         <p style="margin:0 0 6px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#9b762a">Catatan tim Homy</p>
+         <p style="margin:0;color:#33433d;line-height:1.6">${escapeHtml(note)}</p>
+       </div>`
+    : ''
+  const greeting = input.fullName ? `<p style="margin:0 0 12px;color:#65706c">Halo ${escapeHtml(String(input.fullName))},</p>` : ''
+
+  return `<!doctype html><html><body style="margin:0;background:#f7f3ec;font-family:'Segoe UI',Helvetica,Arial,sans-serif">
+  <div style="max-width:560px;margin:0 auto;padding:32px 20px">
+    <div style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:#0b3d2e;margin-bottom:20px">Homy<span style="color:#c9a961">.</span></div>
+    <div style="background:#ffffff;border:1px solid #e8dfd3;border-radius:16px;padding:28px">
+      <p style="margin:0 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:${copy.accent}">${copy.eyebrow}</p>
+      <h1 style="margin:0 0 16px;font-family:Georgia,serif;font-size:26px;line-height:1.3;color:#0b3d2e">${copy.heading}</h1>
+      ${greeting}
+      <p style="margin:0;color:#33433d;line-height:1.7">${copy.body}</p>
+      ${noteBlock}
+      <a href="${copy.url}" style="display:inline-block;margin-top:8px;background:#0b3d2e;color:#ffffff;text-decoration:none;padding:13px 22px;border-radius:10px;font-weight:600">${copy.cta}</a>
+    </div>
+    <p style="margin:20px 0 0;font-size:12px;line-height:1.6;color:#8a938f">Email otomatis dari Homy Property. Anda menerima ini karena mengajukan kemitraan di Homy.<br/>Pencarian properti terpercaya — <a href="${appUrl()}" style="color:#0b3d2e">${appUrl().replace(/^https?:\/\//, '')}</a></p>
+  </div></body></html>`
+}
+
+/** Kirim email balasan status kemitraan ke calon mitra. Tidak pernah melempar error. */
+export async function sendPartnerStatusEmail(input: PartnerMailInput) {
+  const copy = partnerCopy(input)
+  const subject = copy.subject
+  if (!input.to) return { ok: false, skipped: true, reason: 'missing recipient', subject }
+  const apiKey = process.env.RESEND_API_KEY
+  const from = process.env.HOMY_EMAIL_FROM || 'Homy Property <notifikasi@homy.id>'
+  if (!apiKey) {
+    console.warn(`[homy-email] RESEND_API_KEY belum di-set — email mitra ke ${input.to} dilewati (${subject})`)
+    return { ok: false, skipped: true, reason: 'email provider not configured', subject }
+  }
+  try {
+    const response = await fetch(RESEND_ENDPOINT, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [input.to], subject, html: partnerHtml(input) }),
+    })
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      console.error('[homy-email] gagal kirim email mitra:', response.status, detail.slice(0, 300))
+      return { ok: false, status: response.status, subject }
+    }
+    const payload = (await response.json().catch(() => ({}))) as { id?: string }
+    return { ok: true, id: payload.id, subject }
+  } catch (error) {
+    console.error('[homy-email] error email mitra:', error instanceof Error ? error.message : error)
+    return { ok: false, error: 'request failed', subject }
+  }
+}

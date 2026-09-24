@@ -32,7 +32,7 @@ async function counterpartProfiles(ids: string[]) {
   return map
 }
 
-const empty = { metrics: {}, properties: [], inquiries: [], visits: [], rentals: [], payments: [], reports: [], audit: [], transactions: [], partnerLeads: [], availability: [] }
+const empty = { metrics: {}, properties: [], inquiries: [], visits: [], rentals: [], payments: [], reports: [], audit: [], transactions: [], partnerLeads: [], availability: [], notaries: [], notaryRequests: [] }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ role: string }> }) {
   const { role } = await params
@@ -191,7 +191,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     if (!admin) {
       return NextResponse.json({ ...base, forbidden: true, metrics: { pendingApprovals: 0, published: 0, rejected: 0, activeUsers: 0, openReports: 0 } })
     }
-    const [rows, media, adminReports, profiles, roleRows, transactions, audit, flags, settings, partnerLeads, adminInterests] = await Promise.all([
+    const [rows, media, adminReports, profiles, roleRows, transactions, audit, flags, settings, partnerLeads, adminInterests, notaries, notaryRequests] = await Promise.all([
       admin.from('properties').select('id,title,address,city,province,district,listing_type,property_type,price,price_period,status,owner_id,created_at,moderation_note,verified_at,ai_summary').order('created_at', { ascending: false }).limit(200),
       admin.from('property_media').select('property_id').limit(3000),
       admin.from('moderation_reports').select('id,property_id,reported_user_id,reason,status,resolution_note,created_at').order('created_at', { ascending: false }).limit(50),
@@ -201,8 +201,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       admin.from('audit_logs').select('id,actor_id,action,entity_type,entity_id,metadata,created_at').order('created_at', { ascending: false }).limit(80),
       role === 'super-admin' ? admin.from('feature_flags').select('key,label,description,enabled,rollout,updated_at').order('key') : Promise.resolve({ data: [] as unknown[] }),
       role === 'super-admin' ? admin.from('platform_settings').select('key,label,value,updated_at').order('key') : Promise.resolve({ data: [] as unknown[] }),
-      admin.from('partner_leads').select('id,kind,full_name,email,phone,company,position,city,province,website,branches,license_no,entity_type,npwp,founded_year,team_size,listings_ready,coverage_area,services,focus_areas,preferred_contact,doc_url,agree_terms,message,status,review_note,reviewed_at,created_at,metadata').order('created_at', { ascending: false }).limit(200),
+      admin.from('partner_leads').select('id,kind,full_name,email,phone,company,position,city,province,website,branches,license_no,entity_type,npwp,founded_year,team_size,listings_ready,coverage_area,services,focus_areas,preferred_contact,doc_url,agree_terms,message,status,review_note,reviewed_at,last_emailed_at,last_email_status,last_email_subject,created_at,metadata').order('created_at', { ascending: false }).limit(200),
       admin.from('interest_confirmations').select('id,property_id,user_id,agent_id,owner_id,intent,readiness,stage,budget,budget_flexible,timeline,financing,down_payment,has_other_options,comparison_notes,priorities,deal_breakers,score,ai_verdict,ai_confidence,ai_summary,ai_signals,ai_analyzed_at,agent_notes,created_at,updated_at').order('updated_at', { ascending: false }).limit(300),
+      admin.from('notaries').select('id,lead_id,user_id,name,office_name,sk_no,phone,whatsapp,email,website,province,kabupaten,kecamatan,services,focus_areas,notes,status,featured,verified_at,created_at,notary_areas(province,kabupaten,kecamatan)').order('created_at', { ascending: false }).limit(200),
+      admin.from('notary_requests').select('id,user_id,property_id,notary_id,source,intent,buyer_name,contact_phone,contact_email,province,kabupaten,kecamatan,message,status,admin_note,created_at,updated_at').order('created_at', { ascending: false }).limit(200),
     ])
 
     const list = rows.data ?? []
@@ -329,6 +331,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       verificationsRejected: verifications.filter((row) => String(row.status ?? '') === 'rejected').length,
       verificationsDraft: verifications.filter((row) => String(row.status ?? '') === 'draft').length,
       interests: adminInterestsEnriched.length,
+      notariesTotal: (notaries.data ?? []).length,
+      notariesActive: (notaries.data ?? []).filter((row) => String(row.status ?? '') === 'active').length,
+      notaryRequestsPending: (notaryRequests.data ?? []).filter((row) => ['submitted', 'recommended', 'contacted'].includes(String(row.status ?? ''))).length,
       interestNegotiation: adminInterestsEnriched.filter((row) => ['negotiation', 'offer'].includes(String(row.stage ?? ''))).length,
       interestDeal: adminInterestsEnriched.filter((row) => String(row.stage ?? '') === 'deal').length,
       interestLost: adminInterestsEnriched.filter((row) => String(row.stage ?? '') === 'lost').length,
@@ -349,6 +354,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       flags: flags.data ?? [],
       settings: settings.data ?? [],
       partnerLeads: partnerLeads.data ?? [],
+      notaries: notaries.data ?? [],
+      notaryRequests: notaryRequests.data ?? [],
       verifications,
       interests: adminInterestsEnriched,
       ai: {

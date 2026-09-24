@@ -8,6 +8,7 @@ import { ModerationQueue } from '@/components/moderation-queue'
 import type { BoardProps } from '@/components/dashboard/boards-listing'
 import { adminAction, rupiah, shortDate, shortDateTime, ui, useDashboard, type DashboardSetting } from '@/lib/dashboard-client'
 import { LEAD_KIND_BADGE, LEAD_STATUS_META } from '@/lib/partnership'
+import { NOTARY_REQUEST_STATUS_META, areaLabel, notaryLabel } from '@/lib/notary'
 
 type AdminType = 'admin' | 'super-admin'
 
@@ -669,6 +670,7 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
   const [busy, setBusy] = useState<string | null>(null)
   const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
+  const [requestNotary, setRequestNotary] = useState<Record<string, string>>({})
 
   const filtered = useMemo(() => leads.filter((lead) => {
     if (kind !== 'all' && String(lead.kind) !== kind) return false
@@ -682,6 +684,10 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
   const contacts = leads.filter((lead) => String(lead.kind) === 'contact').length
 
   async function review(id: string, next: string) {
+    if (next === 'rejected' && !(notes[id] ?? '').trim()) {
+      setMessage({ tone: 'err', text: 'Isi catatan alasan dulu — catatan ini dikirim sebagai email balasan ke calon mitra.' })
+      return
+    }
     setBusy(id)
     setMessage(null)
     try {
@@ -690,6 +696,39 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
       reload()
     } catch (error) {
       setMessage({ tone: 'err', text: error instanceof Error ? error.message : 'Gagal memperbarui pengajuan' })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const notaryDirectory = (data.notaries ?? []) as unknown as Array<Record<string, unknown>>
+  const notaryRequests = (data.notaryRequests ?? []) as unknown as Array<Record<string, unknown>>
+  const notaryDirectoryActive = notaryDirectory.filter((row) => String(row.status) === 'active').length
+  const notaryRequestsOpen = notaryRequests.filter((row) => ['submitted', 'recommended', 'contacted'].includes(String(row.status))).length
+
+  async function updateNotary(id: string, patch: Record<string, unknown>) {
+    setBusy(id)
+    setMessage(null)
+    try {
+      await adminAction({ kind: 'notary.update', id, ...patch })
+      setMessage({ tone: 'ok', text: 'Direktori notaris diperbarui.' })
+      reload()
+    } catch (error) {
+      setMessage({ tone: 'err', text: error instanceof Error ? error.message : 'Gagal memperbarui notaris' })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function updateNotaryRequest(id: string, status: string) {
+    setBusy(id)
+    setMessage(null)
+    try {
+      await adminAction({ kind: 'notary_request.update', id, status, note: notes[id] ?? '', notary_id: requestNotary[id] ?? '' })
+      setMessage({ tone: 'ok', text: 'Pengajuan notaris diperbarui menjadi “' + (NOTARY_REQUEST_STATUS_META[status]?.label ?? status) + '”.' })
+      reload()
+    } catch (error) {
+      setMessage({ tone: 'err', text: error instanceof Error ? error.message : 'Gagal memperbarui pengajuan notaris' })
     } finally {
       setBusy(null)
     }
@@ -770,9 +809,16 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
                 </div>
                 {lead.message ? <p className="mt-2 rounded-lg bg-[#f7f3ec] p-3 text-sm text-[#33433d]">{String(lead.message)}</p> : null}
                 <p className="mt-2 text-xs text-[#a18a61]">Masuk {shortDate(String(lead.created_at ?? ''))}{lead.reviewed_at ? ' · ditinjau ' + shortDate(String(lead.reviewed_at)) : ''}</p>
+                <p className="mt-1 text-xs">
+                  {String(lead.last_email_status ?? '') === 'sent'
+                    ? <span className="text-[#4e866d]">✉️ Email balasan terkirim{lead.last_emailed_at ? ' · ' + shortDate(String(lead.last_emailed_at)) : ''}{lead.last_email_subject ? ' · “' + String(lead.last_email_subject) + '”' : ''}</span>
+                    : String(lead.last_email_status ?? '') === 'failed'
+                      ? <span className="text-[#b45c50]">✉️ Email balasan gagal terkirim — hubungi mitra via WhatsApp/telepon</span>
+                      : <span className="text-[#8a928e]">Belum ada email balasan terkirim</span>}
+                </p>
                 {lead.review_note ? <p className="mt-1 text-xs text-[#718078]">Catatan: {String(lead.review_note)}</p> : null}
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <input value={notes[id] ?? ''} onChange={(event) => setNotes({ ...notes, [id]: event.target.value })} placeholder={isContact ? 'Catatan balasan (opsional)' : 'Catatan verifikasi (opsional)'} className={ui.input + ' h-9 max-w-xs py-0'} />
+                  <input value={notes[id] ?? ''} onChange={(event) => setNotes({ ...notes, [id]: event.target.value })} placeholder={isContact ? 'Catatan balasan (opsional)' : 'Catatan verifikasi — dikirim ke email mitra'} className={ui.input + ' h-9 max-w-xs py-0'} />
                   {!isContact && String(lead.status) !== 'reviewing' && <button type="button" disabled={busy === id} onClick={() => review(id, 'reviewing')} className={ui.ghost}>Tandai ditinjau</button>}
                   {!isContact && String(lead.status) !== 'contacted' && <button type="button" disabled={busy === id} onClick={() => review(id, 'contacted')} className={ui.ghost}>Sudah dihubungi</button>}
                   {!isContact && String(lead.status) !== 'approved' && <button type="button" disabled={busy === id} onClick={() => review(id, 'approved')} className={ui.btn}>Setujui mitra</button>}
@@ -786,12 +832,100 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
       </div>
 
       <div className={ui.card}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Direktori notaris mitra</h3>
+          <span className="text-xs text-[#a18a61]">{notaryDirectoryActive} aktif · tayang publik di <a href="/notaris" className="font-semibold text-[#0b3d2e] underline">/notaris</a></span>
+        </div>
+        <p className="mt-2 text-sm leading-6 text-[#65706c]">
+          Notaris yang disetujui otomatis tayang di direktori (dipetakan per kecamatan/kabupaten). Rekomendasi bersifat opsional — tidak wajib dipakai pengguna.
+        </p>
+        {!loading && !notaryDirectory.length && <div className="mt-3"><Empty text="Belum ada notaris mitra. Setujui pengajuan jenis Notaris/PPAT untuk mempublikasikannya." /></div>}
+        <div className="mt-3 space-y-3">
+          {notaryDirectory.map((row) => {
+            const id = String(row.id)
+            const areas = Array.isArray(row.notary_areas) ? (row.notary_areas as Array<Record<string, unknown>>).map((area) => areaLabel(area)).filter(Boolean) : []
+            const active = String(row.status) === 'active'
+            return (
+              <div key={id} className="rounded-xl border border-[#eee7dc] p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-[#20332c]">{notaryLabel(row)}</p>
+                      <span className={ui.badge + (active ? ' bg-[#edf2ed] text-[#2f6a4f]' : ' bg-[#f3efe7] text-[#8a7f6a]')}>{active ? 'Aktif' : String(row.status ?? 'nonaktif')}</span>
+                      {row.featured ? <span className="text-[10px] font-bold uppercase tracking-wide text-[#9b762a]">Unggulan</span> : null}
+                    </div>
+                    <p className="mt-1 text-xs text-[#718078]">{[row.name, row.sk_no ? 'SK: ' + String(row.sk_no) : '', row.phone, row.email].filter(Boolean).map(String).join(' · ')}</p>
+                    <p className="mt-0.5 text-xs text-[#718078]">Area: {areas.length ? areas.join(' · ') : 'belum dicantumkan'}</p>
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {!active && <button type="button" disabled={busy === id} onClick={() => updateNotary(id, { status: 'active' })} className={ui.btn}>Tayangkan</button>}
+                  {active && <button type="button" disabled={busy === id} onClick={() => updateNotary(id, { status: 'inactive' })} className={ui.ghost}>Nonaktifkan</button>}
+                  <button type="button" disabled={busy === id} onClick={() => updateNotary(id, { featured: !row.featured })} className={ui.ghost}>{row.featured ? 'Hapus unggulan' : 'Tandai unggulan'}</button>
+                  {row.email ? <a href={'mailto:' + String(row.email)} className={ui.ghost}>Email notaris</a> : null}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className={ui.card}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Pengajuan pendampingan notaris</h3>
+          <span className="text-xs text-[#a18a61]">{notaryRequestsOpen} perlu ditindak · {notaryRequests.length} total</span>
+        </div>
+        <p className="mt-2 text-sm leading-6 text-[#65706c]">
+          Diajukan pembeli yang <strong>siap bertransaksi</strong>, agen, atau pemilik properti. Tindak lanjut: arahkan notaris mitra di wilayah terkait, lalu kirim update ke pengaju (in-app).
+        </p>
+        {!loading && !notaryRequests.length && <div className="mt-3"><Empty text="Belum ada pengajuan pendampingan notaris." /></div>}
+        <div className="mt-3 space-y-3">
+          {notaryRequests.map((row) => {
+            const id = String(row.id)
+            const meta = NOTARY_REQUEST_STATUS_META[String(row.status)] ?? NOTARY_REQUEST_STATUS_META.submitted
+            const sourceLabel = String(row.source) === 'agent' ? 'Agen' : String(row.source) === 'owner' ? 'Pemilik' : String(row.source) === 'admin' ? 'Tim Homy' : 'Calon pembeli/penyewa'
+            return (
+              <div key={id} className="rounded-xl border border-[#eee7dc] p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-[#20332c]">{String(row.buyer_name ?? 'Tanpa nama')}</p>
+                      <span className={ui.badge + ' bg-[#f3efe7] text-[#8a7f6a]'}>{sourceLabel}</span>
+                      {row.intent ? <span className="text-xs text-[#718078]">{String(row.intent) === 'rent' ? 'Sewa' : 'Beli'}</span> : null}
+                    </div>
+                    <p className="mt-1 text-xs text-[#718078]">{[row.contact_phone, row.contact_email].filter(Boolean).map(String).join(' · ') || 'Kontak tidak dicatat'}</p>
+                    <p className="mt-0.5 text-xs text-[#718078]">Wilayah: {[row.kecamatan, row.kabupaten, row.province].filter(Boolean).map(String).join(', ') || '—'}</p>
+                    {row.property_id ? <a href={'/property/' + String(row.property_id)} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-[#0b3d2e] underline">Properti terkait</a> : null}
+                  </div>
+                  <span className={ui.badge + ' h-fit shrink-0 ' + meta.tone}>{meta.label}</span>
+                </div>
+                {row.message ? <p className="mt-2 rounded-lg bg-[#f7f3ec] p-3 text-sm text-[#33433d]">{String(row.message)}</p> : null}
+                <p className="mt-2 text-xs text-[#a18a61]">Masuk {shortDate(String(row.created_at ?? ''))}</p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <select value={requestNotary[id] ?? ''} onChange={(event) => setRequestNotary({ ...requestNotary, [id]: event.target.value })} className={ui.input + ' h-9 w-56 py-0'}>
+                    <option value="">— Arahkan notaris mitra —</option>
+                    {notaryDirectory.filter((notary) => String(notary.status) === 'active').map((notary) => (
+                      <option key={String(notary.id)} value={String(notary.id)}>{notaryLabel(notary)}</option>
+                    ))}
+                  </select>
+                  <input value={notes[id] ?? ''} onChange={(event) => setNotes({ ...notes, [id]: event.target.value })} placeholder="Catatan tindak lanjut (opsional)" className={ui.input + ' h-9 max-w-xs py-0'} />
+                  {['recommended', 'contacted', 'assigned', 'completed'].filter((next) => next !== String(row.status)).map((next) => (
+                    <button key={next} type="button" disabled={busy === id} onClick={() => updateNotaryRequest(id, next)} className={next === 'completed' ? ui.btn : ui.ghost}>{NOTARY_REQUEST_STATUS_META[next]?.label ?? next}</button>
+                  ))}
+                  {String(row.status) !== 'cancelled' && <button type="button" disabled={busy === id} onClick={() => updateNotaryRequest(id, 'cancelled')} className={ui.ghost}>Batalkan</button>}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className={ui.card}>
         <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Prosedur follow-up partnership</h3>
         <ul className="mt-3 space-y-2 text-sm leading-6 text-[#33443d]">
           <li>1. Verifikasi identitas &amp; legalitas (KTP/izin usaha) sebelum menandai <strong>Disetujui</strong>.</li>
           <li>2. Untuk agensi/institusi, catat skema komisi bertingkat pada catatan verifikasi.</li>
-          <li>3. Untuk Notaris/PPAT, verifikasi SK Kemenkumham / keanggotaan INI &amp; wilayah kerja sebelum disetujui.</li>
-          <li>3. Setelah disetujui, minta mitra menandatangani Surat Perjanjian Kerja Sama di halaman <a href="/verify?role=agent&next=/list" className="font-semibold text-[#0b3d2e] underline">Perjanjian</a>.</li>
+          <li>3. Untuk Notaris/PPAT, verifikasi SK Kemenkumham / keanggotaan INI &amp; wilayah kerja sebelum disetujui — notaris yang disetujui otomatis tayang di <a href="/notaris" className="font-semibold text-[#0b3d2e] underline">direktori notaris</a>.</li>
           <li>4. Setelah disetujui, minta mitra menandatangani Surat Perjanjian Kerja Sama di halaman <a href="/verify?role=agent&next=/list" className="font-semibold text-[#0b3d2e] underline">Perjanjian</a>.</li>
           <li>5. Komisi wajib: Agen 0,5% dan Pemilik Properti 2% dari harga transaksi final.</li>
           <li>6. Semua tindakan moderasi tercatat otomatis di <strong>Log Audit</strong>.</li>

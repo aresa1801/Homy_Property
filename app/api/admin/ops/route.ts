@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { notifyUser } from '@/lib/notifications'
+import { sendPartnerStatusEmail } from '@/lib/email'
+import { sanitizeAreas, NOTARY_REQUEST_STATUS_META } from '@/lib/notary'
 
 const ADMIN_ROLES = ['admin', 'super_admin']
 const SUPER_ROLES = ['super_admin']
@@ -65,12 +67,168 @@ export async function POST(request: Request) {
     if (!['reviewing', 'contacted', 'approved', 'rejected'].includes(status)) {
       return NextResponse.json({ error: 'Status pengajuan tidak valid' }, { status: 400 })
     }
-    const { data: before } = await admin.from('partner_leads').select('id,kind,full_name,status').eq('id', id).maybeSingle()
+    const { data: before } = await admin
+      .from('partner_leads')
+      .select('id,kind,full_name,email,phone,company,position,city,province,website,license_no,entity_type,npwp,coverage_area,services,focus_areas,user_id,metadata,status')
+      .eq('id', id)
+      .maybeSingle()
     if (!before) return NextResponse.json({ error: 'Pengajuan kemitraan tidak ditemukan' }, { status: 404 })
-    const { error } = await admin.from('partner_leads').update({ status, review_note: note || null, reviewed_by: actor.id, reviewed_at: now, updated_at: now }).eq('id', id)
+    if (status === 'rejected' && !note) {
+      return NextResponse.json({ error: 'Catatan alasan wajib diisi agar bisa dikirim ke calon mitra' }, { status: 400 })
+    }
+
+    // 1) Kirim balasan email ke calon mitra (best effort).
+    const mail = await sendPartnerStatusEmail({
+      to: String(before.email ?? ''),
+      fullName: before.full_name,
+      kind: before.kind,
+      status: status as 'reviewing' | 'contacted' | 'approved' | 'rejected',
+      note: note || null,
+    })
+
+    const { error } = await admin
+      .from('partner_leads')
+      .update({
+        status,
+        review_note: note || null,
+        reviewed_by: actor.id,
+        reviewed_at: now,
+        updated_at: now,
+        last_emailed_at: mail.skipped ? null : now,
+        last_email_status: mail.ok ? 'sent' : mail.skipped ? 'skipped' : 'failed',
+        last_email_subject: mail.subject ?? null,
+      })
+      .eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     const action = status === 'approved' ? 'partnership.approved' : status === 'rejected' ? 'partnership.rejected' : 'partnership.' + status
-    await audit(action, 'partner_lead', id, { previous_status: before.status, kind: before.kind, note })
+    await audit(action, 'partner_lead', id, { previous_status: before.status, kind: before.kind, note, email: mail.ok ? 'sent' : mail.skipped ? 'skipped' : 'failed' })
+
+    // 2) Notaris yang disetujui otomatis tayang di direktori notaris (mitra legal).
+    let notaryId: string | null = null
+    if (String(before.kind) === 'notary') {
+      const metadata = (before.metadata ?? {}) as Record<string, unknown>
+      const structured = sanitizeAreas(metadata.areas)
+      const fromCoverage = String(before.coverage_area ?? '')
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .slice(0, 6)
+        .map((name) => ({ province: String(before.province ?? ''), kabupaten: name, kecamatan: '' }))
+      const areas = structured.length ? structured : fromCoverage
+      const notaryRecord = {
+        lead_id: id,
+        user_id: before.user_id ?? null,
+        name: String(before.full_name ?? 'Notaris'),
+        office_name: before.company ?? null,
+        sk_no: before.license_no ?? null,
+        entity_type: before.entity_type ?? null,
+        npwp: before.npwp ?? null,
+        phone: before.phone ?? null,
+        whatsapp: before.phone ?? null,
+        email: before.email ?? null,
+        website: before.website ?? null,
+        province: areas[0]?.province || before.province || null,
+        kabupaten: areas[0]?.kabupaten || null,
+        kecamatan: areas[0]?.kecamatan || null,
+        services: before.services ?? null,
+        focus_areas: before.focus_areas ?? null,
+        updated_at: now,
+      }
+      if (status === 'approved') {
+        const { data: existing } = await admin.from('notaries').select('id').eq('lead_id', id).maybeSingle()
+        if (existing?.id) {
+          notaryId = String(existing.id)
+          await admin.from('notaries').update({ ...notaryRecord, status: 'active', verified_at: now, verified_by: actor.id }).eq('id', notaryId)
+        } else {
+          const { data: inserted, error: insertError } = await admin
+            .from('notaries')
+            .insert({ ...notaryRecord, status: 'active', verified_at: now, verified_by: actor.id })
+            .select('id')
+            .single()
+          if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 })
+          notaryId = String(inserted.id)
+        }
+        await admin.from('notary_areas').delete().eq('notary_id', notaryId)
+        if (areas.length) {
+          await admin.from('notary_areas').insert(
+            areas.map((area) => ({
+              notary_id: notaryId,
+              province: area.province || before.province || null,
+              kabupaten: area.kabupaten || null,
+              kecamatan: area.kecamatan || null,
+            })),
+          )
+        }
+        await audit('notary.published', 'notary', notaryId, { lead_id: id, areas: areas.length })
+      } else if (status === 'rejected') {
+        const { data: existing } = await admin.from('notaries').select('id').eq('lead_id', id).maybeSingle()
+        if (existing?.id) {
+          notaryId = String(existing.id)
+          await admin.from('notaries').update({ status: 'inactive', updated_at: now }).eq('id', notaryId)
+          await audit('notary.unpublished', 'notary', notaryId, { lead_id: id, reason: 'lead_rejected' })
+        }
+      }
+    }
+
+    return NextResponse.json({ ok: true, status, id, email: mail.ok ? 'sent' : mail.skipped ? 'skipped' : 'failed', notary_id: notaryId })
+  }
+
+  // ---------- Direktori notaris (aktif/nonaktif + sunting) ----------
+  if (kind === 'notary.update') {
+    const id = String(body.id ?? '')
+    if (!id) return NextResponse.json({ error: 'ID notaris wajib' }, { status: 400 })
+    const patch: Record<string, unknown> = { updated_at: now }
+    if (body.status !== undefined) {
+      const status = String(body.status)
+      if (!['active', 'inactive', 'pending'].includes(status)) return NextResponse.json({ error: 'Status notaris tidak valid' }, { status: 400 })
+      patch.status = status
+    }
+    if (typeof body.featured === 'boolean') patch.featured = body.featured
+    for (const key of ['notes', 'name', 'office_name', 'sk_no', 'phone', 'whatsapp', 'email', 'website', 'address', 'province', 'kabupaten', 'kecamatan', 'services', 'focus_areas']) {
+      if (typeof body[key] === 'string') patch[key] = String(body[key]).trim().slice(0, 400) || null
+    }
+    const { error } = await admin.from('notaries').update(patch).eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (Array.isArray(body.areas)) {
+      const areas = sanitizeAreas(body.areas)
+      await admin.from('notary_areas').delete().eq('notary_id', id)
+      if (areas.length) {
+        await admin.from('notary_areas').insert(areas.map((area) => ({ notary_id: id, province: area.province || null, kabupaten: area.kabupaten || null, kecamatan: area.kecamatan || null })))
+      }
+    }
+    await audit('notary.updated', 'notary', id, { ...patch, areas: Array.isArray(body.areas) ? body.areas.length : undefined })
+    return NextResponse.json({ ok: true, id })
+  }
+
+  // ---------- Pengajuan pendampingan notaris (tindak lanjut tim Homy) ----------
+  if (kind === 'notary_request.update') {
+    const id = String(body.id ?? '')
+    if (!id) return NextResponse.json({ error: 'ID pengajuan notaris wajib' }, { status: 400 })
+    const status = String(body.status ?? '')
+    if (!Object.keys(NOTARY_REQUEST_STATUS_META).includes(status)) {
+      return NextResponse.json({ error: 'Status pengajuan tidak valid' }, { status: 400 })
+    }
+    const { data: before } = await admin.from('notary_requests').select('id,user_id,status,property_id,kecamatan,kabupaten,province').eq('id', id).maybeSingle()
+    if (!before) return NextResponse.json({ error: 'Pengajuan notaris tidak ditemukan' }, { status: 404 })
+    const notaryId = String(body.notary_id ?? '').trim() || null
+    const { error } = await admin
+      .from('notary_requests')
+      .update({ status, admin_note: note || null, notary_id: notaryId, handled_by: actor.id, handled_at: now, updated_at: now })
+      .eq('id', id)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    await audit('notary_request.' + status, 'notary_request', id, { previous_status: before.status, note, notary_id: notaryId })
+    if (before.user_id) {
+      try {
+        await notifyUser({
+          userId: String(before.user_id),
+          kind: 'notary.recommended',
+          title: 'Update pengajuan notaris/PPAT Anda',
+          body: NOTARY_REQUEST_STATUS_META[status]?.label ? `Status: ${NOTARY_REQUEST_STATUS_META[status].label}` : status,
+          href: '/notaris',
+          data: { notary_request_id: id, status },
+        })
+      } catch { /* best effort */ }
+    }
     return NextResponse.json({ ok: true, status, id })
   }
 

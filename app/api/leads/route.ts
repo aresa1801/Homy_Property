@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { rateLimit, clientKey } from '@/lib/rate-limit'
 import { PARTNER_KIND_ORDER } from '@/lib/partnership'
+import { sanitizeAreas } from '@/lib/notary'
 
 const KINDS = [...PARTNER_KIND_ORDER, 'contact']
 /** Jenis yang wajib melampirkan nama badan/kantor. */
@@ -52,6 +53,10 @@ export async function POST(request: Request) {
   if (kind !== 'contact' && !phone) return NextResponse.json({ error: 'Nomor telepon wajib diisi' }, { status: 400 })
   if (kind === 'contact' && message.length < 10) return NextResponse.json({ error: 'Pesan minimal 10 karakter' }, { status: 400 })
   if (REQUIRES_COMPANY.includes(kind) && !company) return NextResponse.json({ error: 'Nama lembaga/kantor wajib diisi' }, { status: 400 })
+  const areas = kind === 'notary' ? sanitizeAreas(body.areas) : []
+  if (kind === 'notary' && areas.length === 0) {
+    return NextResponse.json({ error: 'Wilayah kerja notaris wajib diisi minimal satu (provinsi/kabupaten/kecamatan)' }, { status: 400 })
+  }
   if (kind !== 'contact' && body.agree_terms !== true) return NextResponse.json({ error: 'Persetujuan Syarat & Ketentuan wajib dicentang' }, { status: 400 })
 
   const admin = serviceClient()
@@ -90,6 +95,7 @@ export async function POST(request: Request) {
         user_agent: request.headers.get('user-agent')?.slice(0, 200) ?? null,
         contact_time: clean(body.contact_time, 60) || null,
         volume: clean(body.volume, 60) || null,
+        ...(areas.length ? { areas } : {}),
       },
     })
     .select('id,kind,status,created_at')
