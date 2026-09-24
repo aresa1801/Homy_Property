@@ -7,6 +7,7 @@ import { MetricCard } from '@/components/dashboard-shell'
 import { ModerationQueue } from '@/components/moderation-queue'
 import type { BoardProps } from '@/components/dashboard/boards-listing'
 import { adminAction, rupiah, shortDate, shortDateTime, ui, useDashboard, type DashboardSetting } from '@/lib/dashboard-client'
+import { LEAD_KIND_BADGE, LEAD_STATUS_META } from '@/lib/partnership'
 
 type AdminType = 'admin' | 'super-admin'
 
@@ -652,23 +653,15 @@ export function AdminOverviewBoard({ type }: { type: AdminType }) {
 }
 
 
-const LEAD_KIND: Record<string, { label: string; className: string }> = {
-  agent: { label: 'Agen Properti', className: 'bg-[#eef3fa] text-[#3f6b9c]' },
-  owner: { label: 'Pemilik Properti', className: 'bg-[#edf2ed] text-[#4e866d]' },
-  agency: { label: 'Agensi / Broker', className: 'bg-[#f1ecfa] text-[#6a4fa3]' },
-  institution: { label: 'Institusi Korporat', className: 'bg-[#fdeee6] text-[#b4661f]' },
-  contact: { label: 'Pesan Kontak', className: 'bg-[#f2f0ea] text-[#718078]' },
-}
+const LEAD_KIND: Record<string, { label: string; className: string }> = Object.fromEntries(
+  Object.entries(LEAD_KIND_BADGE).map(([key, meta]) => [key, { label: meta.label, className: meta.tone }]),
+)
 
-const LEAD_STATUS: Record<string, { label: string; className: string }> = {
-  new: { label: 'Baru', className: 'bg-[#fff7e3] text-[#9b762a]' },
-  reviewing: { label: 'Ditinjau', className: 'bg-[#eef3fa] text-[#3f6b9c]' },
-  contacted: { label: 'Dihubungi', className: 'bg-[#f1ecfa] text-[#6a4fa3]' },
-  approved: { label: 'Disetujui', className: 'bg-[#edf2ed] text-[#4e866d]' },
-  rejected: { label: 'Ditolak', className: 'bg-[#fbeeec] text-[#b45c50]' },
-}
+const LEAD_STATUS: Record<string, { label: string; className: string }> = Object.fromEntries(
+  Object.entries(LEAD_STATUS_META).map(([key, meta]) => [key, { label: meta.label, className: meta.tone }]),
+)
 
-/** Halaman "Partnership": moderasi calon mitra (agen/pemilik/agensi/institusi) + pesan kontak. */
+/** Halaman "Partnership": moderasi calon mitra (agen/pemilik/agensi/institusi/notaris) + pesan kontak. */
 export function PartnershipBoard({ data, loading, reload }: BoardProps) {
   const leads = (data.partnerLeads ?? []) as unknown as Array<Record<string, unknown>>
   const [kind, setKind] = useState('all')
@@ -685,6 +678,7 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
 
   const pending = leads.filter((lead) => ['new', 'reviewing'].includes(String(lead.status))).length
   const institutions = leads.filter((lead) => ['agency', 'institution'].includes(String(lead.kind))).length
+  const notaries = leads.filter((lead) => String(lead.kind) === 'notary').length
   const contacts = leads.filter((lead) => String(lead.kind) === 'contact').length
 
   async function review(id: string, next: string) {
@@ -703,10 +697,11 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
         <MetricCard label="Total pengajuan" value={String(leads.length)} change="Dari halaman Open Partnership & Kontak" icon="users" />
         <MetricCard label="Perlu ditindak" value={String(pending)} change="Status baru / ditinjau" icon="flag" />
         <MetricCard label="Agensi & institusi" value={String(institutions)} change="Skema komisi khusus" icon="chart" />
+        <MetricCard label="Notaris / PPAT" value={String(notaries)} change="Mitra legal properti" icon="flag" />
         <MetricCard label="Pesan kontak" value={String(contacts)} change="Dari halaman Kontak" icon="message" />
       </div>
 
@@ -722,6 +717,7 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
               <option value="owner">Pemilik Properti</option>
               <option value="agency">Agensi / Broker</option>
               <option value="institution">Institusi Korporat</option>
+              <option value="notary">Notaris / PPAT</option>
               <option value="contact">Pesan Kontak</option>
             </select>
             <select value={status} onChange={(event) => setStatus(event.target.value)} className={ui.input + ' h-9 w-40 py-0'}>
@@ -761,6 +757,13 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
                       {lead.branches ? ' · ' + String(lead.branches) + ' cabang' : ''}
                       {lead.license_no ? ' · Izin: ' + String(lead.license_no) : ''}
                     </p>
+                    {(lead.entity_type || lead.coverage_area || lead.npwp || lead.founded_year || lead.team_size || lead.listings_ready || lead.preferred_contact) ? <p className="mt-0.5 text-xs text-[#718078]">
+                      {[lead.entity_type ? 'Badan: ' + String(lead.entity_type) : '', lead.coverage_area ? 'Wilayah: ' + String(lead.coverage_area) : '', lead.founded_year ? 'Berdiri ' + String(lead.founded_year) : '', lead.team_size ? String(lead.team_size) + ' personel' : '', lead.listings_ready ? 'Listing siap: ' + String(lead.listings_ready) : '', lead.npwp ? 'NPWP ' + String(lead.npwp) : '', lead.preferred_contact ? 'Kontak: ' + String(lead.preferred_contact) : ''].filter(Boolean).join(' · ')}
+                    </p> : null}
+                    {(lead.focus_areas || lead.services) ? <p className="mt-0.5 text-xs text-[#718078]">
+                      {[lead.focus_areas ? 'Fokus: ' + String(lead.focus_areas) : '', lead.services ? 'Layanan: ' + String(lead.services) : ''].filter(Boolean).join(' · ')}
+                    </p> : null}
+                    {lead.doc_url ? <a href={String(lead.doc_url).startsWith('http') ? String(lead.doc_url) : 'https://' + String(lead.doc_url)} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-[#0b3d2e] underline">Dokumen pendukung</a> : null}
                     {lead.website ? <a href={String(lead.website).startsWith('http') ? String(lead.website) : 'https://' + String(lead.website)} target="_blank" rel="noreferrer" className="mt-1 inline-block text-xs font-semibold text-[#0b3d2e] underline">{String(lead.website)}</a> : null}
                   </div>
                   <span className={ui.badge + ' h-fit shrink-0 ' + statusMeta.className}>{statusMeta.label}</span>
@@ -787,9 +790,11 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
         <ul className="mt-3 space-y-2 text-sm leading-6 text-[#33443d]">
           <li>1. Verifikasi identitas &amp; legalitas (KTP/izin usaha) sebelum menandai <strong>Disetujui</strong>.</li>
           <li>2. Untuk agensi/institusi, catat skema komisi bertingkat pada catatan verifikasi.</li>
+          <li>3. Untuk Notaris/PPAT, verifikasi SK Kemenkumham / keanggotaan INI &amp; wilayah kerja sebelum disetujui.</li>
           <li>3. Setelah disetujui, minta mitra menandatangani Surat Perjanjian Kerja Sama di halaman <a href="/verify?role=agent&next=/list" className="font-semibold text-[#0b3d2e] underline">Perjanjian</a>.</li>
-          <li>4. Komisi wajib: Agen 0,5% dan Pemilik Properti 2% dari harga transaksi final.</li>
-          <li>5. Semua tindakan moderasi tercatat otomatis di <strong>Log Audit</strong>.</li>
+          <li>4. Setelah disetujui, minta mitra menandatangani Surat Perjanjian Kerja Sama di halaman <a href="/verify?role=agent&next=/list" className="font-semibold text-[#0b3d2e] underline">Perjanjian</a>.</li>
+          <li>5. Komisi wajib: Agen 0,5% dan Pemilik Properti 2% dari harga transaksi final.</li>
+          <li>6. Semua tindakan moderasi tercatat otomatis di <strong>Log Audit</strong>.</li>
         </ul>
       </div>
     </div>

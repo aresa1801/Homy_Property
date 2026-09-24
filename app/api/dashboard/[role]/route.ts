@@ -201,7 +201,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       admin.from('audit_logs').select('id,actor_id,action,entity_type,entity_id,metadata,created_at').order('created_at', { ascending: false }).limit(80),
       role === 'super-admin' ? admin.from('feature_flags').select('key,label,description,enabled,rollout,updated_at').order('key') : Promise.resolve({ data: [] as unknown[] }),
       role === 'super-admin' ? admin.from('platform_settings').select('key,label,value,updated_at').order('key') : Promise.resolve({ data: [] as unknown[] }),
-      admin.from('partner_leads').select('id,kind,full_name,email,phone,company,position,city,province,website,branches,license_no,message,status,review_note,reviewed_at,created_at').order('created_at', { ascending: false }).limit(200),
+      admin.from('partner_leads').select('id,kind,full_name,email,phone,company,position,city,province,website,branches,license_no,entity_type,npwp,founded_year,team_size,listings_ready,coverage_area,services,focus_areas,preferred_contact,doc_url,agree_terms,message,status,review_note,reviewed_at,created_at,metadata').order('created_at', { ascending: false }).limit(200),
       admin.from('interest_confirmations').select('id,property_id,user_id,agent_id,owner_id,intent,readiness,stage,budget,budget_flexible,timeline,financing,down_payment,has_other_options,comparison_notes,priorities,deal_breakers,score,ai_verdict,ai_confidence,ai_summary,ai_signals,ai_analyzed_at,agent_notes,created_at,updated_at').order('updated_at', { ascending: false }).limit(300),
     ])
 

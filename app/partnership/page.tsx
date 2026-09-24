@@ -1,16 +1,21 @@
-import { ArrowRight, BadgeCheck, Building2, CheckCircle2, FileSignature, Handshake, LayoutDashboard, LineChart, Megaphone, Network, ShieldCheck, Sparkles, Store, Users } from 'lucide-react'
+import { ArrowRight, BadgeCheck, Building2, CheckCircle2, FileSignature, Handshake, LayoutDashboard, LineChart, Megaphone, Network, Scale, ShieldCheck, Sparkles, Store, Users, type LucideIcon } from 'lucide-react'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 import { BcaPaymentCard } from '@/components/bca-payment-card'
 import { PartnershipForm } from '@/components/partnership-form'
+import { PARTNER_KIND_ORDER, PARTNER_KINDS, type PartnerKind } from '@/lib/partnership'
 
 export const metadata = { title: 'Open Partnership — Homy Property' }
 
-const TYPES = [
-  { icon: Store, title: 'Agen Properti', commission: 'Komisi 0,5%', body: 'Profesional pemasaran properti yang membawa listing dan pembeli. Dapat dashboard CRM, analitik, dan penagihan komisi otomatis.', points: ['CRM prospek & jadwal kunjungan', 'Saran harga berbasis AI', 'Laporan transaksi 3 hari kerja'] },
-  { icon: Building2, title: 'Pemilik Properti', commission: 'Komisi 2%', body: 'Pemilik rumah, apartemen, ruko, atau tanah yang ingin menjual/menyewakan langsung tanpa perantara berlapis.', points: ['Pasang listing tanpa biaya', 'Moderasi cepat & transparan', 'Pantau pertanyaan & kunjungan'] },
-  { icon: Network, title: 'Agensi & Broker', commission: 'Multi-cabang', body: 'Jaringan agensi seperti Ray White atau LJ Hooker yang ingin menayangkan inventaris cabang di satu platform.', points: ['Dashboard per cabang', 'Feed listing terpusat', 'Laporan komisi per agent'] },
-  { icon: Handshake, title: 'Institusi Korporat', commission: 'Skema khusus', body: 'Developer, bank, koperasi, atau perusahaan dengan inventaris properti dan kebutuhan kerjasama jangka panjang.', points: ['Co-branding & halaman mitra', 'Integrasi API/CSV inventory', 'Account manager khusus'] },
+const KIND_ICON: Record<PartnerKind, LucideIcon> = { agent: Store, owner: Building2, agency: Network, institution: Handshake, notary: Scale }
+
+const TYPES = PARTNER_KIND_ORDER.map((kind) => ({ key: kind, icon: KIND_ICON[kind], ...PARTNER_KINDS[kind] }))
+
+const NOTARY_POINTS = [
+  'Prioritas penanganan AJB, PPAT, dan akta transaksi properti yang lahir dari platform Homy.',
+  'Referensi klien timbal balik: Homy mengarahkan pembeli/penyewa yang butuh legalitas, Anda dapat mengarahkan klien yang mencari properti.',
+  'Profil mitra legal resmi (nama kantor, wilayah kerja, layanan) tayang di direktori mitra Homy.',
+  'Tanpa biaya bergabung — kolaborasi murni berbasis rujukan dan kualitas layanan.',
 ]
 
 const STEPS = [
@@ -32,6 +37,7 @@ const FEATURES = [
 const FAQ = [
   { q: 'Apakah ada biaya bergabung?', a: 'Tidak. Pendaftaran mitra Homy Property gratis tanpa biaya langganan. Pendapatan kami murni dari komisi transaksi yang berhasil.' },
   { q: 'Bagaimana skema komisi akhirnya?', a: 'Agen 0,5% dan Pemilik Properti 2% dari harga transaksi final yang dilaporkan serta terverifikasi. Aggensi dan institusi dapat memperoleh skema bertingkat sesuai volume — dibahas saat onboarding.' },
+  { q: 'Apakah Homy bekerja sama dengan notaris atau PPAT?', a: 'Ya. Kami membuka kemitraan dengan notaris, PPAT, dan kantor hukum properti. Transaksi yang berjalan di Homy dapat diarahkan ke mitra notaris untuk pengurusan AJB, PPAT, dan balik nama, dan sebaliknya klien notaris dapat mencari properti di Homy. Pilih jenis kemitraan "Notaris / PPAT & Mitra Legal" saat mengajukan.' },
   { q: 'Bagaimana jika listing saya ditolak moderator?', a: 'Catatan moderator tampil di dashboard Anda dan listing dapat diajukan ulang setelah diperbaiki. Kami hanya menolak listing yang tidak akurat, duplikat, atau melanggar ketentuan.' },
   { q: 'Apakah transaksi wajib dilaporkan?', a: 'Ya. Perjanjian kerja sama mewajibkan pelaporan setiap transaksi maksimal 3 hari kerja sebagai dasar perhitungan komisi dan kepatuhan platform.' },
 ]
@@ -44,9 +50,10 @@ export default function PartnershipPage() {
         <div className="mx-auto max-w-7xl px-5 lg:px-8">
           <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c9a961]">Open Partnership</p>
           <h1 className="mt-3 max-w-3xl font-serif text-2xl sm:text-4xl leading-tight md:text-6xl">Tumbuh bersama Homy Property.</h1>
-          <p className="mt-5 max-w-2xl leading-8 text-white/75">Bergabung sebagai agen, pemilik, agensi, atau institusi properti. Satu platform untuk listing, prospek, komisi, dan pelaporan — dengan biaya bergabung Rp 0.</p>
+          <p className="mt-5 max-w-2xl leading-8 text-white/75">Bergabung sebagai agen, pemilik, agensi, institusi, hingga notaris/PPAT. Satu platform untuk listing, prospek, komisi, legalitas, dan pelaporan — dengan biaya bergabung Rp 0.</p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a href="#daftar" className="inline-flex items-center gap-2 rounded-full bg-[#c9a961] px-6 py-3 text-sm font-semibold text-[#0b3d2e] transition hover:bg-[#e1c67e]">Daftar sekarang <ArrowRight className="size-4" /></a>
+            <a href="#notaris" className="inline-flex items-center gap-2 rounded-full border border-white/25 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10">Kemitraan notaris</a>
             <a href="#institusi" className="inline-flex items-center gap-2 rounded-full border border-white/25 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10">Kerjasama institusi</a>
           </div>
           <div className="mt-8 sm:mt-12 grid gap-4 border-t border-white/15 pt-8 sm:grid-cols-2 xl:grid-cols-4">
@@ -60,15 +67,15 @@ export default function PartnershipPage() {
       <section className="mx-auto max-w-7xl px-5 py-9 sm:py-14 lg:px-8">
         <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c09b54]">Jenis kemitraan</p>
         <h2 className="mt-2 font-serif text-2xl sm:text-4xl text-[#0b3d2e]">Pilih jalur yang paling sesuai.</h2>
-        <div className="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          {TYPES.map(({ icon: Icon, title, commission, body, points }) => (
-            <article key={title} className="flex flex-col rounded-2xl bg-white p-4 sm:p-6 shadow-[0_10px_35px_rgba(20,42,32,.06)]">
+        <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {TYPES.map(({ icon: Icon, short, commission, blurb, highlights }) => (
+            <article key={short} className="flex flex-col rounded-2xl bg-white p-4 sm:p-6 shadow-[0_10px_35px_rgba(20,42,32,.06)]">
               <span className="grid size-12 place-items-center rounded-xl bg-[#edf2ed] text-[#0b3d2e]"><Icon /></span>
-              <h3 className="mt-5 font-serif text-xl sm:text-2xl text-[#0b3d2e]">{title}</h3>
+              <h3 className="mt-5 font-serif text-xl text-[#0b3d2e] sm:text-2xl">{short}</h3>
               <span className="mt-2 w-fit rounded-full bg-[#fff7e3] px-3 py-1 text-xs font-semibold text-[#9b762a]">{commission}</span>
-              <p className="mt-3 text-sm leading-6 text-[#65706c]">{body}</p>
+              <p className="mt-3 text-sm leading-6 text-[#65706c]">{blurb}</p>
               <ul className="mt-4 space-y-2 border-t border-[#f0e9df] pt-4">
-                {points.map((point) => <li key={point} className="flex gap-2 text-sm text-[#33433d]"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[#4e866d]" />{point}</li>)}
+                {highlights.map((point) => <li key={point} className="flex gap-2 text-sm text-[#33433d]"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[#4e866d]" />{point}</li>)}
               </ul>
             </article>
           ))}
@@ -97,6 +104,24 @@ export default function PartnershipPage() {
                 </div>
               ))}
             </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="notaris" className="border-y border-[#e8dfd3] bg-[#0b3d2e] py-9 text-white sm:py-14">
+        <div className="mx-auto grid max-w-7xl gap-6 px-5 sm:gap-10 lg:grid-cols-[1fr_1fr] lg:px-8">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c9a961]">Kemitraan notaris &amp; PPAT</p>
+            <h2 className="mt-2 font-serif text-2xl leading-tight sm:text-4xl">Legalitas transaksi jadi lebih mudah.</h2>
+            <p className="mt-4 leading-7 text-white/75">Homy Property membuka kemitraan dengan notaris, PPAT, dan kantor hukum properti. Setiap transaksi jual-beli yang berjalan di platform dapat diarahkan ke mitra notaris untuk pengurusan akta, PPAT, dan balik nama — begitu pula sebaliknya, klien notaris yang mencari properti dapat menemukannya di Homy.</p>
+            <p className="mt-4 leading-7 text-white/75">Isi formulir kemitraan dengan memilih jenis <strong className="text-[#f6e2a8]">Notaris / PPAT &amp; Mitra Legal</strong>, lengkapi wilayah kerja dan layanan legal Anda (AJB, PPAT, legal review, sewa/PPJB, pendirian badan usaha, waris &amp; hibah).</p>
+            <a href="#daftar" className="mt-6 inline-flex items-center gap-2 rounded-full bg-[#c9a961] px-6 py-3 text-sm font-semibold text-[#0b3d2e] transition hover:bg-[#e1c67e]">Ajukan kemitraan notaris <ArrowRight className="size-4" /></a>
+          </div>
+          <div className="rounded-2xl bg-white/10 p-4 sm:p-6">
+            <p className="font-serif text-xl text-[#f6e2a8] sm:text-2xl">Yang Anda dapatkan</p>
+            <ul className="mt-4 space-y-3">
+              {NOTARY_POINTS.map((point) => <li key={point} className="flex gap-3 text-sm leading-6 text-white/80"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[#c9a961]" />{point}</li>)}
+            </ul>
           </div>
         </div>
       </section>
