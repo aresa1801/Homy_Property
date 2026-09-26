@@ -536,9 +536,9 @@ export async function generateAnalysis(target: AnalysisTarget, actorId: string, 
   const result = await aiJson<AnalysisResult>(
     [
       { role: 'system', content: `Kamu analis data platform properti Homy. Susun ANALISA untuk audiens: ${audienceText}. Gunakan HANYA data yang diberikan. Bahasa Indonesia, actionable, jujur (jangan melebih-lebihkan).` },
-      { role: 'user', content: `Target: ${label}\nDATA (JSON): ${context.slice(0, 12000)}\n\nHasilkan objek JSON dengan kunci: title (judul laporan singkat), summary (ringkasan 2-4 kalimat), metrics (objek angka penting), insights (array 3-6 temuan), recommendations (array 3-6 saran konkret), risks (array 0-4 risiko/peringatan).` },
+      { role: 'user', content: `Target: ${label}\nDATA (JSON): ${context.slice(0, 12000)}\n\nHasilkan objek JSON dengan kunci: title (judul singkat), summary (ringkasan 2-3 kalimat), metrics (objek angka penting, maks 6), insights (array maks 4 temuan), recommendations (array maks 4 saran konkret), risks (array maks 3 risiko). Ringkas & padat, jangan bertele-tele.` },
     ],
-    { temperature: 0.3, maxTokens: 1200 },
+    { temperature: 0.3, maxTokens: 2600 },
   )
   // Rapikan bentuk minimal agar UI tak pernah pecah.
   return {

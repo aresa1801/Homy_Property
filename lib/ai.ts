@@ -87,6 +87,51 @@ export async function aiChat(messages: AiMessage[], options: AiOptions = {}): Pr
   return { text, usage: payload.usage }
 }
 
+/** Perbaiki JSON yang terpotong/tak lengkap (umum dari model). */
+function repairJsonCandidate<T>(input: string): T | null {
+  let s = input.trim().replace(/^```(?:json)?/i, '').replace(/```\s*$/, '').trim()
+  const start = s.indexOf('{')
+  if (start < 0) return null
+  s = s.slice(start)
+  try { return JSON.parse(s) as T } catch { /* lanjut */ }
+  // (a) potong pada setiap '}' dari belakang (buang ekor yang bukan JSON)
+  const ends: number[] = []
+  let i = s.lastIndexOf('}')
+  while (i > 0 && ends.length < 400) { ends.push(i); i = s.lastIndexOf('}', i - 1) }
+  for (const e of ends) { try { return JSON.parse(s.slice(0, e + 1)) as T } catch { /* lanjut */ } }
+  // (b) seimbangkan kurung/kutip yang belum ditutup karena output terpotong
+  const balanced = balanceJson(s)
+  if (balanced) { try { return JSON.parse(balanced) as T } catch { /* gagal */ } }
+  return null
+}
+
+function balanceJson(input: string): string | null {
+  const stack: string[] = []
+  let inString = false
+  let escaped = false
+  let out = ''
+  for (const ch of input) {
+    out += ch
+    if (inString) {
+      if (escaped) escaped = false
+      else if (ch === '\\') escaped = true
+      else if (ch === '"') inString = false
+      continue
+    }
+    if (ch === '"') inString = true
+    else if (ch === '{' || ch === '[') stack.push(ch)
+    else if (ch === '}' || ch === ']') stack.pop()
+  }
+  if (!stack.length && !inString) return null
+  let result = out
+  if (inString) result += '"'
+  // buang pasangan kunci yang belum punya nilai, lalu koma menggantung
+  result = result.replace(/,?\s*"(?:[^"\\]|\\.)*"\s*$/, '')
+  result = result.replace(/,\s*$/, '')
+  for (let k = stack.length - 1; k >= 0; k -= 1) result += stack[k] === '{' ? '}' : ']'
+  return result
+}
+
 /** Ambil jawaban AI dalam bentuk objek JSON (mode json_object + parsing defensif). */
 export async function aiJson<T>(messages: AiMessage[], options: AiOptions = {}): Promise<T> {
   const { text } = await aiChat(
@@ -96,17 +141,9 @@ export async function aiJson<T>(messages: AiMessage[], options: AiOptions = {}):
     ],
     { ...options, json: true },
   )
-  const cleaned = text.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim()
-  try {
-    return JSON.parse(cleaned) as T
-  } catch {
-    const start = cleaned.indexOf('{')
-    const end = cleaned.lastIndexOf('}')
-    if (start >= 0 && end > start) {
-      try { return JSON.parse(cleaned.slice(start, end + 1)) as T } catch { /* fallthrough */ }
-    }
-    throw new AiError('Jawaban AI tidak dapat dibaca', 502, cleaned.slice(0, 300))
-  }
+  const repaired = repairJsonCandidate<T>(text)
+  if (repaired !== null) return repaired
+  throw new AiError('Jawaban AI tidak dapat dibaca', 502, text.slice(0, 300))
 }
 
 export const AI_DISCLAIMER = 'Perkiraan AI berdasarkan data listing Homy; bukan penilaian resmi (appraisal).'
