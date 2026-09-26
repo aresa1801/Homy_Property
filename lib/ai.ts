@@ -110,3 +110,64 @@ export async function aiJson<T>(messages: AiMessage[], options: AiOptions = {}):
 }
 
 export const AI_DISCLAIMER = 'Perkiraan AI berdasarkan data listing Homy; bukan penilaian resmi (appraisal).'
+
+/* ------------------------------------------------------------------ */
+/* Function-calling: dipakai oleh Homy AI Admin (agen yang sadar-database) */
+/* ------------------------------------------------------------------ */
+
+export type AiToolDef = {
+  type: 'function'
+  function: { name: string; description: string; parameters: Record<string, unknown> }
+}
+
+export type AiToolCall = { id: string; type: 'function'; function: { name: string; arguments: string } }
+export type AiAssistantMessage = { role: 'assistant'; content?: string | null; tool_calls?: AiToolCall[] }
+
+/**
+ * Chat completion dengan dukungan tool/function-calling.
+ * Mengembalikan pesan asisten mentah (berisi konten dan/atau daftar tool_calls).
+ */
+export async function aiToolChat(
+  messages: AiMessage[],
+  tools: AiToolDef[],
+  options: AiOptions = {},
+): Promise<{ message: AiAssistantMessage; usage?: DeepSeekResponse['usage'] }> {
+  const key = process.env.DEEPSEEK_API_KEY
+  if (!key) throw new AiError('AI belum dikonfigurasi: DEEPSEEK_API_KEY kosong', 503)
+
+  const body: Record<string, unknown> = {
+    model: AI_MODEL,
+    messages,
+    temperature: options.temperature ?? 0.2,
+    max_tokens: options.maxTokens ?? 1200,
+    stream: false,
+  }
+  if (tools.length) {
+    body.tools = tools
+    body.tool_choice = 'auto'
+  }
+
+  let response: Response
+  try {
+    response = await fetch(`${AI_BASE}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(options.timeoutMs ?? 55000),
+    })
+  } catch {
+    throw new AiError('Tidak bisa menghubungi layanan AI (timeout/jaringan)', 504)
+  }
+
+  const raw = await response.text()
+  type ToolPayload = { choices?: { message?: AiAssistantMessage }[]; error?: { message?: string }; usage?: DeepSeekResponse['usage'] }
+  let payload: ToolPayload = {}
+  try { payload = JSON.parse(raw) as ToolPayload } catch { payload = {} }
+  if (!response.ok) {
+    const detail = payload?.error?.message || raw.slice(0, 300)
+    throw new AiError('Layanan AI menolak permintaan', 502, detail)
+  }
+  const message = payload.choices?.[0]?.message
+  if (!message) throw new AiError('AI tidak mengembalikan jawaban', 502, raw.slice(0, 300))
+  return { message, usage: payload.usage }
+}

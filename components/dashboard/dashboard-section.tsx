@@ -6,6 +6,7 @@ import { AnalyticsBoard, LeadsBoard, ListingBoard } from '@/components/dashboard
 import { AgreementBoard, AvailabilityBoard, BillingBoard, CalendarBoard, ListLauncher } from '@/components/dashboard/boards-ops'
 import { AiBoard, AiConversationsBoard } from '@/components/dashboard/boards-ai'
 import { AiMonitorBoard, AuditBoard, FlagsBoard, ModerationBoard, PartnerSanctionsBoard, PartnershipBoard, PlatformBillingBoard, ReportsBoard, RolesBoard, SettingsBoard, UsersBoard } from '@/components/dashboard/boards-admin'
+import { AiAdminBoard } from '@/components/dashboard/boards-ai-admin'
 import { VerificationBoard, VerificationReviewBoard } from '@/components/dashboard/boards-verify'
 
 export type SectionRole = 'agent' | 'property-owner' | 'admin' | 'super-admin'
@@ -48,6 +49,7 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
     verifications: { eyebrow: 'Kemitraan', title: 'Verifikasi Agen & Pemilik', description: 'Tinjau pengajuan verifikasi mitra: data diri, alamat domisili, dokumen identitas (KTP/SIM), ketersediaan waktu, dan Perjanjian Kerja Sama yang sudah ditandatangani. Setujui untuk mengaktifkan peran mitra.' },
     partnership: { eyebrow: 'Kemitraan', title: 'Calon Mitra & Partnership', description: 'Pengajuan kemitraan dari halaman Open Partnership (agen, pemilik, agensi, institusi, notaris/PPAT) dan pesan dari halaman Kontak: verifikasi, hubungi, setujui, atau tolak — keputusan otomatis mengirim email balasan ke calon mitra. Notaris yang disetujui tayang di direktori /notaris, dan pengajuan pendampingan notaris ditindaklanjuti di sini.' },
     sanctions: { eyebrow: 'Disiplin', title: 'Sanksi & Teguran Mitra', description: 'Jatuhkan hukuman berjenjang kepada Agen & Mitra yang melanggar: Teguran, Peringatan, Suspend, hingga Blokir. Dipakai untuk pelanggaran etika, komisi yang tidak dibayar, atau pelanggaran aturan perjanjian kerja sama.' },
+    'ai-admin': { eyebrow: 'Kecerdasan Buatan', title: 'Homy AI Admin', description: 'Asisten AI yang bertindak sebagai admin: mengetahui seluruh database Homy, bisa menjawab pertanyaan operasional dari data nyata, berinteraksi dengan pengguna (kirim notifikasi, balas pertanyaan), serta menyusun analisa untuk Agen, Pemilik Properti, dan Mitra lainnya.' },
   },
   'super-admin': {
     verifications: { eyebrow: 'Kemitraan', title: 'Verifikasi Agen & Pemilik', description: 'Tinjau pengajuan verifikasi mitra: data diri, alamat domisili, dokumen identitas (KTP/SIM), ketersediaan waktu, dan Perjanjian Kerja Sama. Setujui untuk mengaktifkan peran mitra.' },
@@ -58,6 +60,7 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
     flags: { eyebrow: 'Rilis', title: 'Feature Flag', description: 'Nyalakan atau matikan fitur platform dan atur bertahap (rollout) tanpa perlu deploy ulang.' },
     partnership: { eyebrow: 'Kemitraan', title: 'Calon Mitra & Partnership', description: 'Pengajuan kemitraan dari halaman Open Partnership (agen, pemilik, agensi, institusi korporat seperti Ray White/LJ Hooker) dan pesan dari halaman Kontak: verifikasi, hubungi, setujui, atau tolak.' },
     sanctions: { eyebrow: 'Disiplin', title: 'Sanksi & Teguran Mitra', description: 'Jatuhkan hukuman berjenjang kepada Agen & Mitra yang melanggar: Teguran, Peringatan, Suspend, hingga Blokir. Dipakai untuk pelanggaran etika, komisi yang tidak dibayar, atau pelanggaran aturan perjanjian kerja sama.' },
+    'ai-admin': { eyebrow: 'Kecerdasan Buatan', title: 'Homy AI Admin', description: 'Asisten AI yang bertindak sebagai admin: mengetahui seluruh database Homy, bisa menjawab pertanyaan operasional dari data nyata, berinteraksi dengan pengguna (kirim notifikasi, balas pertanyaan), serta menyusun analisa untuk Agen, Pemilik Properti, dan Mitra lainnya.' },
   },
 }
 
@@ -95,6 +98,7 @@ export function DashboardSection({ role, section }: { role: SectionRole; section
       if (section === 'audit') return <AuditBoard data={data} loading={loading} reload={reload} />
       if (section === 'partnership') return <PartnershipBoard data={data} loading={loading} reload={reload} />
       if (section === 'sanctions') return <PartnerSanctionsBoard data={data} loading={loading} reload={reload} type={type} />
+      if (section === 'ai-admin') return <AiAdminBoard data={data} loading={loading} reload={reload} type={type} />
       if (section === 'verifications') return <VerificationReviewBoard data={data} loading={loading} reload={reload} />
       return null
     }
