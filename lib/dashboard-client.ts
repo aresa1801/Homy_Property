@@ -124,6 +124,28 @@ export type DashboardUser = {
   created_at?: string
   listings?: number
   verification?: string
+  role_status?: string | null
+}
+
+/** Sanksi mitra (teguran / peringatan / suspend / blokir). */
+export type DashboardSanction = {
+  id: string
+  user_id?: string | null
+  role?: string | null
+  level?: number | null
+  kind?: string | null
+  category?: string | null
+  reason?: string | null
+  note?: string | null
+  status?: string | null
+  starts_at?: string | null
+  ends_at?: string | null
+  created_by?: string | null
+  lifted_by?: string | null
+  lifted_at?: string | null
+  created_at?: string | null
+  user?: { name?: string; email?: string; phone?: string } | null
+  created_by_user?: { name?: string; email?: string } | null
 }
 
 export type DashboardReport = {
@@ -311,6 +333,7 @@ export type DashboardPayload = {
   notaries?: DashboardNotary[]
   notaryRequests?: DashboardNotaryRequest[]
   verifications?: DashboardVerification[]
+  sanctions?: DashboardSanction[]
   ai?: { configured?: boolean; model?: string; listingsWithSummary?: number; listingsWithoutMedia?: number; amenitiesCoverage?: number }
 }
 

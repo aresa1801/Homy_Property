@@ -17,6 +17,15 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
 
+  // Mitra yang disuspend/diblokir tidak boleh mengajukan ulang listing.
+  {
+    const { data: sancState } = await supabase.rpc('partner_sanction_state', { p_uid: user.id })
+    const pstate = String((sancState as Record<string, unknown> | null)?.state ?? 'active')
+    if (pstate === 'suspend' || pstate === 'blokir') {
+      return NextResponse.json({ error: 'Akun mitra Anda sedang dibatasi sehingga belum bisa mengajukan listing.' }, { status: 403 })
+    }
+  }
+
   // RLS: pemilik bisa membaca listingnya sendiri walau belum published.
   const { data: listing } = await supabase
     .from('properties')

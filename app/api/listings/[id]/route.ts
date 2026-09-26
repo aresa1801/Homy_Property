@@ -65,6 +65,21 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (error === 'missing') return NextResponse.json({ error: 'Listing tidak ditemukan.' }, { status: 404 })
   if (error === 'forbidden') return NextResponse.json({ error: 'Listing ini bukan milik Anda.' }, { status: 403 })
   if (error === 'query') return NextResponse.json({ error: 'Gagal memuat listing.' }, { status: 502 })
+  if (!user) return NextResponse.json({ error: 'Masuk dulu untuk mengubah listing.', needsAuth: true }, { status: 401 })
+
+  // Mitra yang sedang disuspend/diblokir tidak boleh mengubah listing.
+  {
+    const { data: sancState } = await supabase.rpc('partner_sanction_state', { p_uid: user.id })
+    const pstate = String((sancState as Record<string, unknown> | null)?.state ?? 'active')
+    if (pstate === 'suspend' || pstate === 'blokir') {
+      return NextResponse.json({
+        error: pstate === 'blokir'
+          ? 'Akun mitra Anda diblokir sehingga belum bisa mengubah listing. Hubungi tim Homy.'
+          : 'Akun mitra Anda sedang ditangguhkan sementara sehingga belum bisa mengubah listing.',
+        needsReview: true,
+      }, { status: 403 })
+    }
+  }
 
   let body: Row = {}
   try { body = (await request.json()) as Row } catch { /* kosong */ }

@@ -32,7 +32,7 @@ async function counterpartProfiles(ids: string[]) {
   return map
 }
 
-const empty = { metrics: {}, properties: [], inquiries: [], visits: [], rentals: [], payments: [], reports: [], audit: [], transactions: [], partnerLeads: [], availability: [], notaries: [], notaryRequests: [] }
+const empty = { metrics: {}, properties: [], inquiries: [], visits: [], rentals: [], payments: [], reports: [], audit: [], transactions: [], partnerLeads: [], availability: [], notaries: [], notaryRequests: [], sanctions: [] }
 
 export async function GET(_request: Request, { params }: { params: Promise<{ role: string }> }) {
   const { role } = await params
@@ -191,12 +191,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     if (!admin) {
       return NextResponse.json({ ...base, forbidden: true, metrics: { pendingApprovals: 0, published: 0, rejected: 0, activeUsers: 0, openReports: 0 } })
     }
-    const [rows, media, adminReports, profiles, roleRows, transactions, audit, flags, settings, partnerLeads, adminInterests, notaries, notaryRequests] = await Promise.all([
+    const [rows, media, adminReports, profiles, roleRows, transactions, audit, flags, settings, partnerLeads, adminInterests, notaries, notaryRequests, sanctionRows] = await Promise.all([
       admin.from('properties').select('id,title,address,city,province,district,listing_type,property_type,price,price_period,status,owner_id,created_at,moderation_note,verified_at,ai_summary').order('created_at', { ascending: false }).limit(200),
       admin.from('property_media').select('property_id').limit(3000),
       admin.from('moderation_reports').select('id,property_id,reported_user_id,reason,status,resolution_note,created_at').order('created_at', { ascending: false }).limit(50),
       admin.from('profiles').select('id,full_name,phone,role,created_at').limit(500),
-      admin.from('user_roles').select('user_id,role').limit(2000),
+      admin.from('user_roles').select('user_id,role,status').limit(2000),
       admin.from('transaction_reports').select('id,user_id,role,property_id,property_title,buyer_name,buyer_contact,sale_price,commission_rate,commission_amount,sold_at,status,notes,review_note,verified_at,created_at').order('created_at', { ascending: false }).limit(200),
       admin.from('audit_logs').select('id,actor_id,action,entity_type,entity_id,metadata,created_at').order('created_at', { ascending: false }).limit(80),
       role === 'super-admin' ? admin.from('feature_flags').select('key,label,description,enabled,rollout,updated_at').order('key') : Promise.resolve({ data: [] as unknown[] }),
@@ -205,6 +205,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       admin.from('interest_confirmations').select('id,property_id,user_id,agent_id,owner_id,intent,readiness,stage,budget,budget_flexible,timeline,financing,down_payment,has_other_options,comparison_notes,priorities,deal_breakers,score,ai_verdict,ai_confidence,ai_summary,ai_signals,ai_analyzed_at,agent_notes,created_at,updated_at').order('updated_at', { ascending: false }).limit(300),
       admin.from('notaries').select('id,lead_id,user_id,name,office_name,sk_no,phone,whatsapp,email,website,province,kabupaten,kecamatan,services,focus_areas,notes,status,featured,verified_at,created_at,notary_areas(province,kabupaten,kecamatan)').order('created_at', { ascending: false }).limit(200),
       admin.from('notary_requests').select('id,user_id,property_id,notary_id,source,intent,buyer_name,contact_phone,contact_email,province,kabupaten,kecamatan,message,status,admin_note,created_at,updated_at').order('created_at', { ascending: false }).limit(200),
+      admin.from('partner_sanctions').select('id,user_id,role,level,kind,category,reason,note,status,starts_at,ends_at,created_by,lifted_by,lifted_at,created_at').order('created_at', { ascending: false }).limit(200),
     ])
 
     const list = rows.data ?? []
@@ -216,7 +217,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     const actorIds = Array.from(new Set((audit.data ?? []).map((a) => a.actor_id).filter(Boolean))) as string[]
     const txUserIds = Array.from(new Set((transactions.data ?? []).map((t) => t.user_id).filter(Boolean))) as string[]
     const interestUserIds = Array.from(new Set(((adminInterests.data ?? []) as Array<{ user_id?: string | null }>).map((row) => row.user_id).filter(Boolean))) as string[]
-    const profileIds = Array.from(new Set([...ownerIds, ...actorIds, ...txUserIds, ...interestUserIds])).slice(0, 200)
+    const sanctionUserIds = Array.from(new Set(((sanctionRows.data ?? []) as Array<{ user_id?: string | null; created_by?: string | null; lifted_by?: string | null }>).flatMap((row) => [row.user_id, row.created_by, row.lifted_by]).filter(Boolean))) as string[]
+    const profileIds = Array.from(new Set([...ownerIds, ...actorIds, ...txUserIds, ...interestUserIds, ...sanctionUserIds])).slice(0, 200)
     const profileMap: Record<string, { name?: string; email?: string; phone?: string }> = {}
     if (profileIds.length) {
       const [profileRows, userRows] = await Promise.all([
@@ -228,7 +230,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     }
 
     const roleMap: Record<string, string[]> = {}
-    for (const row of roleRows.data ?? []) roleMap[row.user_id] = [...(roleMap[row.user_id] ?? []), row.role]
+    const roleStatusMap: Record<string, string> = {}
+    for (const row of roleRows.data ?? []) {
+      roleMap[row.user_id] = [...(roleMap[row.user_id] ?? []), row.role]
+      if (['agent', 'property_owner'].includes(row.role) && row.status && row.status !== 'active') {
+        const rank: Record<string, number> = { suspended: 1, blocked: 2 }
+        const cur = roleStatusMap[row.user_id]
+        if (!cur || (rank[row.status] ?? 0) > (rank[cur] ?? 0)) roleStatusMap[row.user_id] = row.status
+      }
+    }
     const listingCount = new Map<string, number>()
     for (const p of list) if (p.owner_id) listingCount.set(p.owner_id, (listingCount.get(p.owner_id) ?? 0) + 1)
 
@@ -243,8 +253,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
         created_at: profile.created_at,
         listings: listingCount.get(profile.id) ?? 0,
         verification: roles.some((r) => ['agent', 'property_owner'].includes(r)) ? (roleMap[profile.id]?.includes('admin') ? 'admin' : 'mitra') : 'pengguna',
+        role_status: roleStatusMap[profile.id] ?? 'active',
       }
     })
+
+    const sanctionsEnriched: Array<Record<string, unknown>> = ((sanctionRows.data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+      ...row,
+      user: profileMap[String(row.user_id ?? '')] ?? null,
+      created_by_user: row.created_by ? profileMap[String(row.created_by)] ?? null : null,
+    }))
 
     const transactionsEnriched = (transactions.data ?? []).map((row) => ({ ...row, user: profileMap[row.user_id] ?? null }))
     const reportsEnriched = (adminReports.data ?? []).map((row) => {
@@ -338,6 +355,10 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       interestDeal: adminInterestsEnriched.filter((row) => String(row.stage ?? '') === 'deal').length,
       interestLost: adminInterestsEnriched.filter((row) => String(row.stage ?? '') === 'lost').length,
       interestBuyLikely: adminInterestsEnriched.filter((row) => String(row.ai_verdict ?? '') === 'buy_likely').length,
+      sanctionsActive: sanctionsEnriched.filter((row) => String(row.status ?? '') === 'active').length,
+      sanctionsSuspended: sanctionsEnriched.filter((row) => String(row.status ?? '') === 'active' && Number(row.level ?? 0) === 3).length,
+      sanctionsBlocked: sanctionsEnriched.filter((row) => String(row.status ?? '') === 'active' && Number(row.level ?? 0) >= 4).length,
+      partnersRestricted: Object.keys(roleStatusMap).length,
     }
 
     return NextResponse.json({
@@ -358,6 +379,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       notaryRequests: notaryRequests.data ?? [],
       verifications,
       interests: adminInterestsEnriched,
+      sanctions: sanctionsEnriched,
       ai: {
         configured: true,
         model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',

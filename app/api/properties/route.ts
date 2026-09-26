@@ -45,6 +45,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Daftar dulu sebagai Agen atau Pemilik Properti untuk memasang listing.' }, { status: 403 })
   }
 
+  // Mitra yang sedang disuspend/diblokir tidak boleh memasang listing baru.
+  if (!isAdmin) {
+    const { data: sanction } = await supabase.rpc('partner_sanction_state', { p_uid: user.id })
+    const state = String((sanction as Record<string, unknown> | null)?.state ?? 'active')
+    if (state === 'suspend' || state === 'blokir') {
+      return NextResponse.json({
+        error: state === 'blokir'
+          ? 'Akun mitra Anda diblokir. Hubungi tim Homy untuk peninjauan.'
+          : 'Akun mitra Anda sedang ditangguhkan sementara sehingga belum bisa memasang listing baru.',
+        sanction: sanction ?? null,
+      }, { status: 403 })
+    }
+  }
+
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
   // Hanya kolom yang diizinkan — status, owner, dan kolom moderasi tidak bisa dititipkan dari klien.
   const payload: Record<string, unknown> = { owner_id: user.id }

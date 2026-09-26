@@ -378,5 +378,102 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, status, verification: saved })
   }
 
+  // ---------- Sanksi mitra: teguran / peringatan / suspend / blokir ----------
+  if (kind === 'sanction.add' || kind === 'sanction.lift') {
+    const LEVELS: Record<string, number> = { teguran: 1, peringatan: 2, suspend: 3, blokir: 4 }
+    const CATEGORIES = ['etika', 'komisi', 'rule', 'penipuan', 'lainnya']
+
+    // Sinkronkan status peran mitra (agent/property_owner) mengikuti sanksi efektif.
+    async function syncRoleStatus(userId: string) {
+      const { data: st } = await admin!.rpc('partner_sanction_state', { p_uid: userId })
+      const state = String((st as Record<string, unknown> | null)?.state ?? 'active')
+      const next = state === 'blokir' ? 'blocked' : state === 'suspend' ? 'suspended' : 'active'
+      await admin!.from('user_roles').update({ status: next }).eq('user_id', userId).in('role', ['agent', 'property_owner'])
+      return state
+    }
+
+    if (kind === 'sanction.add') {
+      const userId = String(body.userId ?? '')
+      if (!userId) return NextResponse.json({ error: 'Mitra wajib dipilih' }, { status: 400 })
+      const role = ['agent', 'property_owner', 'all'].includes(String(body.role ?? '')) ? String(body.role) : 'all'
+      const kindSlug = String(body.sanctionKind ?? '')
+      if (!(kindSlug in LEVELS)) return NextResponse.json({ error: 'Tingkat sanksi tidak valid.' }, { status: 400 })
+      const level = LEVELS[kindSlug]
+      const category = CATEGORIES.includes(String(body.category ?? '')) ? String(body.category) : 'lainnya'
+      const reason = typeof body.reason === 'string' ? body.reason.trim().slice(0, 600) : ''
+      if (reason.length < 5) return NextResponse.json({ error: 'Alasan pelanggaran wajib diisi (min. 5 karakter).' }, { status: 400 })
+
+      // Akun admin/super admin tidak boleh dikenai sanksi mitra.
+      const { data: targetRoles } = await admin.from('user_roles').select('role').eq('user_id', userId)
+      const tRoles = Array.isArray(targetRoles) ? targetRoles.map((r: { role: string }) => r.role) : []
+      if (tRoles.some((r) => ['admin', 'super_admin'].includes(r))) {
+        return NextResponse.json({ error: 'Akun admin tidak bisa dikenai sanksi mitra.' }, { status: 409 })
+      }
+
+      // Suspend wajib punya masa berlaku; blokir permanen (ends_at null).
+      let endsAt: string | null = null
+      if (level === 3) {
+        const days = Math.max(1, Math.min(365, Number(body.durationDays ?? 7) || 7))
+        endsAt = new Date(Date.now() + days * 86400000).toISOString()
+      }
+
+      const { data: saved, error } = await admin
+        .from('partner_sanctions')
+        .insert({
+          user_id: userId, role, level, kind: kindSlug, category, reason,
+          note: note || null, status: 'active', starts_at: now, ends_at: endsAt,
+          created_by: actor.id, updated_at: now,
+        })
+        .select('id,user_id,role,level,kind,category,reason,note,status,starts_at,ends_at,created_at')
+        .maybeSingle()
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+      const state = await syncRoleStatus(userId)
+      await audit('sanction.' + kindSlug, 'partner_sanction', (saved as { id?: string } | null)?.id ?? null, { user_id: userId, role, level, category, ends_at: endsAt })
+
+      const LABEL: Record<string, string> = { teguran: 'Teguran', peringatan: 'Peringatan', suspend: 'Penangguhan (suspend)', blokir: 'Pemblokiran' }
+      try {
+        await notifyUser({
+          userId,
+          kind: level >= 4 ? 'sanction.blocked' : level === 3 ? 'sanction.suspended' : 'sanction.warning',
+          title: `${LABEL[kindSlug]} akun mitra Anda`,
+          body: reason + (level === 3 && endsAt ? ` (berlaku sampai ${new Date(endsAt).toLocaleDateString('id-ID')})` : ''),
+          href: '/dashboard/agent',
+          data: { sanction_id: (saved as { id?: string } | null)?.id ?? null, level, category, state },
+        })
+      } catch { /* notifikasi best effort */ }
+
+      return NextResponse.json({ ok: true, sanction: saved, state })
+    }
+
+    // sanction.lift — cabut sanksi lebih awal (mis. mitra memperbaiki pelanggaran).
+    const sanctionId = String(body.id ?? '')
+    if (!sanctionId) return NextResponse.json({ error: 'ID sanksi wajib.' }, { status: 400 })
+    const { data: before } = await admin.from('partner_sanctions').select('id,user_id,kind,level,status,note').eq('id', sanctionId).maybeSingle()
+    if (!before) return NextResponse.json({ error: 'Data sanksi tidak ditemukan.' }, { status: 404 })
+    if (before.status !== 'active') return NextResponse.json({ error: 'Sanksi ini sudah tidak aktif.' }, { status: 409 })
+    const mergedNote = [before.note, note ? `Dicabut: ${note}` : 'Dicabut oleh admin'].filter(Boolean).join(' | ')
+    const { error } = await admin
+      .from('partner_sanctions')
+      .update({ status: 'lifted', lifted_by: actor.id, lifted_at: now, note: mergedNote, updated_at: now })
+      .eq('id', sanctionId)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    const state = await syncRoleStatus(String(before.user_id))
+    await audit('sanction.lifted', 'partner_sanction', sanctionId, { user_id: before.user_id, kind: before.kind, note })
+    try {
+      await notifyUser({
+        userId: String(before.user_id),
+        kind: 'sanction.lifted',
+        title: 'Sanksi mitra dicabut',
+        body: note || 'Sanksi Anda telah dicabut. Akun mitra kembali aktif.',
+        href: '/dashboard/agent',
+        data: { sanction_id: sanctionId, state },
+      })
+    } catch { /* notifikasi best effort */ }
+
+    return NextResponse.json({ ok: true, id: sanctionId, state })
+  }
+
   return NextResponse.json({ error: 'Aksi tidak dikenal: ' + kind }, { status: 400 })
 }

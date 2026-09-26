@@ -6,7 +6,7 @@ import { BcaPaymentCard } from '@/components/bca-payment-card'
 import { MetricCard } from '@/components/dashboard-shell'
 import { ModerationQueue } from '@/components/moderation-queue'
 import type { BoardProps } from '@/components/dashboard/boards-listing'
-import { adminAction, rupiah, shortDate, shortDateTime, ui, useDashboard, type DashboardSetting } from '@/lib/dashboard-client'
+import { adminAction, rupiah, shortDate, shortDateTime, ui, useDashboard, type DashboardSetting, type DashboardSanction } from '@/lib/dashboard-client'
 import { LEAD_KIND_BADGE, LEAD_STATUS_META } from '@/lib/partnership'
 import { NOTARY_REQUEST_STATUS_META, areaLabel, notaryLabel } from '@/lib/notary'
 
@@ -930,6 +930,207 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
           <li>5. Komisi wajib: Agen 0,5% dan Pemilik Properti 2% dari harga transaksi final.</li>
           <li>6. Semua tindakan moderasi tercatat otomatis di <strong>Log Audit</strong>.</li>
         </ul>
+      </div>
+    </div>
+  )
+}
+
+/* ============================ SANKSI MITRA (TEGURAN / PERINGATAN / SUSPEND / BLOKIR) ============================ */
+const SANCTION_LEVELS: Array<{ kind: string; level: number; label: string; className: string; hint: string }> = [
+  { kind: 'teguran', level: 1, label: 'Teguran', className: 'bg-[#fff7e3] text-[#9b762a]', hint: 'Teguran tertulis pertama — tercatat di audit, tidak membatasi akses.' },
+  { kind: 'peringatan', level: 2, label: 'Peringatan', className: 'bg-[#fdeee6] text-[#b4661f]', hint: 'Peringatan keras. Pelanggaran berulang dapat berujung suspend.' },
+  { kind: 'suspend', level: 3, label: 'Suspend', className: 'bg-[#fbeeec] text-[#b45c50]', hint: 'Menangguhkan mitra sementara: listing disembunyikan dari publik & tidak bisa memasang listing baru.' },
+  { kind: 'blokir', level: 4, label: 'Blokir', className: 'bg-[#3a1512] text-[#f6c9c2]', hint: 'Blokir permanen: akun mitra dinonaktifkan total, listing tidak tayang.' },
+]
+
+const SANCTION_CATEGORIES: Array<{ value: string; label: string }> = [
+  { value: 'etika', label: 'Melanggar etika / kode etik' },
+  { value: 'komisi', label: 'Tidak membayar komisi' },
+  { value: 'rule', label: 'Melanggar aturan perjanjian kerja sama' },
+  { value: 'penipuan', label: 'Penipuan / kecurangan' },
+  { value: 'lainnya', label: 'Lainnya' },
+]
+
+const SANCTION_STATUS_META: Record<string, { label: string; className: string }> = {
+  active: { label: 'Aktif', className: 'bg-[#fbeeec] text-[#b45c50]' },
+  lifted: { label: 'Dicabut', className: 'bg-[#edf2ed] text-[#4e866d]' },
+  expired: { label: 'Kedaluwarsa', className: 'bg-[#f2f0ea] text-[#718078]' },
+}
+
+function sanctionLevelMeta(level?: number | null) {
+  return SANCTION_LEVELS.find((item) => item.level === Number(level)) ?? SANCTION_LEVELS[0]
+}
+
+export function PartnerSanctionsBoard({ data, reload }: BoardProps & { type: AdminType }) {
+  const users = useMemo(
+    () => (data.users ?? []).filter((u) => (u.roles ?? []).some((r) => ['agent', 'property_owner'].includes(r))),
+    [data.users],
+  )
+  const sanctions = data.sanctions ?? []
+  const [userId, setUserId] = useState('')
+  const [role, setRole] = useState('all')
+  const [kindSlug, setKindSlug] = useState('teguran')
+  const [category, setCategory] = useState('etika')
+  const [reason, setReason] = useState('')
+  const [note, setNote] = useState('')
+  const [durationDays, setDurationDays] = useState('7')
+  const [busy, setBusy] = useState<string | null>(null)
+  const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
+
+  const active = sanctions.filter((row) => String(row.status ?? '') === 'active')
+  const suspended = active.filter((row) => Number(row.level ?? 0) === 3).length
+  const blocked = active.filter((row) => Number(row.level ?? 0) >= 4).length
+  const selectedLevel = sanctionLevelMeta(SANCTION_LEVELS.find((item) => item.kind === kindSlug)?.level).level
+
+  async function submit() {
+    setMessage(null)
+    if (!userId) { setMessage({ tone: 'err', text: 'Pilih mitra yang akan dikenai sanksi.' }); return }
+    if (reason.trim().length < 5) { setMessage({ tone: 'err', text: 'Alasan pelanggaran wajib diisi (min. 5 karakter).' }); return }
+    setBusy('add')
+    try {
+      await adminAction({
+        kind: 'sanction.add',
+        userId,
+        role,
+        sanctionKind: kindSlug,
+        category,
+        reason: reason.trim(),
+        note: note.trim(),
+        durationDays: Number(durationDays) || 7,
+      })
+      setMessage({ tone: 'ok', text: `Sanksi "${sanctionLevelMeta(selectedLevel).label}" berhasil diterapkan & mitra dinotifikasi.` })
+      setReason(''); setNote(''); setUserId('')
+      reload()
+    } catch (error) {
+      setMessage({ tone: 'err', text: error instanceof Error ? error.message : 'Gagal menerapkan sanksi' })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function lift(row: DashboardSanction) {
+    setBusy(row.id ?? 'lift')
+    setMessage(null)
+    try {
+      await adminAction({ kind: 'sanction.lift', id: row.id })
+      setMessage({ tone: 'ok', text: 'Sanksi dicabut. Status mitra diperbarui.' })
+      reload()
+    } catch (error) {
+      setMessage({ tone: 'err', text: error instanceof Error ? error.message : 'Gagal mencabut sanksi' })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <div className="space-y-4 sm:space-y-6">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+        <MetricCard label="Mitra aktif" value={String(users.length)} change="Agen & pemilik properti" icon="users" />
+        <MetricCard label="Sanksi aktif" value={String(active.length)} change="Teguran s/d blokir" icon="flag" />
+        <MetricCard label="Sedang suspend" value={String(suspended)} change="Listing disembunyikan" icon="shield" />
+        <MetricCard label="Diblokir" value={String(blocked)} change="Nonaktif permanen" icon="key" />
+      </div>
+
+      {message && <Toast message={message} />}
+
+      <div className={ui.card}>
+        <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Jatuhkan sanksi mitra</h3>
+        <p className="mt-2 text-sm text-[#718078]">Terapkan hukuman berjenjang kepada Agen / Mitra yang melanggar kode etik, tidak membayar komisi, atau melanggar aturan perjanjian kerja sama. Setiap keputusan tercatat di log audit, mengirim notifikasi ke mitra, dan langsung berlaku.</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-[#33433d]">Mitra</span>
+            <select value={userId} onChange={(event) => setUserId(event.target.value)} className={ui.input}>
+              <option value="">Pilih mitra…</option>
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>
+                  {(user.full_name ?? user.email ?? user.id)} — {(user.roles ?? []).filter((r) => ['agent', 'property_owner'].includes(r)).map((r) => ROLE_LABEL[r] ?? r).join(', ')}{user.role_status === 'suspended' ? ' (suspend)' : user.role_status === 'blocked' ? ' (blokir)' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-[#33433d]">Peran yang dikenai</span>
+            <select value={role} onChange={(event) => setRole(event.target.value)} className={ui.input}>
+              <option value="all">Semua peran mitra</option>
+              <option value="agent">Agen</option>
+              <option value="property_owner">Pemilik Properti</option>
+            </select>
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-[#33433d]">Tingkat hukuman</span>
+            <select value={kindSlug} onChange={(event) => setKindSlug(event.target.value)} className={ui.input}>
+              {SANCTION_LEVELS.map((item) => <option key={item.kind} value={item.kind}>L{item.level} · {item.label}</option>)}
+            </select>
+          </label>
+          <label className="text-sm">
+            <span className="mb-1 block font-medium text-[#33433d]">Kategori pelanggaran</span>
+            <select value={category} onChange={(event) => setCategory(event.target.value)} className={ui.input}>
+              {SANCTION_CATEGORIES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+            </select>
+          </label>
+          {kindSlug === 'suspend' && (
+            <label className="text-sm">
+              <span className="mb-1 block font-medium text-[#33433d]">Lama suspend (hari)</span>
+              <input type="number" min={1} max={365} value={durationDays} onChange={(event) => setDurationDays(event.target.value)} className={ui.input} />
+            </label>
+          )}
+          <label className="text-sm sm:col-span-2">
+            <span className="mb-1 block font-medium text-[#33433d]">Alasan pelanggaran (tampil ke mitra)</span>
+            <input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="cth. Tidak menyetorkan komisi penjualan melewati tenggat 14 hari." className={ui.input} />
+          </label>
+          <label className="text-sm sm:col-span-2">
+            <span className="mb-1 block font-medium text-[#33433d]">Catatan internal (opsional)</span>
+            <input value={note} onChange={(event) => setNote(event.target.value)} placeholder="cth. Bukti percakapan & invoice terlampir di tiket #123." className={ui.input} />
+          </label>
+        </div>
+        <p className="mt-3 text-sm text-[#718078]">{sanctionLevelMeta(selectedLevel).hint}</p>
+        <div className="mt-4 flex justify-end">
+          <button type="button" onClick={submit} disabled={busy === 'add'} className={ui.btn}>{busy === 'add' ? 'Memproses…' : 'Terapkan sanksi'}</button>
+        </div>
+      </div>
+
+      <div className={ui.card}>
+        <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Riwayat sanksi mitra</h3>
+        {sanctions.length === 0 ? (
+          <Empty text="Belum ada sanksi mitra. Riwayat akan muncul di sini." />
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[820px] text-left text-sm">
+              <thead className="text-xs uppercase tracking-wider text-[#a18a61]">
+                <tr><th className="pb-3">Mitra</th><th className="pb-3">Tingkat</th><th className="pb-3">Kategori</th><th className="pb-3">Alasan</th><th className="pb-3">Masa</th><th className="pb-3">Status</th><th className="pb-3">Aksi</th></tr>
+              </thead>
+              <tbody>
+                {sanctions.map((row) => {
+                  const meta = sanctionLevelMeta(row.level)
+                  const statusMeta = SANCTION_STATUS_META[String(row.status ?? 'active')] ?? SANCTION_STATUS_META.active
+                  return (
+                    <tr key={row.id} className="border-t border-[#eee7dc] align-top">
+                      <td className="py-3">
+                        <p className="font-medium text-[#20332c]">{row.user?.name ?? '—'}</p>
+                        <p className="text-xs text-[#718078]">{row.user?.email ?? '—'}</p>
+                      </td>
+                      <td className="py-3"><span className={`${ui.badge} ${meta.className}`}>L{row.level} · {meta.label}</span></td>
+                      <td className="py-3 text-[#33433d]">{SANCTION_CATEGORIES.find((c) => c.value === row.category)?.label ?? row.category ?? '—'}</td>
+                      <td className="py-3 max-w-[18rem] text-[#33433d]">{row.reason ?? '—'}{row.note ? <span className="block text-xs text-[#718078]">Catatan: {row.note}</span> : null}</td>
+                      <td className="py-3 text-xs text-[#718078]">
+                        <span className="block">Mulai: {shortDateTime(row.starts_at ?? undefined)}</span>
+                        <span className="block">{row.ends_at ? `Sampai: ${shortDateTime(row.ends_at)}` : 'Tanpa batas'}</span>
+                      </td>
+                      <td className="py-3"><span className={`${ui.badge} ${statusMeta.className}`}>{statusMeta.label}</span></td>
+                      <td className="py-3">
+                        {String(row.status ?? '') === 'active' ? (
+                          <button type="button" onClick={() => lift(row)} disabled={busy === row.id} className={ui.ghost}>{busy === row.id ? '…' : 'Cabut'}</button>
+                        ) : (
+                          <span className="text-xs text-[#718078]">{row.lifted_at ? `Dicabut ${shortDate(row.lifted_at)}` : '—'}</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   )
