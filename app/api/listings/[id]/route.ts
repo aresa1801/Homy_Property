@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { serviceClient } from '@/lib/supabase/service'
 import { parseMapPoint, resolveMapPoint } from '@/lib/homy-maps'
 
 export const runtime = 'nodejs'
@@ -69,7 +70,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
   // Mitra yang sedang disuspend/diblokir tidak boleh mengubah listing.
   {
-    const { data: sancState } = await supabase.rpc('partner_sanction_state', { p_uid: user.id })
+    const svc = serviceClient()
+    let sancState: unknown = null
+    if (svc) {
+      const { data } = await svc.rpc('partner_sanction_state', { p_uid: user.id })
+      sancState = data
+    }
     const pstate = String((sancState as Record<string, unknown> | null)?.state ?? 'active')
     if (pstate === 'suspend' || pstate === 'blokir') {
       return NextResponse.json({

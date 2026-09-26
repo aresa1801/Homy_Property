@@ -1,14 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { serviceClient } from '@/lib/supabase/service'
 import { sendListingStatusEmail } from '@/lib/email'
-
-function serviceClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY
-  if (!url || !key) return null
-  return createServiceClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
-}
 
 /** POST /api/listings/[id]/resubmit — pemilik mengajukan ulang listing yang ditolak. */
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -19,7 +12,12 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
 
   // Mitra yang disuspend/diblokir tidak boleh mengajukan ulang listing.
   {
-    const { data: sancState } = await supabase.rpc('partner_sanction_state', { p_uid: user.id })
+    const svc = serviceClient()
+    let sancState: unknown = null
+    if (svc) {
+      const { data } = await svc.rpc('partner_sanction_state', { p_uid: user.id })
+      sancState = data
+    }
     const pstate = String((sancState as Record<string, unknown> | null)?.state ?? 'active')
     if (pstate === 'suspend' || pstate === 'blokir') {
       return NextResponse.json({ error: 'Akun mitra Anda sedang dibatasi sehingga belum bisa mengajukan listing.' }, { status: 403 })

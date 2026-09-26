@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { serviceClient } from '@/lib/supabase/service'
 
 /** GET /api/partner/status — status sanksi mitra untuk pengguna yang sedang login. */
 export async function GET() {
@@ -7,7 +8,9 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ state: null }, { status: 401 })
 
-  const { data: state } = await supabase.rpc('partner_sanction_state', { p_uid: user.id })
+  // RPC sanksi hanya dibuka ke service_role → panggil lewat klien server (identitas sudah diverifikasi di atas).
+  const svc = serviceClient()
+  const { data: state } = svc ? await svc.rpc('partner_sanction_state', { p_uid: user.id }) : { data: null }
   const { data: rows } = await supabase
     .from('partner_sanctions')
     .select('id,level,kind,category,reason,status,starts_at,ends_at')

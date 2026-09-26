@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { serviceClient } from '@/lib/supabase/service'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -47,7 +48,13 @@ export async function POST(request: Request) {
 
   // Mitra yang sedang disuspend/diblokir tidak boleh memasang listing baru.
   if (!isAdmin) {
-    const { data: sanction } = await supabase.rpc('partner_sanction_state', { p_uid: user.id })
+    // RPC sanksi hanya dibuka ke service_role (least-privilege) — panggil lewat klien server.
+    const svc = serviceClient()
+    let sanction: unknown = null
+    if (svc) {
+      const { data } = await svc.rpc('partner_sanction_state', { p_uid: user.id })
+      sanction = data
+    }
     const state = String((sanction as Record<string, unknown> | null)?.state ?? 'active')
     if (state === 'suspend' || state === 'blokir') {
       return NextResponse.json({
