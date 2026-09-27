@@ -13,7 +13,7 @@
 
 import type { VerificationRole } from '@/lib/verification'
 
-export const AGREEMENT_VERSION = 'v2.1'
+export const AGREEMENT_VERSION = 'v2.2'
 export const AGREEMENT_TITLE = 'Perjanjian Kerja Sama Kemitraan Properti'
 export const COMMISSION_RATE = 0.5
 export const COMPANY_NAME = 'Homy Property'
@@ -58,6 +58,7 @@ export const AGREEMENT_HIGHLIGHTS: string[] = [
   'Hanya boleh memasarkan properti yang sah, akurat, dan tidak terikat sengketa.',
   'Data pribadi mitra diverifikasi admin (KYC) dan dilindungi sesuai UU PDP.',
   'Perjanjian berlaku sejak ditandatangani sampai diakhiri oleh salah satu pihak.',
+  'Program Bonus Referral agen ke agen 0,1% dari nilai transaksi (maks Rp 2 juta, masa tahan 30 hari) bagi agen yang mengaktifkan kode referral.',
 ]
 
 export const AGREEMENT_CONSENTS = [
@@ -147,7 +148,7 @@ function commonClauses(role: VerificationRole): AgreementClause[] {
         'HOMY berhak melakukan verifikasi identitas, dokumen, dan legalitas listing; menolak, menangguhkan, atau menurunkan listing yang tidak sesuai ketentuan.',
         'HOMY berhak mengubah fitur, tampilan, algoritma penayangan, dan kebijakan platform dengan pemberitahuan melalui aplikasi/email.',
         'HOMY wajib menyediakan platform yang berfungsi wajar, kanal komunikasi pengguna, dan mekanisme pelaporan penyalahgunaan.',
-        'HOMY wajib menjaga kerahasiaan data pribadi MITRA sesuai Pasal 16 dan hanya menggunakannya untuk keperluan kerja sama ini.',
+        'HOMY wajib menjaga kerahasiaan data pribadi MITRA sesuai Pasal 17 dan hanya menggunakannya untuk keperluan kerja sama ini.',
         'HOMY berhak menagih komisi, meminta bukti transaksi, dan melakukan audit terhadap laporan transaksi yang tidak wajar.',
       ],
     },
@@ -192,18 +193,39 @@ function commonClauses(role: VerificationRole): AgreementClause[] {
       ],
     },
     {
-      title: 'Pasal 12 — Kewajiban Pelaporan Transaksi',
+      title: 'Pasal 12 — Program Bonus Referral Agen (Agen ke Agen)',
+      paragraphs: [
+        'HOMY menyelenggarakan Program Bonus Referral yang berlaku khusus bagi mitra yang berperan sebagai Agen Properti, yaitu referral satu tingkat dari agen ke agen. Program ini merupakan insentif pertumbuhan yang diberikan HOMY dan BUKAN kewajiban pembayaran yang bersifat tetap; HOMY berhak mengubah, membatasi, atau menghentikan Program dengan pemberitahuan melalui aplikasi/email, tanpa mengurangi hak bonus yang telah timbul dan telah diverifikasi sebelum tanggal perubahan.',
+        'Besaran bonus referral adalah 0,1% (nol koma satu persen) dari Harga Jual Final transaksi yang diverifikasi HOMY, dengan batas maksimum Rp 2.000.000 (dua juta rupiah) untuk setiap transaksi. Bonus tidak dibayarkan untuk transaksi yang tidak terkait dengan platform HOMY.',
+        'Contoh: transaksi dengan harga jual final Rp 1.000.000.000 menghasilkan bonus referral Rp 1.000.000; transaksi di atas Rp 2.000.000.000 tetap dibatasi maksimum Rp 2.000.000 per transaksi.',
+      ],
+      items: [
+        'Cara mengikuti: MITRA mengaktifkan kode referral melalui dasbor agen, lalu membagikan tautan referral (homyproperty.id/r/<kode>) kepada agen lain.',
+        'Atribusi referral terjadi apabila agen yang direferensikan membuka tautan referral tersebut lalu menyelesaikan verifikasi mitra sebagai Agen Properti melalui platform HOMY (masa berlaku atribusi 30 hari kalender sejak tautan dibuka).',
+        'Satu agen hanya dapat terhubung pada satu pereferensi (satu tingkat); agen yang direferensikan tidak memperoleh bonus atas referral lanjutan di bawahnya.',
+        'Bonus hanya dibayarkan apabila seluruh syarat berikut terpenuhi: (a) agen yang direferensikan telah disetujui sebagai Agen Properti HOMY; (b) transaksi properti terjadi melalui platform HOMY; (c) transaksi telah dilaporkan MITRA dan diverifikasi HOMY; serta (d) tidak terdapat indikasi kecurangan.',
+        'Masa tahan (holding) 30 hari kalender dihitung sejak transaksi diverifikasi HOMY untuk keperluan pemeriksaan; bonus baru dapat dicairkan setelah masa tahan berakhir.',
+        'Pencairan bonus dilakukan dalam batch pembayaran ke rekening komisi MITRA yang terdaftar dan telah divalidasi. Bonus yang rekeningnya belum valid ditahan sampai data rekening diperbaiki.',
+        'Dilarang: referral terhadap diri sendiri (self-referral), pembuatan akun ganda, pemalsuan identitas/rekening/transaksi, rekayasa nilai transaksi, atau merekrut agen dengan janji imbal hasil tetap. Pelanggaran mengakibatkan bonus dibatalkan (void) dan dapat dikenai sanksi sesuai Pasal 20.',
+        'Apabila laporan transaksi ditolak atau dibatalkan, bonus referral yang berkaitan otomatis dibatalkan. Apabila transaksi direvisi, bonus dihitung ulang berdasarkan nilai transaksi yang diverifikasi.',
+        'Pajak atas bonus yang diterima menjadi tanggungan MITRA penerima sesuai peraturan perpajakan yang berlaku.',
+        'Program Bonus Referral tidak menciptakan hubungan kerja, keagenan, atau kemitraan baru di antara sesama agen, dan tunduk pada Perjanjian ini beserta ketentuan program pada halaman homyproperty.id/referral/ketentuan.',
+        'Admin HOMY dapat meninjau atribusi dan bonus yang terindikasi tidak wajar (mis. kesamaan nomor telepon, nomor rekening, atau nomor identitas antara agen pereferensi dan yang direferensikan) dan berhak menolak atribusi tersebut.',
+      ],
+    },
+    {
+      title: 'Pasal 13 — Kewajiban Pelaporan Transaksi',
       paragraphs: [
         'MITRA WAJIB melaporkan setiap transaksi (booking, tanda jadi/DP, akad, hingga pelunasan) melalui menu Pelaporan Transaksi pada dasbor mitra paling lambat 3 (tiga) hari kerja setelah transaksi terjadi.',
       ],
       items: [
         'Laporan wajib memuat: data properti, nama dan kontak pembeli/penyewa, harga transaksi, tanggal transaksi, dan bukti pendukung (kuitansi/PPJB/berita acara).',
-        'HOMY akan memverifikasi laporan dan menyusun invoice komisi sesuai Pasal 13.',
-        'Laporan yang terbukti tidak benar, disengaja, atau dibuat-buat dapat dikenai sanksi sesuai Pasal 19.',
+        'HOMY akan memverifikasi laporan dan menyusun invoice komisi sesuai Pasal 14.',
+        'Laporan yang terbukti tidak benar, disengaja, atau dibuat-buat dapat dikenai sanksi sesuai Pasal 20.',
       ],
     },
     {
-      title: 'Pasal 13 — Pembayaran Komisi & Pajak',
+      title: 'Pasal 14 — Pembayaran Komisi & Pajak',
       items: [
         'Pembayaran komisi dilakukan maksimal 7 (tujuh) hari kerja setelah pelunasan transaksi atau setelah invoice resmi HOMY diterbitkan.',
         `Pembayaran komisi ditransfer ke rekening resmi HOMY: ${COMPANY_BANK.bank} nomor ${COMPANY_BANK.accountNumber} atas nama ${COMPANY_BANK.accountHolder}. Komisi ditagihkan ketika properti berhasil TERJUAL atau TERSEWA melalui platform HOMY.`,
@@ -213,7 +235,7 @@ function commonClauses(role: VerificationRole): AgreementClause[] {
       ],
     },
     {
-      title: 'Pasal 14 — Kode Etik, Anti Penipuan, dan Anti Pencucian Uang',
+      title: 'Pasal 15 — Kode Etik, Anti Penipuan, dan Anti Pencucian Uang',
       items: [
         'MITRA dilarang menerima pembayaran tunai di luar ketentuan resmi, meminta “uang tanda jadi” tanpa bukti sah, atau menyimpan dana milik pembeli/penyewa.',
         'MITRA dilarang melakukan penipuan, pemalsuan dokumen, pencucian uang, pendanaan terorisme, atau transaksi yang sumber dananya tidak jelas.',
@@ -221,7 +243,7 @@ function commonClauses(role: VerificationRole): AgreementClause[] {
       ],
     },
     {
-      title: 'Pasal 15 — Larangan Double Listing & Benturan Kepentingan',
+      title: 'Pasal 16 — Larangan Double Listing & Benturan Kepentingan',
       items: [
         'MITRA dilarang memasang properti yang sama pada beberapa akun mitra atau akun ganda tanpa keterangan yang jelas.',
         'MITRA wajib menandatangani surat kuasa pemasaran dari pemilik properti apabila memasarkan properti pihak lain, dan menyimpannya sebagai dokumen pendukung.',
@@ -229,7 +251,7 @@ function commonClauses(role: VerificationRole): AgreementClause[] {
       ],
     },
     {
-      title: 'Pasal 16 — Perlindungan Data Pribadi & Kerahasiaan',
+      title: 'Pasal 17 — Perlindungan Data Pribadi & Kerahasiaan',
       paragraphs: [
         'HOMY memproses data pribadi MITRA terbatas untuk keperluan verifikasi kemitraan, operasional platform, penagihan komisi, dan pemenuhan kewajiban hukum, sesuai Undang-Undang Perlindungan Data Pribadi.',
         'HOMY tidak memperjualbelikan data pribadi MITRA kepada pihak ketiga untuk tujuan pemasaran pihak ketiga.',
@@ -238,7 +260,7 @@ function commonClauses(role: VerificationRole): AgreementClause[] {
       ],
     },
     {
-      title: 'Pasal 17 — Kekayaan Intelektual & Penggunaan Merek',
+      title: 'Pasal 18 — Kekayaan Intelektual & Penggunaan Merek',
       items: [
         'Merek, logo, nama, dan materi pemasaran HOMY hanya boleh digunakan untuk kepentingan kerja sama ini sesuai panduan HOMY dan tidak untuk kepentingan pribadi/pihak lain.',
         'MITRA menjamin pemasangan foto, video, desain, atau materi pihak ketiga sudah memperoleh izin yang sah dan melepaskan HOMY dari tuntutan pihak ketiga atas hal tersebut.',
@@ -246,7 +268,7 @@ function commonClauses(role: VerificationRole): AgreementClause[] {
       ],
     },
     {
-      title: 'Pasal 18 — Batasan Tanggung Jawab & Force Majeure',
+      title: 'Pasal 19 — Batasan Tanggung Jawab & Force Majeure',
       paragraphs: [
         'HOMY menyediakan platform “sebagaimana adanya” dan tidak menjamin terjadinya transaksi, hasil penjualan tertentu, maupun jumlah prospek tertentu.',
         'HOMY tidak bertanggung jawab atas kerugian yang timbul dari sengketa harga, kepemilikan, legalitas properti, maupun wanprestasi antara MITRA dengan pengguna/klien.',
@@ -254,7 +276,7 @@ function commonClauses(role: VerificationRole): AgreementClause[] {
       ],
     },
     {
-      title: 'Pasal 19 — Sanksi dan Pemutusan Kerja Sama',
+      title: 'Pasal 20 — Sanksi dan Pemutusan Kerja Sama',
       items: [
         'Pelanggaran ringan: teguran tertulis dan/atau penurunan prioritas penayangan listing.',
         'Pelanggaran sedang: pembekuan sementara akun mitra sampai perbaikan dilakukan.',
@@ -264,15 +286,15 @@ function commonClauses(role: VerificationRole): AgreementClause[] {
       ],
     },
     {
-      title: 'Pasal 20 — Jangka Waktu, Perubahan, dan Addendum',
+      title: 'Pasal 21 — Jangka Waktu, Perubahan, dan Addendum',
       paragraphs: [
-        'Perjanjian ini berlaku efektif sejak ditandatangani secara digital oleh MITRA dan tetap berlaku sampai diakhiri sesuai Pasal 19 atau oleh permintaan salah satu pihak.',
+        'Perjanjian ini berlaku efektif sejak ditandatangani secara digital oleh MITRA dan tetap berlaku sampai diakhiri sesuai Pasal 20 atau oleh permintaan salah satu pihak.',
         'MITRA dapat mengakhiri Perjanjian ini dengan memberitahukan kepada HOMY secara tertulis; listing MITRA akan ditarik dari katalog setelah kewajiban komisi yang terutang diselesaikan.',
         `HOMY dapat memperbarui versi Perjanjian (versi saat ini: ${AGREEMENT_VERSION}). Perubahan material akan diberitahukan melalui aplikasi/email, dan MITRA wajib menyetujui versi terbaru untuk memperbarui kemitraan.`,
       ],
     },
     {
-      title: 'Pasal 21 — Penyelesaian Sengketa & Hukum yang Berlaku',
+      title: 'Pasal 22 — Penyelesaian Sengketa & Hukum yang Berlaku',
       paragraphs: [
         'Perjanjian ini diatur dan ditafsirkan berdasarkan hukum Republik Indonesia.',
         'Setiap sengketa diupayakan penyelesaiannya secara musyawarah dalam waktu 30 hari kalender sejak pemberitahuan sengketa.',
@@ -280,7 +302,7 @@ function commonClauses(role: VerificationRole): AgreementClause[] {
       ],
     },
     {
-      title: 'Pasal 22 — Lain-lain',
+      title: 'Pasal 23 — Lain-lain',
       items: [
         'Perjanjian ini beserta lampiran-lampirannya merupakan keseluruhan kesepakatan dan menggantikan kesepakatan lisan sebelumnya.',
         'Apabila terdapat ketentuan yang tidak sah/batal, ketentuan lain tetap berlaku.',
@@ -289,7 +311,7 @@ function commonClauses(role: VerificationRole): AgreementClause[] {
       ],
     },
     {
-      title: 'Pasal 23 — Penutup',
+      title: 'Pasal 24 — Penutup',
       paragraphs: [
         'Demikian Perjanjian Kerja Sama ini dibuat, dibaca, dan dipahami oleh MITRA, lalu disetujui serta ditandatangani secara digital melalui platform HOMY.',
         'Dengan menekan tombol “Tanda tangan & kirim pengajuan”, MITRA menyatakan telah membaca dan menyetujui seluruh isi Perjanjian Kerja Sama ini beserta lampiran data mitra yang dilampirkan.',
@@ -306,6 +328,7 @@ export const AGREEMENT_LAMPIRAN = [
   'Lampiran A — Data Mitra (nama, identitas, kontak, domisili, data usaha) diambil otomatis dari form verifikasi.',
   'Lampiran B — Ketersediaan waktu layanan mitra (hari, jam, mode lokasi/online).',
   'Lampiran C — Ringkasan komisi 0,5%, contoh perhitungan, dan rekening resmi pembayaran komisi.',
+  'Lampiran E — Ketentuan Program Bonus Referral Agen (tarif, batas maksimum, masa tahan, dan syarat pencairan) sebagaimana diatur pada Pasal 12.',
 ] as const
 
 /** Nomor perjanjian yang deterministik & mudah dirujuk admin. */

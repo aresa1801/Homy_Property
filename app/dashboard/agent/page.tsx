@@ -11,6 +11,7 @@ const TILES = [
   { href: '/dashboard/agent/billing', title: 'Penagihan', body: 'Lapor transaksi & komisi penjualan 0,5%.', icon: WalletCards },
   { href: '/dashboard/agent/referral', title: 'Referral & Bonus', body: 'Ajak sesama agen, dapat bonus 0,1% per transaksi.', icon: Gift },
   { href: '/dashboard/agent/agreement', title: 'Perjanjian', body: 'Status kemitraan & kewajiban Anda.', icon: FileSignature },
+  { href: '/dashboard/agent/owner-agreement', title: 'Perjanjian Pemilik Properti', body: 'Buat & unduh PDF perjanjian pemasaran dengan pemilik properti.', icon: FileText },
   { href: '/dashboard/agent/list', title: 'Pasang Properti', body: 'Mulai listing baru dari form lengkap.', icon: FileText },
 ]
 

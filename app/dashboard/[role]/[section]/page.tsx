@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { DashboardSection, type SectionRole } from '@/components/dashboard/dashboard-section'
 
 const VALID: Record<SectionRole, string[]> = {
-  agent: ['listings', 'leads', 'analytics', 'billing', 'referral', 'schedule', 'calendar', 'availability', 'conversations', 'agreement', 'verification', 'list', 'ai'],
+  agent: ['listings', 'leads', 'analytics', 'billing', 'referral', 'schedule', 'calendar', 'availability', 'conversations', 'agreement', 'owner-agreement', 'verification', 'list', 'ai'],
   'property-owner': ['properties', 'inquiries', 'schedule', 'calendar', 'availability', 'conversations', 'agreement', 'verification', 'list', 'ai'],
   admin: ['moderation', 'verifications', 'users', 'billing', 'referral', 'reports', 'ai', 'partnership', 'sanctions', 'ai-admin'],
   'super-admin': ['roles', 'verifications', 'billing', 'referral', 'audit', 'system', 'flags', 'partnership', 'sanctions', 'ai-admin'],

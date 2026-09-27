@@ -9,6 +9,7 @@ import { AiMonitorBoard, AuditBoard, FlagsBoard, ModerationBoard, PartnerSanctio
 import { AiAdminBoard } from '@/components/dashboard/boards-ai-admin'
 import { VerificationBoard, VerificationReviewBoard } from '@/components/dashboard/boards-verify'
 import { ReferralAdminBoard, ReferralBoard } from '@/components/dashboard/boards-referral'
+import { OwnerAgreementBoard } from '@/components/dashboard/boards-owner-agreement'
 
 export type SectionRole = 'agent' | 'property-owner' | 'admin' | 'super-admin'
 
@@ -26,6 +27,7 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
     billing: { eyebrow: 'Keuangan', title: 'Penagihan & Komisi', description: 'Laporkan transaksi properti ke Homy dan pantau komisi penjualan 0,5% beserta status verifikasinya.' },
     referral: { eyebrow: 'Pertumbuhan', title: 'Referral & Bonus', description: 'Aktifkan kode referral Anda, bagikan link ke sesama agen, dan pantau klik, agen yang bergabung, serta bonus 0,1% dari transaksi yang sudah diverifikasi Homy (maks Rp 2 juta, masa tahan 30 hari).' },
     agreement: { eyebrow: 'Kemitraan', title: 'Perjanjian Kerjasama', description: 'Status perjanjian mitra Anda, data perjanjian yang tersimpan, dan ringkasan kewajiban sebagai agen Homy.' },
+    'owner-agreement': { eyebrow: 'Dokumen', title: 'Perjanjian Pemilik Properti', description: 'Susun Surat Perjanjian Pemasaran, Penjualan & Penyewaan Properti antara Agen dan Pemilik Properti yang menitipkan propertinya. Dokumen bersifat mandiri tanpa kop Homy Property, siap diunduh dalam PDF, dicetak, diberi materai, lalu ditandatangani pemilik, agen, dan saksi.' },
     verification: { eyebrow: 'Kemitraan', title: 'Verifikasi Mitra', description: 'Lengkapi data diri, dokumen identitas (KTP/SIM), alamat domisili, dan ketersediaan waktu. Setelah disetujui admin, Anda dapat langsung memasang listing properti.' },
     list: { eyebrow: 'Publikasi', title: 'Pasang Properti', description: 'Siapkan syarat publikasi, lanjutkan listing yang tertunda, dan mulai listing baru dari form lengkap yang terbaca AI.' },
     ai: { eyebrow: 'Kecerdasan Buatan', title: 'Asisten AI', description: 'Saran harga otomatis dari data harga rata-rata kecamatan/kota Anda, pembanding listing, dan tanya-jawab bebas dengan Homy AI.' },
@@ -119,6 +121,7 @@ export function DashboardSection({ role, section }: { role: SectionRole; section
       availability: <ScheduleBoard data={data} loading={loading} reload={reload} type={role} />,
       conversations: <AiConversationsBoard data={data} loading={loading} reload={reload} type={role} />,
       agreement: <AgreementBoard data={data} loading={loading} reload={reload} type={role} />,
+      'owner-agreement': <OwnerAgreementBoard data={data} loading={loading} reload={reload} />,
       verification: <VerificationBoard data={data} loading={loading} reload={reload} type={role} />,
       list: <ListLauncher data={data} loading={loading} reload={reload} type={role} />,
       referral: <ReferralBoard data={data} loading={loading} reload={reload} />,
