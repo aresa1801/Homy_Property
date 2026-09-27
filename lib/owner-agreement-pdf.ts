@@ -79,7 +79,7 @@ export function buildOwnerAgreementPdf(input: OwnerAgreementPdfInput): Uint8Arra
     {
       type: 'title',
       text: OWNER_AGREEMENT_TITLE,
-      sub: `${OWNER_AGREEMENT_SUBTITLE}\nNomor: ${number}  ·  Dibuat di ${filler(data.place, '................')}, ${formatDateId(data.date)}  ·  Versi ${OWNER_AGREEMENT_VERSION}`,
+      sub: `${OWNER_AGREEMENT_SUBTITLE}\nNomor: ${number}\nDibuat di ${filler(data.place, '................')} pada ${formatDateId(data.date)}  ·  Versi dokumen ${OWNER_AGREEMENT_VERSION}`,
       badge: template ? 'TEMPLATE' : OWNER_AGREEMENT_VERSION,
     },
     {
@@ -132,9 +132,15 @@ export function buildOwnerAgreementPdf(input: OwnerAgreementPdfInput): Uint8Arra
         type: 'keyvalues',
         rows: [
           { label: 'Tujuan pemasaran', value: listingModeLabel(terms.listingMode) },
-          { label: 'Harga jual', value: formatRupiah(terms.salePrice) + (terms.negotiable ? ' (dapat dinegosiasikan)' : '') },
-          { label: 'Harga/batas terendah', value: formatRupiah(terms.minPrice) },
-          { label: `Harga sewa`, value: `${formatRupiah(terms.rentPrice)} per ${filler(terms.rentPeriod, 'tahun')}` },
+          ...(terms.listingMode !== 'rent'
+            ? [
+                { label: 'Harga jual', value: formatRupiah(terms.salePrice) + (terms.negotiable ? ' (dapat dinegosiasikan)' : '') },
+                { label: 'Batas harga terendah', value: formatRupiah(terms.minPrice) },
+              ]
+            : []),
+          ...(terms.listingMode === 'rent' || terms.listingMode === 'both'
+            ? [{ label: 'Harga sewa', value: `${formatRupiah(terms.rentPrice)} per ${filler(terms.rentPeriod, 'tahun')}` }]
+            : []),
           { label: 'Imbal jasa agen', value: `${filler(terms.feePercent, '……')}% dari harga jual/sewa` },
           { label: 'Ditanggung oleh', value: feePayerLabel(terms.feePayer) },
           { label: 'Waktu pembayaran', value: filler(terms.feeTiming, 'pada saat akad/pelunasan') },
@@ -145,8 +151,8 @@ export function buildOwnerAgreementPdf(input: OwnerAgreementPdfInput): Uint8Arra
       {
         type: 'bullets',
         items: [
-          `Contoh imbal jasa penjualan: ${formatRupiah(terms.salePrice)} x ${filler(terms.feePercent, '……')}% = ${saleFee ? formatRupiah(saleFee) : BLANK}.`,
-          `Contoh imbal jasa penyewaan: ${formatRupiah(terms.rentPrice)} x ${filler(terms.feePercent, '……')}% = ${rentFee ? formatRupiah(rentFee) : BLANK}.`,
+          ...(saleFee ? [`Contoh imbal jasa penjualan: ${formatRupiah(terms.salePrice)} x ${filler(terms.feePercent, '……')}% = ${formatRupiah(saleFee)}.`] : []),
+          ...(rentFee ? [`Contoh imbal jasa penyewaan: ${formatRupiah(terms.rentPrice)} x ${filler(terms.feePercent, '……')}% = ${formatRupiah(rentFee)}.`] : []),
           String(terms.marketingScope ?? '').trim()
             ? `Cakupan pekerjaan pemasaran: ${String(terms.marketingScope)}.`
             : 'Cakupan pekerjaan pemasaran: foto/video, publikasi kanal digital, penjadwalan & pendampingan survey, negosiasi atas persetujuan pemilik, dan pendampingan administrasi hingga akad.',
@@ -168,8 +174,8 @@ export function buildOwnerAgreementPdf(input: OwnerAgreementPdfInput): Uint8Arra
   }
 
   const stampNote =
-    'Dokumen ini dibuat dalam 2 (dua) rangkap dan dibubuhi materai sesuai ketentuan perpajakan yang berlaku. ' +
-    'Penandatanganan dapat dilakukan secara basah (tanda tangan asli) atau secara elektronik yang sah menurut hukum.'
+    'Dokumen ini dibuat dalam 2 (dua) rangkap; masing-masing pihak menerima 1 (satu) rangkap. ' +
+    'Dokumen dibubuhi materai sesuai ketentuan perpajakan yang berlaku dan ditandatangani secara basah (tanda tangan asli) oleh Pihak Pertama, Pihak Kedua, dan para saksi pada ruang tanda tangan yang tersedia.'
 
   const witnessList = witnesses.length
     ? witnesses.slice(0, 4)
@@ -178,17 +184,18 @@ export function buildOwnerAgreementPdf(input: OwnerAgreementPdfInput): Uint8Arra
   blocks.push({ type: 'divider' })
   blocks.push({
     type: 'paragraph',
-    text: `Dibuat dan disepakati di ${filler(data.place, '................')} pada tanggal ${formatDateId(data.date)}, oleh dan antara kedua pihak dengan disaksikan para saksi di bawah ini.`,
+    text: `Yang bertanda tangan di bawah ini menyatakan telah membaca, memahami, dan menyetujui seluruh isi perjanjian beserta lampirannya, tanpa paksaan dari pihak mana pun. Dibuat dan disepakati di ${filler(data.place, '................')} pada tanggal ${formatDateId(data.date)}, oleh dan antara kedua pihak dengan disaksikan para saksi di bawah ini.`,
   })
   blocks.push({
     type: 'signature',
+    wet: true,
     columns: [
       {
         label: 'PIHAK PERTAMA',
         name: filler(data.owner.name, 'Pemilik Properti'),
         role: 'Pemilik Properti',
         fields: [
-          { label: 'Nama', value: filler(data.owner.name) },
+          { label: 'Nama lengkap', value: filler(data.owner.name) },
           { label: 'No. identitas', value: filler(data.owner.identityNumber) },
           { label: 'Tanggal', value: BLANK },
         ],
@@ -198,13 +205,13 @@ export function buildOwnerAgreementPdf(input: OwnerAgreementPdfInput): Uint8Arra
         name: filler(data.agent.name, 'Agen Properti'),
         role: 'Agen Properti',
         fields: [
-          { label: 'Nama', value: filler(data.agent.name) },
+          { label: 'Nama lengkap', value: filler(data.agent.name) },
           { label: 'No. identitas', value: filler(data.agent.identityNumber) },
           { label: 'Tanggal', value: BLANK },
         ],
       },
     ],
-    note: 'Tempelkan materai sesuai ketentuan yang berlaku pada salah satu bagian tanda tangan di atas.',
+    note: 'Tempelkan materai sesuai ketentuan pada salah satu ruang tanda tangan di atas. Tanda tangan dibubuhkan dengan pena pada ruang kosong yang tersedia.',
   })
   blocks.push({
     type: 'group',
@@ -212,20 +219,26 @@ export function buildOwnerAgreementPdf(input: OwnerAgreementPdfInput): Uint8Arra
     blocks: [
       { type: 'heading', text: 'Saksi-Saksi' },
       {
+        type: 'paragraph',
+        text: 'Para saksi menyatakan telah menyaksikan penandatanganan perjanjian ini oleh kedua pihak dan memahami isinya.',
+      },
+      {
         type: 'keyvalues',
         rows: witnessList.flatMap((witness, index) => [
           { label: `Saksi ${index + 1} — nama`, value: filler(witness.name) },
-          { label: 'Alamat', value: filler(witness.address) },
-          { label: 'Telepon', value: filler(witness.phone) },
+          { label: `Saksi ${index + 1} — alamat`, value: filler(witness.address) },
+          { label: `Saksi ${index + 1} — telepon`, value: filler(witness.phone) },
         ]),
       },
       {
         type: 'signature',
+        wet: true,
+        materai: false,
         columns: witnessList.map((witness, index) => ({
           label: `SAKSI ${index + 1}`,
           name: filler(witness.name, `Saksi ${index + 1}`),
           fields: [
-            { label: 'Nama', value: filler(witness.name) },
+            { label: 'Nama lengkap', value: filler(witness.name) },
             { label: 'Tanggal', value: BLANK },
           ],
         })),
@@ -238,7 +251,7 @@ export function buildOwnerAgreementPdf(input: OwnerAgreementPdfInput): Uint8Arra
     title: OWNER_AGREEMENT_TITLE,
     badge: template ? 'TEMPLATE' : OWNER_AGREEMENT_VERSION,
     blocks,
-    footerNote: `${number} · Perjanjian mandiri Pemilik Properti dan Agen Properti · Homy Property bukan pihak dalam perjanjian ini.`,
+    footerNote: `${number} · Dokumen mandiri Pemilik Properti & Agen Properti · Homy bukan pihak.`,
     watermark: template ? 'TEMPLATE' : undefined,
   })
 }

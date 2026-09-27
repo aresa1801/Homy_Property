@@ -99,6 +99,16 @@ export function pdfTextWidth(text: string, size: number, bold = false) {
   return (total / 1000) * size
 }
 
+/** Satu baris yang dipastikan muat: dipotong dengan elipsis bila kepanjangan. */
+export function pdfFitLine(value: string, size: number, bold: boolean, maxWidth: number): string {
+  const safe = pdfSanitize(value).replace(/\s+/g, ' ').trim()
+  if (pdfTextWidth(safe, size, bold) <= maxWidth) return safe
+  const ellipsis = '...'
+  let out = safe
+  while (out.length > 1 && pdfTextWidth(out + ellipsis, size, bold) > maxWidth) out = out.slice(0, -1)
+  return out.replace(/\s+$/, '') + ellipsis
+}
+
 export function pdfWrap(text: string, size: number, bold: boolean, maxWidth: number): string[] {
   const safe = pdfSanitize(text).replace(/\s+/g, ' ').trim()
   if (!safe) return ['']
@@ -172,6 +182,16 @@ export type PdfImage = {
   frame?: boolean
 }
 
+export type SignBlock = {
+  type: 'signature'
+  columns: SignColumn[]
+  note?: string
+  /** `true` = dokumen ditandatangani basah (tanda tangan asli + ruang kosong + kotak materai). */
+  wet?: boolean
+  /** Tampilkan kotak materai di sudut kanan ruang tanda tangan (default true). */
+  materai?: boolean
+}
+
 export type PdfBlock =
   | { type: 'title'; text: string; sub?: string; badge?: string }
   | { type: 'meta'; lines: string[] }
@@ -182,7 +202,7 @@ export type PdfBlock =
   | { type: 'note'; text: string; label?: string }
   | { type: 'divider' }
   | { type: 'space'; size?: number }
-  | { type: 'signature'; columns: SignColumn[]; note?: string }
+  | SignBlock
   | { type: 'certificate'; title?: string; rows: { label: string; value: string }[]; note?: string }
   | { type: 'image'; image: PdfImage }
   /** Blok atomic: semua isinya diusahakan tetap dalam satu halaman. */
@@ -208,14 +228,71 @@ function imageDisplay(image: PdfImage) {
   return { width: width * scale, height: height * scale }
 }
 
+/** Tata letak blok judul: judul dibungkus & mengecil otomatis agar tidak menabrak badge/tepi. */
+function titleLayout(block: { text: string; sub?: string; badge?: string }) {
+  const badgeSpace = block.badge ? pdfTextWidth(block.badge, 9, true) + 26 : 0
+  const maxWidth = Math.max(170, CONTENT_WIDTH - badgeSpace)
+  let size = 19.5
+  let lines = pdfWrap(block.text, size, true, maxWidth)
+  if (lines.length > 1) { size = 15.8; lines = pdfWrap(block.text, size, true, maxWidth) }
+  if (lines.length > 2) { size = 13.4; lines = pdfWrap(block.text, size, true, maxWidth) }
+  const subLines = block.sub
+    ? String(block.sub)
+        .split('\n')
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .flatMap((part) => pdfWrap(part, 10.2, false, CONTENT_WIDTH))
+    : []
+  const height = 22 + lines.length * size * 1.26 + 8 + 6 + subLines.length * 14.4 + 8
+  return { size, lines, subLines, height }
+}
+
+/** Tata letak blok tanda tangan digital (dokumen perjanjian mitra). */
+function digitalSignatureLayout(block: SignBlock) {
+  const columns = block.columns.slice(0, 2)
+  const rows = Math.max(...columns.map((column) => (column.fields ?? []).length), 1)
+  const height = 14 + 14 + 46 + 10 + rows * 12.6 + 12
+  return { columns, rows, height }
+}
+
+/** Ruang kosong tanda tangan basah yang lega + kotak materai. */
+const WET_BLANK = 80
+const WET_ROW_LEAD = 13
+
+type WetLayout = {
+  columns: SignColumn[]
+  columnWidth: number
+  inner: number
+  nameLayouts: { size: number; lines: string[] }[]
+  rows: number
+  height: number
+}
+
+/** Tata letak blok tanda tangan basah: ruang tanda tangan asli yang cukup lebar. */
+function wetSignatureLayout(block: SignBlock): WetLayout {
+  const columns = block.columns.slice(0, 2)
+  const columnWidth = (CONTENT_WIDTH - SIGN_COLUMN_GAP) / 2
+  const inner = columnWidth - 12
+  const nameLayouts = columns.map((column) => {
+    const name = String(column.name ?? '').trim() || '-'
+    let size = 11.8
+    let lines = pdfWrap(name, size, true, inner)
+    if (lines.length > 1) { size = 10; lines = pdfWrap(name, size, true, inner) }
+    if (lines.length > 1) lines = [pdfFitLine(name, size, true, inner)]
+    return { size, lines }
+  })
+  const nameLines = Math.max(...nameLayouts.map((row) => row.lines.length), 1)
+  const rows = Math.max(...columns.map((column) => (column.fields ?? []).length), 0)
+  const height = 36 + WET_BLANK + nameLines * 12.6 + 16 + rows * WET_ROW_LEAD + 12
+  return { columns, columnWidth, inner, nameLayouts, rows, height }
+}
+
 function measureBlock(block: PdfBlock): number {
   switch (block.type) {
-    case 'title': {
-      const sub = block.sub ? pdfWrap(block.sub, 10.6, false, CONTENT_WIDTH).length : 0
-      return 22 + 11 + 8 + 6 + sub * 15.5 + 8
-    }
+    case 'title':
+      return titleLayout(block).height
     case 'meta':
-      return 6 + block.lines.length * 13 + 8
+      return 8 + block.lines.reduce((total, line) => total + Math.max(1, pdfWrap(line, 9.2, false, CONTENT_WIDTH).length) * 13, 0) + 6
     case 'heading':
       return HEADING_TOP_GAP + pdfWrap(block.text, HEADING_SIZE, true, CONTENT_WIDTH).length * HEADING_LEAD + 6
     case 'paragraph':
@@ -243,9 +320,7 @@ function measureBlock(block: PdfBlock): number {
     case 'space':
       return block.size ?? 10
     case 'signature': {
-      const columns = block.columns.slice(0, 2)
-      const rows = Math.max(...columns.map((column) => (column.fields ?? []).length), 1)
-      const height = 14 + 14 + 46 + 10 + rows * 12.6 + 12
+      const height = block.wet ? wetSignatureLayout(block).height : digitalSignatureLayout(block).height
       return height + (block.note ? 14 : 0) + 12
     }
     case 'certificate': {
@@ -359,12 +434,13 @@ export function buildPdf(document: PdfDocument): Uint8Array {
     }
   }
 
-  const drawSignature = (block: Extract<PdfBlock, { type: 'signature' }>) => {
-    const columns = block.columns.slice(0, 2)
+  const drawSignature = (block: SignBlock) => {
+    const layout = digitalSignatureLayout(block)
+    const columns = layout.columns
     if (!columns.length) return
     const columnWidth = (CONTENT_WIDTH - SIGN_COLUMN_GAP) / 2
     const padX = 12
-    const height = 14 + 14 + 46 + 10 + Math.max(...columns.map((column) => (column.fields ?? []).length), 1) * 12.6 + 12
+    const height = layout.height
     ensure(height + (block.note ? 16 : 0) + 14)
     const top = y
     columns.forEach((column, index) => {
@@ -374,9 +450,9 @@ export function buildPdf(document: PdfDocument): Uint8Array {
       strokeRect(x, boxBottom, columnWidth, height, PANEL_EDGE, 0.8)
       rect(x, top - 4, columnWidth, 4, GOLD)
 
-      text(x + padX, top - 20, 8.6, 'F2', GOLD, column.label.toUpperCase())
+      text(x + padX, top - 20, 8.6, 'F2', GOLD, pdfFitLine(column.label.toUpperCase(), 8.6, true, columnWidth - padX * 2))
       // baris tanda tangan (gaya surat: nama dalam huruf miring besar + garis)
-      text(x + padX, top - 50, 15.5, 'F3', BRAND, column.name)
+      text(x + padX, top - 50, 15.5, 'F3', BRAND, pdfFitLine(column.name, 15.5, false, columnWidth - padX * 2))
       rule(x + padX, x + columnWidth - padX, top - 56, BRAND, 0.8)
       text(x + padX, top - 68, 8, 'F1', MUTED, 'Ditandatangani secara elektronik')
 
@@ -384,7 +460,7 @@ export function buildPdf(document: PdfDocument): Uint8Array {
       for (const field of column.fields ?? []) {
         const valueLines = pdfWrap(field.value || '-', 8.9, false, columnWidth - padX * 2 - 78)
         cursor -= 12.6
-        text(x + padX, cursor, 8.4, 'F1', MUTED, field.label)
+        text(x + padX, cursor, 8.4, 'F1', MUTED, pdfFitLine(field.label, 8.4, false, 74))
         text(x + padX + 78, cursor, 8.9, 'F1', INK, valueLines[0])
         for (const extra of valueLines.slice(1)) {
           cursor -= 12.6
@@ -398,6 +474,55 @@ export function buildPdf(document: PdfDocument): Uint8Array {
       paragraph(block.note, { size: 8.8, italic: true, color: MUTED })
     }
     y -= 6
+  }
+
+  /** Tanda tangan basah: ruang kosong lega untuk tanda tangan asli + kotak materai. */
+  const drawWetSignature = (block: SignBlock) => {
+    const layout = wetSignatureLayout(block)
+    const columns = layout.columns
+    if (!columns.length) return
+    ensure(layout.height + (block.note ? 22 : 10))
+    const top = y
+    const boxTop = top - 36
+    const boxBottom = boxTop - WET_BLANK
+    columns.forEach((column, index) => {
+      const x = MARGIN.left + index * (layout.columnWidth + SIGN_COLUMN_GAP)
+      const w = layout.columnWidth
+      rect(x, top - 4, w, 4, GOLD)
+      text(x + 6, top - 20, 8.6, 'F2', GOLD, pdfFitLine(column.label.toUpperCase(), 8.6, true, w - 12))
+      text(x + 6, top - 31, 7.6, 'F1', MUTED, 'Tanda tangan basah (asli):')
+      strokeRect(x, boxBottom, w, WET_BLANK, PANEL_EDGE, 0.6)
+      // kotak materai di sudut kanan ruang tanda tangan (opsional)
+      if (block.materai !== false) {
+        strokeRect(x + w - 76, boxBottom + 6, 68, 46, PANEL_EDGE, 0.6)
+        text(x + w - 70, boxBottom + 26, 6.8, 'F1', MUTED, 'Meterai')
+      }
+      rule(x + 6, x + w - 6, boxBottom, BRAND, 0.9)
+
+      let cursor = boxBottom
+      const name = layout.nameLayouts[index]
+      for (const line of name.lines) {
+        cursor -= 12.6
+        text(x + 6, cursor, name.size, 'F2', BRAND, line)
+      }
+      cursor -= 4
+      for (const field of column.fields ?? []) {
+        const valueLines = pdfWrap(field.value || '-', 8.8, false, w - 12 - 76)
+        cursor -= WET_ROW_LEAD
+        text(x + 6, cursor, 8.2, 'F1', MUTED, pdfFitLine(field.label, 8.2, false, 72))
+        text(x + 82, cursor, 8.8, 'F1', INK, valueLines[0])
+        for (const extra of valueLines.slice(1)) {
+          cursor -= WET_ROW_LEAD
+          text(x + 82, cursor, 8.8, 'F1', INK, extra)
+        }
+      }
+    })
+    y = top - layout.height
+    if (block.note) {
+      y -= 4
+      paragraph(block.note, { size: 8.8, italic: true, color: MUTED })
+    }
+    y -= 8
   }
 
   const drawCertificate = (block: Extract<PdfBlock, { type: 'certificate' }>) => {
@@ -452,25 +577,34 @@ export function buildPdf(document: PdfDocument): Uint8Array {
     }
 
     switch (block.type) {
-      case 'title': {
-        ensure(74)
-        y -= 22
-        text(MARGIN.left, y, 19.5, 'F2', BRAND, block.text)
-        if (block.badge) {
-          const badgeWidth = pdfTextWidth(block.badge, 9, true) + 20
-          rect(PAGE.width - MARGIN.right - badgeWidth, y - 5, badgeWidth, 18, GOLD)
-          text(PAGE.width - MARGIN.right - badgeWidth + 10, y, 9, 'F2', '1 1 1', block.badge)
-        }
-        y -= 8
-        rule(MARGIN.left, PAGE.width - MARGIN.right, y, GOLD, 1.1)
-        y -= 6
-        if (block.sub) paragraph(block.sub, { size: 10.6, italic: true, color: MUTED })
-        break
+    case 'title': {
+      const layout = titleLayout(block)
+      ensure(layout.height + 6)
+      y -= 22
+      const badgeBaseline = y - layout.size * 1.26
+      for (const line of layout.lines) {
+        y -= layout.size * 1.26
+        text(MARGIN.left, y, layout.size, 'F2', BRAND, line)
       }
+      if (block.badge) {
+        const badgeWidth = pdfTextWidth(block.badge, 9, true) + 20
+        rect(PAGE.width - MARGIN.right - badgeWidth, badgeBaseline - 5, badgeWidth, 18, GOLD)
+        text(PAGE.width - MARGIN.right - badgeWidth + 10, badgeBaseline, 9, 'F2', '1 1 1', block.badge)
+      }
+      y -= 8
+      rule(MARGIN.left, PAGE.width - MARGIN.right, y, GOLD, 1.1)
+      y -= 6
+      for (const line of layout.subLines) {
+        y -= 14.4
+        text(MARGIN.left, y, 10.2, 'F3', MUTED, line)
+      }
+      break
+    }
       case 'meta': {
-        ensure(block.lines.length * 13 + 10)
+        const lines = block.lines.flatMap((line) => pdfWrap(line, 9.2, false, CONTENT_WIDTH))
+        ensure(lines.length * 13 + 12)
         y -= 6
-        for (const line of block.lines) {
+        for (const line of lines) {
           y -= 13
           text(MARGIN.left, y, 9.2, 'F1', MUTED, line)
         }
@@ -571,7 +705,8 @@ export function buildPdf(document: PdfDocument): Uint8Array {
         break
       }
       case 'signature': {
-        drawSignature(block)
+        if (block.wet) drawWetSignature(block)
+        else drawSignature(block)
         break
       }
       case 'image': {
@@ -611,6 +746,10 @@ export function buildPdf(document: PdfDocument): Uint8Array {
 
   const totalPages = pages.length
   const footerNote = pdfSanitize(document.footerNote ?? '')
+  const pageLabel = (index: number) => `Halaman ${index} dari ${totalPages}`
+  const labelWidth = pdfTextWidth(pageLabel(totalPages), 8.4, false)
+  const footerLine = pdfFitLine(footerNote, 8.4, false, CONTENT_WIDTH - labelWidth - 18)
+  const headLine = pdfFitLine(pdfSanitize(document.title), 8.4, true, CONTENT_WIDTH - 8)
   pages.forEach((pageOps, index) => {
     const baseline = MARGIN.bottom - 26
     if (document.watermark) {
@@ -626,11 +765,11 @@ export function buildPdf(document: PdfDocument): Uint8Array {
       )
     }
     pageOps.push(`0.7 w ${RULE} RG ${MARGIN.left.toFixed(2)} ${(baseline + 12).toFixed(2)} m ${(PAGE.width - MARGIN.right).toFixed(2)} ${(baseline + 12).toFixed(2)} l S`)
-    pageOps.push(`BT /F1 8.4 Tf ${MUTED} rg 1 0 0 1 ${MARGIN.left.toFixed(2)} ${baseline.toFixed(2)} Tm (${escapePdfText(footerNote.slice(0, 120))}) Tj ET`)
-    const label = `Halaman ${index + 1} dari ${totalPages}`
+    pageOps.push(`BT /F1 8.4 Tf ${MUTED} rg 1 0 0 1 ${MARGIN.left.toFixed(2)} ${baseline.toFixed(2)} Tm (${escapePdfText(footerLine)}) Tj ET`)
+    const label = pageLabel(index + 1)
     const width = pdfTextWidth(label, 8.4, false)
     pageOps.push(`BT /F1 8.4 Tf ${MUTED} rg 1 0 0 1 ${(PAGE.width - MARGIN.right - width).toFixed(2)} ${baseline.toFixed(2)} Tm (${escapePdfText(label)}) Tj ET`)
-    pageOps.push(`BT /F1 8.4 Tf ${GOLD} rg 1 0 0 1 ${MARGIN.left.toFixed(2)} ${(baseline + 22).toFixed(2)} Tm (${escapePdfText(pdfSanitize(document.title).slice(0, 90))}) Tj ET`)
+    pageOps.push(`BT /F1 8.4 Tf ${GOLD} rg 1 0 0 1 ${MARGIN.left.toFixed(2)} ${(baseline + 22).toFixed(2)} Tm (${escapePdfText(headLine)}) Tj ET`)
   })
 
   return assemble(document, pages, images)
