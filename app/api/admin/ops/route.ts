@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { notifyUser } from '@/lib/notifications'
+import { accrueReferralForTransaction } from '@/lib/referral'
 import { sendPartnerStatusEmail } from '@/lib/email'
 import { sanitizeAreas, NOTARY_REQUEST_STATUS_META } from '@/lib/notary'
 
@@ -56,6 +57,23 @@ export async function POST(request: Request) {
     const { error } = await admin.from('transaction_reports').update(patch).eq('id', id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     await audit(kind === 'billing.verify' ? 'transaction.verified' : 'transaction.rejected', 'transaction_report', id, { previous_status: before.status, commission_amount: before.commission_amount, sale_price: before.sale_price, note })
+
+    // Bonus Referral (agent → agent): dicairkan saat laporan transaksi diverifikasi.
+    try {
+      if (kind === 'billing.verify') {
+        await accrueReferralForTransaction(admin, {
+          id,
+          user_id: String(before.user_id ?? ''),
+          property_title: before.property_title ?? null,
+          sale_price: before.sale_price ?? null,
+          verified_at: now,
+        })
+      } else {
+        // Laporan ditolak → bonus referral yang mungkin sudah tercatat dibatalkan.
+        await admin.from('referral_ledger').update({ status: 'void', note: note || 'Laporan transaksi ditolak', updated_at: now }).eq('transaction_report_id', id).in('status', ['hold', 'approved'])
+      }
+    } catch { /* bonus referral tidak boleh menggagalkan verifikasi penagihan */ }
+
     return NextResponse.json({ ok: true, status, id })
   }
 

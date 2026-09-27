@@ -308,6 +308,38 @@ export type DashboardVerification = {
   applicant?: { name?: string; email?: string; phone?: string } | null
 }
 
+export type DashboardReferralLedger = {
+  id: string
+  referral_id?: string
+  referrer_id?: string
+  referee_id?: string
+  transaction_report_id?: string
+  property_title?: string | null
+  basis_amount?: number | string
+  rate?: number | string
+  amount?: number | string
+  capped?: boolean | null
+  status: 'hold' | 'approved' | 'paid' | 'void' | string
+  hold_until?: string | null
+  approved_at?: string | null
+  paid_at?: string | null
+  created_at?: string | null
+  referrer_name?: string | null
+  referee_name?: string | null
+}
+
+export type DashboardReferral = {
+  settings?: { rate?: number; cap_amount?: number; hold_days?: number; enabled?: boolean } | null
+  participant?: { code?: string; status?: string; terms_accepted_at?: string } | null
+  link?: string | null
+  isAgent?: boolean
+  metrics?: Record<string, number>
+  referrals?: Array<{ id: string; code?: string; referee_id?: string | null; referee_name?: string | null; referrer_id?: string; referrer_name?: string | null; status?: string; fraud_flag?: string | null; fraud_note?: string | null; joined_at?: string | null }>
+  ledger?: DashboardReferralLedger[]
+  payouts?: Array<{ id: string; total_amount?: number | string; entries?: number; period?: string | null; reference?: string | null; status?: string; paid_at?: string | null; created_at?: string | null; referrer_id?: string; referrer_name?: string | null }>
+  participants?: Array<{ user_id: string; code: string; status: string; name?: string | null; phone?: string | null; terms_accepted_at?: string | null }>
+}
+
 export type DashboardPayload = {
   authenticated?: boolean
   role?: string
@@ -335,6 +367,7 @@ export type DashboardPayload = {
   verifications?: DashboardVerification[]
   sanctions?: DashboardSanction[]
   ai?: { configured?: boolean; model?: string; listingsWithSummary?: number; listingsWithoutMedia?: number; amenitiesCoverage?: number }
+  referral?: DashboardReferral | null
 }
 
 /** Ambil data dashboard (properties/inquiries/visits/transactions) + reload manual. */

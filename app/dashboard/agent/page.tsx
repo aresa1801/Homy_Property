@@ -1,6 +1,6 @@
 'use client'
 
-import { BarChart3, FileSignature, FileText, Home, Plus, Users, WalletCards } from 'lucide-react'
+import { BarChart3, FileSignature, FileText, Gift, Home, Plus, Users, WalletCards } from 'lucide-react'
 import { DashboardGreeting, DashboardShell, MetricCard } from '@/components/dashboard-shell'
 import { STAGE_LABEL, STATUS_LABEL, rupiah, shortDate, ui, useDashboard } from '@/lib/dashboard-client'
 
@@ -9,6 +9,7 @@ const TILES = [
   { href: '/dashboard/agent/leads', title: 'CRM Prospek', body: 'Balas calon pembeli & ubah tahap pipeline.', icon: Users },
   { href: '/dashboard/agent/analytics', title: 'Analitik', body: 'Harga, prospek, respons, dan konversi.', icon: BarChart3 },
   { href: '/dashboard/agent/billing', title: 'Penagihan', body: 'Lapor transaksi & komisi penjualan 0,5%.', icon: WalletCards },
+  { href: '/dashboard/agent/referral', title: 'Referral & Bonus', body: 'Ajak sesama agen, dapat bonus 0,1% per transaksi.', icon: Gift },
   { href: '/dashboard/agent/agreement', title: 'Perjanjian', body: 'Status kemitraan & kewajiban Anda.', icon: FileSignature },
   { href: '/dashboard/agent/list', title: 'Pasang Properti', body: 'Mulai listing baru dari form lengkap.', icon: FileText },
 ]

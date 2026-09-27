@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { notifyUser } from '@/lib/notifications'
+import { attachReferralForReferee } from '@/lib/referral'
 import {
   MAX_IDENTITY_UPLOAD_BYTES,
   REQUIREMENT_LABELS,
@@ -268,6 +270,15 @@ export async function POST(request: Request) {
         ),
       )
     } catch { /* best effort */ }
+
+    // Atribusi Bonus Referral (agent → agent). Kode disimpan di cookie `homy_ref`
+    // (masa berlaku 30 hari) saat calon mitra membuka tautan /r/<kode>.
+    try {
+      const cookieStore = await cookies()
+      const refCode = cookieStore.get('homy_ref')?.value ?? null
+      const refAdmin = serviceClient()
+      if (refAdmin) await attachReferralForReferee(refAdmin, { refereeId: user.id, role, code: refCode })
+    } catch { /* atribusi referral tidak boleh menggagalkan pengajuan verifikasi */ }
   }
 
   return NextResponse.json({ ok: true, record: saved })

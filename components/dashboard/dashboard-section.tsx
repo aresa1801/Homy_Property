@@ -8,6 +8,7 @@ import { AiBoard, AiConversationsBoard } from '@/components/dashboard/boards-ai'
 import { AiMonitorBoard, AuditBoard, FlagsBoard, ModerationBoard, PartnerSanctionsBoard, PartnershipBoard, PlatformBillingBoard, ReportsBoard, RolesBoard, SettingsBoard, UsersBoard } from '@/components/dashboard/boards-admin'
 import { AiAdminBoard } from '@/components/dashboard/boards-ai-admin'
 import { VerificationBoard, VerificationReviewBoard } from '@/components/dashboard/boards-verify'
+import { ReferralAdminBoard, ReferralBoard } from '@/components/dashboard/boards-referral'
 
 export type SectionRole = 'agent' | 'property-owner' | 'admin' | 'super-admin'
 
@@ -23,6 +24,7 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
     availability: { eyebrow: 'Jadwal', title: 'Kalender & Ketersediaan', description: 'Satu tempat untuk jadwal kunjungan calon pembeli dan pengaturan hari/jam Anda siap menerima meeting. Konfirmasi jadwal, ubah waktu, atur ketersediaan, lalu tindak lanjuti hasil kunjungan.' },
     conversations: { eyebrow: 'Rekaman', title: 'Rekam Percakapan', description: 'Riwayat tanya-jawab calon pembeli/penyewa dengan Homy AI tentang listing Anda. Pakai untuk memahami pertanyaan yang paling sering muncul dan menyiapkan jawaban terbaik.' },
     billing: { eyebrow: 'Keuangan', title: 'Penagihan & Komisi', description: 'Laporkan transaksi properti ke Homy dan pantau komisi penjualan 0,5% beserta status verifikasinya.' },
+    referral: { eyebrow: 'Pertumbuhan', title: 'Referral & Bonus', description: 'Aktifkan kode referral Anda, bagikan link ke sesama agen, dan pantau klik, agen yang bergabung, serta bonus 0,1% dari transaksi yang sudah diverifikasi Homy (maks Rp 2 juta, masa tahan 30 hari).' },
     agreement: { eyebrow: 'Kemitraan', title: 'Perjanjian Kerjasama', description: 'Status perjanjian mitra Anda, data perjanjian yang tersimpan, dan ringkasan kewajiban sebagai agen Homy.' },
     verification: { eyebrow: 'Kemitraan', title: 'Verifikasi Mitra', description: 'Lengkapi data diri, dokumen identitas (KTP/SIM), alamat domisili, dan ketersediaan waktu. Setelah disetujui admin, Anda dapat langsung memasang listing properti.' },
     list: { eyebrow: 'Publikasi', title: 'Pasang Properti', description: 'Siapkan syarat publikasi, lanjutkan listing yang tertunda, dan mulai listing baru dari form lengkap yang terbaca AI.' },
@@ -50,6 +52,7 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
     partnership: { eyebrow: 'Kemitraan', title: 'Calon Mitra & Partnership', description: 'Pengajuan kemitraan dari halaman Open Partnership (agen, pemilik, agensi, institusi, notaris/PPAT) dan pesan dari halaman Kontak: verifikasi, hubungi, setujui, atau tolak — keputusan otomatis mengirim email balasan ke calon mitra. Notaris yang disetujui tayang di direktori /notaris, dan pengajuan pendampingan notaris ditindaklanjuti di sini.' },
     sanctions: { eyebrow: 'Disiplin', title: 'Sanksi & Teguran Mitra', description: 'Jatuhkan hukuman berjenjang kepada Agen & Mitra yang melanggar: Teguran, Peringatan, Suspend, hingga Blokir. Dipakai untuk pelanggaran etika, komisi yang tidak dibayar, atau pelanggaran aturan perjanjian kerja sama.' },
     'ai-admin': { eyebrow: 'Kecerdasan Buatan', title: 'Homy AI Admin', description: 'Asisten AI yang bertindak sebagai admin: mengetahui seluruh database Homy, bisa menjawab pertanyaan operasional dari data nyata, berinteraksi dengan pengguna (kirim notifikasi, balas pertanyaan), serta menyusun analisa untuk Agen, Pemilik Properti, dan Mitra lainnya.' },
+    referral: { eyebrow: 'Pertumbuhan', title: 'Program Referral', description: 'Pantau program bonus referral agent → agent: peserta, klik link, agen yang bergabung, tinjauan indikasi fraud, buku komisi, batch pembayaran, dan pengaturan tarif/cap/masa tahan.' },
   },
   'super-admin': {
     verifications: { eyebrow: 'Kemitraan', title: 'Verifikasi Agen & Pemilik', description: 'Tinjau pengajuan verifikasi mitra: data diri, alamat domisili, dokumen identitas (KTP/SIM), ketersediaan waktu, dan Perjanjian Kerja Sama. Setujui untuk mengaktifkan peran mitra.' },
@@ -61,6 +64,7 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
     partnership: { eyebrow: 'Kemitraan', title: 'Calon Mitra & Partnership', description: 'Pengajuan kemitraan dari halaman Open Partnership (agen, pemilik, agensi, institusi korporat seperti Ray White/LJ Hooker) dan pesan dari halaman Kontak: verifikasi, hubungi, setujui, atau tolak.' },
     sanctions: { eyebrow: 'Disiplin', title: 'Sanksi & Teguran Mitra', description: 'Jatuhkan hukuman berjenjang kepada Agen & Mitra yang melanggar: Teguran, Peringatan, Suspend, hingga Blokir. Dipakai untuk pelanggaran etika, komisi yang tidak dibayar, atau pelanggaran aturan perjanjian kerja sama.' },
     'ai-admin': { eyebrow: 'Kecerdasan Buatan', title: 'Homy AI Admin', description: 'Asisten AI yang bertindak sebagai admin: mengetahui seluruh database Homy, bisa menjawab pertanyaan operasional dari data nyata, berinteraksi dengan pengguna (kirim notifikasi, balas pertanyaan), serta menyusun analisa untuk Agen, Pemilik Properti, dan Mitra lainnya.' },
+    referral: { eyebrow: 'Pertumbuhan', title: 'Program Referral', description: 'Pantau program bonus referral agent → agent: peserta, klik link, agen yang bergabung, tinjauan indikasi fraud, buku komisi, batch pembayaran, dan pengaturan tarif/cap/masa tahan.' },
   },
 }
 
@@ -99,6 +103,7 @@ export function DashboardSection({ role, section }: { role: SectionRole; section
       if (section === 'partnership') return <PartnershipBoard data={data} loading={loading} reload={reload} />
       if (section === 'sanctions') return <PartnerSanctionsBoard data={data} loading={loading} reload={reload} type={type} />
       if (section === 'ai-admin') return <AiAdminBoard data={data} loading={loading} reload={reload} type={type} />
+      if (section === 'referral') return <ReferralAdminBoard data={data} loading={loading} reload={reload} />
       if (section === 'verifications') return <VerificationReviewBoard data={data} loading={loading} reload={reload} />
       return null
     }
@@ -116,6 +121,7 @@ export function DashboardSection({ role, section }: { role: SectionRole; section
       agreement: <AgreementBoard data={data} loading={loading} reload={reload} type={role} />,
       verification: <VerificationBoard data={data} loading={loading} reload={reload} type={role} />,
       list: <ListLauncher data={data} loading={loading} reload={reload} type={role} />,
+      referral: <ReferralBoard data={data} loading={loading} reload={reload} />,
       ai: <AiBoard data={data} loading={loading} reload={reload} type={role} />,
     }
     return boards[section]

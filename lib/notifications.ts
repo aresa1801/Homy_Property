@@ -12,6 +12,7 @@ export type NotificationKind =
   | 'interest.new' | 'interest.updated'
   | 'verification.submitted' | 'verification.approved' | 'verification.rejected' | 'verification.reminder'
   | 'sanction.warning' | 'sanction.suspended' | 'sanction.blocked' | 'sanction.lifted'
+  | 'referral.joined' | 'referral.commission' | 'referral.payout'
 
 export type NotificationInput = {
   userId: string

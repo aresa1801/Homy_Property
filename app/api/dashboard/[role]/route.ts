@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
+import { myReferralOverview, referralsForAdmin } from '@/lib/referral'
 
 const ADMIN_ROLES = ['admin', 'super_admin']
 
@@ -177,7 +178,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       .select('*')
       .eq('user_id', user.id)
 
-    return NextResponse.json({ ...base, metrics, properties: rows, inquiries: prospectList, visits: visitsEnriched, interests: interestsEnriched, transactions: transactions.data ?? [], agreements: agreements.data ?? [], availability: availabilityRows ?? [], verifications: verificationRows ?? [], payments: [] })
+    const referral = role === 'agent' ? await myReferralOverview(user.id).catch(() => null) : null
+
+    return NextResponse.json({ ...base, metrics, properties: rows, inquiries: prospectList, visits: visitsEnriched, interests: interestsEnriched, transactions: transactions.data ?? [], agreements: agreements.data ?? [], availability: availabilityRows ?? [], verifications: verificationRows ?? [], payments: [], referral })
   }
 
   if (role === 'admin' || role === 'super-admin') {
@@ -361,9 +364,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       partnersRestricted: Object.keys(roleStatusMap).length,
     }
 
+    const referral = await referralsForAdmin().catch(() => null)
+
     return NextResponse.json({
       ...base,
       metrics,
+      referral,
       properties: list.filter((p) => p.status === 'pending'),
       allProperties: list,
       users,
