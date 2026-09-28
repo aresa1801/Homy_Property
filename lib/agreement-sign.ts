@@ -65,6 +65,16 @@ export function signatureId(role: string, userId: string, signedAt: string, vers
   return `ES-${String(version).replace(/^v/i, '')}-${digest}`
 }
 
+/**
+ * Normalisasi timestamp ke bentuk ISO-8601 UTC kanonik (`...T03:00:00.123Z`).
+ * Wajib dipakai sebelum hashing supaya sidik jari identik di semua jalur
+ * (route tanda tangan, GET halaman verify, dan PDF) meski format string DB berbeda.
+ */
+function canonicalIso(value: string) {
+  const date = new Date(String(value))
+  return Number.isNaN(date.getTime()) ? String(value) : date.toISOString()
+}
+
 /** Sidik jari dokumen SHA-256 (64 hex uppercase) dari data inti perjanjian. */
 export function agreementFingerprint(input: {
   role: string
@@ -80,7 +90,7 @@ export function agreementFingerprint(input: {
     `role=${input.role}`,
     `user=${input.userId}`,
     `version=${input.version}`,
-    `signed_at=${input.signedAt}`,
+    `signed_at=${canonicalIso(input.signedAt)}`,
     `name=${String(input.fullName ?? '').trim()}`,
     `identity=${String(input.identityNumber ?? '-').trim()}`,
     `serial=${input.serial ?? signatureSerial(input.role, input.userId, input.signedAt)}`,

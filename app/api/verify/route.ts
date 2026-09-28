@@ -4,6 +4,8 @@ import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { notifyUser } from '@/lib/notifications'
 import { attachReferralForReferee } from '@/lib/referral'
+import { agreementFingerprint } from '@/lib/agreement-sign'
+import { AGREEMENT_VERSION } from '@/lib/partner-agreement'
 import {
   MAX_IDENTITY_UPLOAD_BYTES,
   REQUIREMENT_LABELS,
@@ -121,19 +123,37 @@ export async function GET() {
 
   const [verifications, agreements, profile] = await Promise.all([
     admin.from('partner_verifications').select('*').eq('user_id', user.id),
-    admin.from('partner_agreements').select('id,role,status,agreement_version,signed_at,verification_id,signature_serial').eq('user_id', user.id),
+    admin.from('partner_agreements').select('id,role,status,agreement_version,signed_at,verification_id,signature_serial,signature_hash,full_name,identity_number').eq('user_id', user.id),
     admin.from('profiles').select('full_name,phone').eq('id', user.id).maybeSingle(),
   ])
 
   const map: Record<string, VerificationRecord> = {}
   for (const row of (verifications.data ?? []) as VerificationRecord[]) map[String(row.requested_role)] = row
 
+  // Sidik jari SHA-256 ditampilkan di langkah "Penandatangan Perjanjian Kerja Sama".
+  // Untuk baris lama yang belum punya hash, dihitung ulang deterministik dari data inti.
+  const agreementRows = ((agreements.data ?? []) as Record<string, unknown>[]).map((row) => {
+    const stored = typeof row.signature_hash === 'string' ? row.signature_hash : ''
+    const hash =
+      stored ||
+      agreementFingerprint({
+        role: String(row.role ?? ''),
+        userId: user.id,
+        version: String(row.agreement_version ?? AGREEMENT_VERSION),
+        signedAt: String(row.signed_at ?? ''),
+        fullName: String(row.full_name ?? ''),
+        identityNumber: (row.identity_number as string | null) ?? null,
+        serial: (row.signature_serial as string | null) ?? null,
+      })
+    return { ...row, signature_hash: hash }
+  })
+
   return NextResponse.json({
     authenticated: true,
     user: { id: user.id, email: user.email ?? '' },
     profile: profile.data ?? null,
     verifications: map,
-    agreements: agreements.data ?? [],
+    agreements: agreementRows,
   })
 }
 

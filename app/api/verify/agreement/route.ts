@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { COMMISSION_RATE, AGREEMENT_VERSION, AGREEMENT_CONSENTS } from '@/lib/partner-agreement'
-import { signatureSerial } from '@/lib/agreement-sign'
+import { agreementFingerprint, signatureSerial } from '@/lib/agreement-sign'
 import { REQUIREMENT_LABELS, missingRequirements, type VerificationRecord, type VerificationRole } from '@/lib/verification'
 
 const PARTNER_ROLES: VerificationRole[] = ['agent', 'property_owner']
@@ -31,6 +31,8 @@ function agreementPayload(
   signedAt: string,
   client: { ip: string | null; userAgent: string | null },
 ) {
+  const serial = signatureSerial(record.requested_role, userId, signedAt)
+
   const address = [
     record.address,
     record.rt_rw ? `RT/RW ${record.rt_rw}` : null,
@@ -62,7 +64,17 @@ function agreementPayload(
     identity_type: record.identity_type ?? null,
     signed_ip: client.ip,
     signed_user_agent: client.userAgent ? client.userAgent.slice(0, 300) : null,
-    signature_serial: signatureSerial(record.requested_role, userId, signedAt),
+    signature_serial: serial,
+    // Sidik jari dokumen (SHA-256): bukti keaslian tanda tangan elektronik.
+    signature_hash: agreementFingerprint({
+      role: record.requested_role,
+      userId,
+      version: AGREEMENT_VERSION,
+      signedAt,
+      fullName: String(record.full_name ?? ''),
+      identityNumber: record.identity_number ?? null,
+      serial,
+    }),
   }
 }
 
@@ -144,7 +156,7 @@ export async function POST(request: Request) {
       action: 'agreement.signed',
       entity_type: 'partner_agreement',
       entity_id: String((agreement as { id?: string } | null)?.id ?? ''),
-      metadata: { role, version: AGREEMENT_VERSION, commission_rate: COMMISSION_RATE, verification_id: record.id ?? null, serial: payload.signature_serial, ip: payload.signed_ip },
+      metadata: { role, version: AGREEMENT_VERSION, commission_rate: COMMISSION_RATE, verification_id: record.id ?? null, serial: payload.signature_serial, hash: payload.signature_hash, ip: payload.signed_ip },
     })
   } catch { /* best effort */ }
 
