@@ -82,12 +82,12 @@ export default function BuyPage() {
           {/* Dua kartu per baris (di HP maupun desktop) supaya daftar properti lebih ringkas. */}
           <div className="grid grid-cols-2 gap-3 sm:gap-6">
             {filtered.map((home) => {
-              const image = firstMediaUrl(home, supabaseUrl)
+              const image = firstMediaUrl(home, supabaseUrl, 720)
               return (
                 <article key={home.id} className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-[0_10px_35px_rgba(20,42,32,.07)]">
                   <div className="relative aspect-[1.25] overflow-hidden">
                     {image
-                      ? <img src={image} alt={home.title} className="size-full object-cover transition duration-500 hover:scale-105" />
+                      ? <img src={image} alt={home.title} loading="lazy" decoding="async" className="size-full object-cover transition duration-500 hover:scale-105" />
                       : <span className="grid size-full place-items-center bg-[#f2f0ea] text-[#a18a61]"><ImageIcon className="size-6" /></span>}
                     <FavoriteButton propertyId={home.id} propertyTitle={home.title} className="absolute right-2 top-2 sm:right-4 sm:top-4" />
                   </div>

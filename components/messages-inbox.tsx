@@ -183,7 +183,7 @@ export function MessagesInbox() {
         title: row.propertyTitle ?? 'Pertanyaan umum (tanpa properti)',
         location: [row.propertyDistrict, row.propertyCity].filter(Boolean).join(', ') || 'Tanpa lokasi',
         listingType: row.listingType,
-        image: row.propertyId ? firstMediaUrl({ property_media: row.propertyMedia ?? [] }, SUPABASE_URL) : null,
+        image: row.propertyId ? firstMediaUrl({ property_media: row.propertyMedia ?? [] }, SUPABASE_URL, 240) : null,
         lastAt: row.createdAt,
         rows: [row],
       })
@@ -298,7 +298,7 @@ export function MessagesInbox() {
                   >
                     <span className="relative size-12 shrink-0 overflow-hidden rounded-xl bg-[#f2f0ea]">
                       {thread.image
-                        ? <img src={thread.image} alt={thread.title} className="size-full object-cover" />
+                        ? <img src={thread.image} alt={thread.title} loading="lazy" decoding="async" className="size-full object-cover" />
                         : <span className="grid size-full place-items-center text-[#a18a61]">{thread.propertyId ? <ImageIcon className="size-5" /> : <Sparkles className="size-5" />}</span>}
                     </span>
                     <span className="min-w-0 flex-1">

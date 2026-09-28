@@ -85,13 +85,13 @@ export function MyListings({ items }: { items: Listing[] }) {
       {rows.map((item) => {
         const state = STATUS_STYLE[String(item.status ?? 'draft')] ?? STATUS_STYLE.draft
         const rejected = item.status === 'rejected'
-        const image = firstMediaUrl(item, process.env.NEXT_PUBLIC_SUPABASE_URL)
+        const image = firstMediaUrl(item, process.env.NEXT_PUBLIC_SUPABASE_URL, 480)
         return (
           <div key={item.id} className="rounded-xl border border-[#eee7dc] bg-white p-3 sm:p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:gap-4">
               <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden rounded-xl bg-[#f2f0ea] sm:aspect-[4/3] sm:w-52">
                 {image ? (
-                  <img src={image} alt={item.title ?? 'Foto properti'} className="size-full object-cover" />
+                  <img src={image} alt={item.title ?? 'Foto properti'} loading="lazy" decoding="async" className="size-full object-cover" />
                 ) : (
                   <div className="grid size-full place-items-center text-[#a18a61]"><ImageIcon className="size-6" /><span className="mt-1 text-xs font-semibold">Belum ada foto</span></div>
                 )}

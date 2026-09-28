@@ -113,7 +113,9 @@ export function hideDetailAddress(input?: string | null): string {
 
 // Resolve a public URL for the first media item of a property.
 // storage_path may already be a full URL (legacy/demo) or a bucket-relative path.
-export function firstMediaUrl(p: Pick<PropertyRecord, 'property_media' | 'media'>, supabaseUrl?: string, bucket = 'property-media'): string | null {
+// Bila `width` diisi, URL memakai Supabase Image Transformation (thumbnail
+// ter-optimasi) alih-alih mengirim foto ukuran penuh — hemat bandwidth besar.
+export function firstMediaUrl(p: Pick<PropertyRecord, 'property_media' | 'media'>, supabaseUrl?: string, width?: number, bucket = 'property-media'): string | null {
   const media = (p.property_media ?? p.media ?? [])
     .slice()
     .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
@@ -122,7 +124,12 @@ export function firstMediaUrl(p: Pick<PropertyRecord, 'property_media' | 'media'
   const path = first.storage_path
   if (/^https?:\/\//i.test(path)) return path
   if (!supabaseUrl) return null
-  return `${supabaseUrl.replace(/\/$/, '')}/storage/v1/object/public/${bucket}/${path.replace(/^\//, '')}`
+  const base = supabaseUrl.replace(/\/$/, '')
+  const clean = path.replace(/^\//, '')
+  if (width && width > 0) {
+    return `${base}/storage/v1/render/image/public/${bucket}/${clean}?width=${width}&quality=72&resize=cover`
+  }
+  return `${base}/storage/v1/object/public/${bucket}/${clean}`
 }
 
 export const DEMO_PROPERTY_IMAGES = [
