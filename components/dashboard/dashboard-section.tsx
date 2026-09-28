@@ -39,19 +39,19 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
     reports: { eyebrow: 'Keamanan', title: 'Laporan & Penipuan', description: 'Tindak lanjuti laporan pengguna, plus pemeriksaan otomatis: duplikat judul listing dan listing tayang yang belum punya foto.' },
     ai: { eyebrow: 'Kecerdasan Buatan', title: 'Pemantauan AI', description: 'Pastikan Homy AI menjawab dari data listing yang tayang: status kunci AI, cakupan ringkasan AI, dan uji tanya-jawab langsung.' },
     verifications: { eyebrow: 'Kemitraan', title: 'Verifikasi Agen', description: 'Tinjau pengajuan verifikasi mitra: data diri, alamat domisili, dokumen identitas (KTP/SIM), ketersediaan waktu, dan Perjanjian Kerja Sama yang sudah ditandatangani. Setujui untuk mengaktifkan peran mitra.' },
-    partnership: { eyebrow: 'Kemitraan', title: 'Calon Mitra & Partnership', description: 'Pengajuan kemitraan dari halaman Open Partnership (agen, pemilik, agensi, institusi, notaris/PPAT) dan pesan dari halaman Kontak: verifikasi, hubungi, setujui, atau tolak — keputusan otomatis mengirim email balasan ke calon mitra. Notaris yang disetujui tayang di direktori /notaris, dan pengajuan pendampingan notaris ditindaklanjuti di sini.' },
+    partnership: { eyebrow: 'Kemitraan', title: 'Partnership Agen', description: 'Pengajuan kemitraan Agen Properti dari halaman Open Partnership beserta pesan terkait: verifikasi, hubungi, setujui, atau tolak — keputusan otomatis mengirim email balasan ke calon mitra. Calon agen wajib menandatangani Perjanjian Kerja Sama sebelum verifikasi disetujui. Notaris/institusi/agensi ditangani Super Admin.' },
     sanctions: { eyebrow: 'Disiplin', title: 'Sanksi & Teguran Mitra', description: 'Jatuhkan hukuman berjenjang kepada Agen & Mitra yang melanggar: Teguran, Peringatan, Suspend, hingga Blokir. Dipakai untuk pelanggaran etika, komisi yang tidak dibayar, atau pelanggaran aturan perjanjian kerja sama.' },
     'ai-admin': { eyebrow: 'Kecerdasan Buatan', title: 'Homy AI Admin', description: 'Asisten AI yang bertindak sebagai admin: mengetahui seluruh database Homy, bisa menjawab pertanyaan operasional dari data nyata, berinteraksi dengan pengguna (kirim notifikasi, balas pertanyaan), serta menyusun analisa untuk Agen dan Mitra lainnya.' },
     referral: { eyebrow: 'Pertumbuhan', title: 'Program Referral', description: 'Pantau program bonus referral agent → agent: peserta, klik link, agen yang bergabung, tinjauan indikasi fraud, buku komisi, batch pembayaran, dan pengaturan tarif/cap/masa tahan.' },
   },
   'super-admin': {
-    verifications: { eyebrow: 'Kemitraan', title: 'Verifikasi Agen', description: 'Tinjau pengajuan verifikasi mitra: data diri, alamat domisili, dokumen identitas (KTP/SIM), ketersediaan waktu, dan Perjanjian Kerja Sama. Setujui untuk mengaktifkan peran mitra.' },
+    verifications: { eyebrow: 'Kemitraan', title: 'Verifikasi & Mitra', description: 'Gabungan Verifikasi Mitra & Partnership khusus non-Agen: pengajuan notaris/PPAT, institusi korporat, agensi/broker, dan pesan kontak — verifikasi, hubungi, setujui, atau tolak, plus pengajuan pendampingan notaris. Notaris yang disetujui otomatis tayang di direktori /notaris. Verifikasi Agen Properti ditangani Dashboard Admin.' },
     roles: { eyebrow: 'Akses', title: 'Peran & Izin', description: 'Komposisi peran seluruh akun dan pengaturan akses peran (pengguna, agen, pemilik, admin, super admin).' },
     billing: { eyebrow: 'Keuangan', title: 'Penagihan Platform', description: 'Pusat komisi Homy: laporan transaksi mitra, komisi terverifikasi (pendapatan platform), dan komisi yang masih menunggu.' },
     audit: { eyebrow: 'Jejak', title: 'Log Audit', description: 'Semua tindakan penting platform: moderasi listing, verifikasi komisi, perubahan peran, konfigurasi, dan flag.' },
     system: { eyebrow: 'Platform', title: 'Konfigurasi Sistem', description: 'Pengaturan inti Homy: komisi penjualan, publikasi otomatis, model AI, dan alamat pengirim notifikasi.' },
     flags: { eyebrow: 'Rilis', title: 'Feature Flag', description: 'Nyalakan atau matikan fitur platform dan atur bertahap (rollout) tanpa perlu deploy ulang.' },
-    partnership: { eyebrow: 'Kemitraan', title: 'Calon Mitra & Partnership', description: 'Pengajuan kemitraan dari halaman Open Partnership (agen, pemilik, agensi, institusi korporat seperti Ray White/LJ Hooker) dan pesan dari halaman Kontak: verifikasi, hubungi, setujui, atau tolak.' },
+    partnership: { eyebrow: 'Kemitraan', title: 'Verifikasi & Mitra', description: 'Gabungan Verifikasi Mitra & Partnership khusus non-Agen: pengajuan notaris/PPAT, institusi korporat, agensi/broker, dan pesan kontak — verifikasi, hubungi, setujui, atau tolak, plus pengajuan pendampingan notaris. Notaris yang disetujui otomatis tayang di direktori /notaris. Verifikasi Agen Properti ditangani Dashboard Admin.' },
     sanctions: { eyebrow: 'Disiplin', title: 'Sanksi & Teguran Mitra', description: 'Jatuhkan hukuman berjenjang kepada Agen & Mitra yang melanggar: Teguran, Peringatan, Suspend, hingga Blokir. Dipakai untuk pelanggaran etika, komisi yang tidak dibayar, atau pelanggaran aturan perjanjian kerja sama.' },
     'ai-admin': { eyebrow: 'Kecerdasan Buatan', title: 'Homy AI Admin', description: 'Asisten AI yang bertindak sebagai admin: mengetahui seluruh database Homy, bisa menjawab pertanyaan operasional dari data nyata, berinteraksi dengan pengguna (kirim notifikasi, balas pertanyaan), serta menyusun analisa untuk Agen dan Mitra lainnya.' },
     referral: { eyebrow: 'Pertumbuhan', title: 'Program Referral', description: 'Pantau program bonus referral agent → agent: peserta, klik link, agen yang bergabung, tinjauan indikasi fraud, buku komisi, batch pembayaran, dan pengaturan tarif/cap/masa tahan.' },
@@ -60,6 +60,16 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
 
 function adminOr(role: SectionRole): 'admin' | 'super-admin' {
   return role === 'admin' ? 'admin' : 'super-admin'
+}
+
+/** Halaman gabungan Super Admin: Verifikasi Mitra + Partnership, khusus non-Agen Properti. */
+function SuperAdminPartnershipView({ data, loading, reload }: { data: Parameters<typeof PartnershipBoard>[0]['data']; loading: boolean; reload: () => void }) {
+  return (
+    <div className="space-y-5">
+      <PartnershipBoard data={data} loading={loading} reload={reload} scope="non-agent" showNotary />
+      <VerificationReviewBoard data={data} loading={loading} reload={reload} scope="non-agent" />
+    </div>
+  )
 }
 
 /** Kalender kunjungan + pengaturan ketersediaan digabung dalam satu halaman. */
@@ -90,11 +100,17 @@ export function DashboardSection({ role, section }: { role: SectionRole; section
       if (section === 'system') return <SettingsBoard data={data} loading={loading} reload={reload} />
       if (section === 'flags') return <FlagsBoard data={data} loading={loading} reload={reload} />
       if (section === 'audit') return <AuditBoard data={data} loading={loading} reload={reload} />
-      if (section === 'partnership') return <PartnershipBoard data={data} loading={loading} reload={reload} />
+      if (section === 'partnership') {
+        if (role === 'super-admin') return <SuperAdminPartnershipView data={data} loading={loading} reload={reload} />
+        return <PartnershipBoard data={data} loading={loading} reload={reload} scope="agent" showNotary={false} />
+      }
+      if (section === 'verifications') {
+        if (role === 'super-admin') return <SuperAdminPartnershipView data={data} loading={loading} reload={reload} />
+        return <VerificationReviewBoard data={data} loading={loading} reload={reload} scope="agent" />
+      }
       if (section === 'sanctions') return <PartnerSanctionsBoard data={data} loading={loading} reload={reload} type={type} />
       if (section === 'ai-admin') return <AiAdminBoard data={data} loading={loading} reload={reload} type={type} />
       if (section === 'referral') return <ReferralAdminBoard data={data} loading={loading} reload={reload} />
-      if (section === 'verifications') return <VerificationReviewBoard data={data} loading={loading} reload={reload} />
       return null
     }
     const boards: Record<string, React.ReactNode> = {

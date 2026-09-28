@@ -225,6 +225,26 @@ export async function POST(request: Request) {
         patch.agreement_version = patch.agreement_version ?? (signedAgreement as { agreement_version?: string }).agreement_version ?? null
       }
     }
+    if (missing.length === 1 && missing[0] === 'agreement') {
+      // Wajib tanda tangan Perjanjian Kerja Sama dulu sebelum pengajuan masuk review.
+      try {
+        await notifyUser({
+          userId: user.id,
+          kind: 'verification.submitted',
+          title: 'Tandatangani Perjanjian Kerja Sama dulu',
+          body: 'Pengajuan verifikasi Agen Properti harus disertai Perjanjian Kerja Sama yang sudah ditandatangani. Buka halaman verifikasi, baca, lalu tanda tangani agar pengajuan bisa dikirim.',
+          href: '/verify?role=agent',
+          data: { role, action: 'sign_agreement' },
+        })
+      } catch { /* notifikasi best effort */ }
+      return NextResponse.json(
+        {
+          error: 'Perjanjian Kerja Sama belum ditandatangani. Buka langkah “Penandatangan Perjanjian Kerja Sama”, baca lalu tanda tangani — setelah itu pengajuan bisa dikirim.',
+          missing,
+        },
+        { status: 422 },
+      )
+    }
     if (missing.length) {
       return NextResponse.json(
         {
@@ -294,7 +314,12 @@ export async function POST(request: Request) {
     } catch { /* best effort */ }
 
     try {
-      const { data: admins } = await admin.from('user_roles').select('user_id').in('role', ['admin', 'super_admin'])
+      // Anti-dualisme peran: verifikasi Agen Properti ditangani Dashboard Admin.
+      let { data: admins } = await admin.from('user_roles').select('user_id').in('role', ['admin'])
+      if (!admins || admins.length === 0) {
+        const fallback = await admin.from('user_roles').select('user_id').in('role', ['super_admin'])
+        admins = fallback.data
+      }
       const ids = Array.from(new Set((admins ?? []).map((row: { user_id: string }) => row.user_id))).filter(Boolean)
       await Promise.all(
         ids.map((id) =>

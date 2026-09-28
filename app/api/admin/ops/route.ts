@@ -94,6 +94,11 @@ export async function POST(request: Request) {
     if (status === 'rejected' && !note) {
       return NextResponse.json({ error: 'Catatan alasan wajib diisi agar bisa dikirim ke calon mitra' }, { status: 400 })
     }
+    // Anti-dualisme peran: Agen Properti ditangani Dashboard Admin; mitra lain
+    // (notaris/agensi/institusi/kontak) hanya oleh Super Admin.
+    const agentLeadScope = String(before.kind) === 'agent'
+    const leadScopeGate = await requireRole(agentLeadScope ? ADMIN_ROLES : SUPER_ROLES)
+    if (leadScopeGate.error) return leadScopeGate.error
 
     // 1) Kirim balasan email ke calon mitra (best effort).
     const mail = await sendPartnerStatusEmail({
@@ -323,6 +328,11 @@ export async function POST(request: Request) {
       .eq('id', id)
       .maybeSingle()
     if (!before) return NextResponse.json({ error: 'Data verifikasi tidak ditemukan' }, { status: 404 })
+    // Anti-dualisme peran: verifikasi Agen Properti ditangani Dashboard Admin;
+    // verifikasi peran mitra lain hanya oleh Super Admin.
+    const agentVerifScope = String(before.requested_role) === 'agent'
+    const verifScopeGate = await requireRole(agentVerifScope ? ADMIN_ROLES : SUPER_ROLES)
+    if (verifScopeGate.error) return verifScopeGate.error
 
     if (kind === 'verification.reject' && !note) {
       return NextResponse.json({ error: 'Catatan alasan penolakan wajib diisi' }, { status: 400 })

@@ -198,7 +198,7 @@ export function VerificationBoard({ data, loading, type }: BoardProps & { type: 
 }
 
 /** Halaman admin: tinjau & setujui verifikasi mitra. */
-export function VerificationReviewBoard({ data, loading, reload }: BoardProps) {
+export function VerificationReviewBoard({ data, loading, reload, scope = 'agent' }: BoardProps & { scope?: 'agent' | 'non-agent' }) {
   const [filter, setFilter] = useState('pending')
   const [openId, setOpenId] = useState<string | null>(null)
   const [note, setNote] = useState('')
@@ -253,13 +253,22 @@ export function VerificationReviewBoard({ data, loading, reload }: BoardProps) {
     }
   }
 
-  const rows = data.verifications ?? []
+  const rows = useMemo(
+    () => (data.verifications ?? []).filter((row) => (scope === 'agent'
+      ? String(row.requested_role ?? '') === 'agent'
+      : String(row.requested_role ?? '') !== 'agent')),
+    [data.verifications, scope],
+  )
   const filters: Array<[string, string]> = [['pending', 'Menunggu'], ['approved', 'Disetujui'], ['rejected', 'Ditolak'], ['draft', 'Draf'], ['all', 'Semua']]
   const visible = useMemo(
     () => [...rows].filter((row) => filter === 'all' || String(row.status ?? 'draft') === filter)
       .sort((a, b) => String(b.submitted_at ?? b.updated_at ?? '').localeCompare(String(a.submitted_at ?? a.updated_at ?? ''))),
     [rows, filter],
   )
+
+  // Super Admin tidak menampilkan verifikasi Agen (ditangani Admin). Bila tak ada
+  // data non-agen, blok ini disembunyikan agar halaman gabungan tetap bersih.
+  if (scope === 'non-agent' && !loading && rows.length === 0) return null
 
   async function act(record: DashboardVerification, kind: 'verification.approve' | 'verification.reject' | 'verification.reopen') {
     setBusy(record.id)
@@ -288,6 +297,7 @@ export function VerificationReviewBoard({ data, loading, reload }: BoardProps) {
 
       {message && <p className={`rounded-xl px-4 py-3 text-sm font-medium ${message.tone === 'ok' ? 'bg-[#edf2ed] text-[#0b3d2e]' : 'bg-[#fbeeec] text-[#b45c50]'}`}>{message.text}</p>}
 
+      {scope === 'agent' && (
       <div className={ui.card}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -323,6 +333,7 @@ export function VerificationReviewBoard({ data, loading, reload }: BoardProps) {
           </div>
         )}
       </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-2">
         {filters.map(([value, label]) => (
@@ -352,7 +363,7 @@ export function VerificationReviewBoard({ data, loading, reload }: BoardProps) {
                   </p>
                   <p className="mt-0.5 text-xs text-[#a18a61]">
                     {record.status === 'draft' ? `Draf · diperbarui ${shortDateTime(record.updated_at)}` : `Dikirim ${shortDateTime(record.submitted_at ?? record.updated_at)}`}
-                    {record.agreement_signed_at ? ' · perjanjian ✓' : ''}
+                    {record.agreement_signed_at ? ' · perjanjian ✓' : record.status === 'pending' ? ' · ⚠ perjanjian belum ditandatangani' : ''}
                   </p>
                 </div>
                 <StatusBadge status={record.status} />
@@ -422,10 +433,14 @@ export function VerificationReviewBoard({ data, loading, reload }: BoardProps) {
 
                   {record.reviewer_note && <p className="rounded-xl bg-[#f7f3ec] p-3 text-xs text-[#718078]">Catatan review sebelumnya: {record.reviewer_note}</p>}
 
+                  {!record.agreement_id && (
+                    <p className="rounded-xl bg-[#fff7e3] p-3 text-xs text-[#9b762a]">Mitra belum menandatangani Perjanjian Kerja Sama. Tombol “Setujui” dinonaktifkan sampai perjanjian ditandatangani — mitra diarahkan menandatangani di halaman verifikasi.</p>
+                  )}
+
                   <div className="space-y-2">
                     <textarea rows={2} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Catatan untuk mitra (wajib bila menolak)" className={ui.input} />
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" disabled={busy === record.id || record.status === 'approved'} onClick={() => act(record, 'verification.approve')} className={ui.btn}>
+                      <button type="button" disabled={busy === record.id || record.status === 'approved' || !record.agreement_id} title={!record.agreement_id ? 'Menunggu tanda tangan Perjanjian Kerja Sama' : undefined} onClick={() => act(record, 'verification.approve')} className={ui.btn}>
                         <BadgeCheck className="size-3.5" /> {busy === record.id ? 'Memproses…' : 'Setujui & aktifkan peran'}
                       </button>
                       <button type="button" disabled={busy === record.id || record.status === 'rejected'} onClick={() => act(record, 'verification.reject')} className={ui.ghost + ' !text-[#b45c50]'}>

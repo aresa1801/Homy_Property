@@ -661,8 +661,12 @@ const LEAD_STATUS: Record<string, { label: string; className: string }> = Object
 )
 
 /** Halaman "Partnership": moderasi calon mitra (agen/pemilik/agensi/institusi/notaris) + pesan kontak. */
-export function PartnershipBoard({ data, loading, reload }: BoardProps) {
-  const leads = (data.partnerLeads ?? []) as unknown as Array<Record<string, unknown>>
+export function PartnershipBoard({ data, loading, reload, scope = 'all', showNotary = true }: BoardProps & { scope?: 'all' | 'agent' | 'non-agent'; showNotary?: boolean }) {
+  const leads = useMemo(() => {
+    const all = (data.partnerLeads ?? []) as unknown as Array<Record<string, unknown>>
+    if (scope === 'all') return all
+    return all.filter((lead) => (scope === 'agent' ? String(lead.kind) === 'agent' : String(lead.kind) !== 'agent'))
+  }, [data.partnerLeads, scope])
   const [kind, setKind] = useState('all')
   const [status, setStatus] = useState('all')
   const [busy, setBusy] = useState<string | null>(null)
@@ -677,6 +681,9 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
   }), [leads, kind, status])
 
   const pending = leads.filter((lead) => ['new', 'reviewing'].includes(String(lead.status))).length
+  const approvedCount = leads.filter((lead) => String(lead.status) === 'approved').length
+  const rejectedCount = leads.filter((lead) => String(lead.status) === 'rejected').length
+  const newCount = leads.filter((lead) => String(lead.status) === 'new').length
   const institutions = leads.filter((lead) => ['agency', 'institution'].includes(String(lead.kind))).length
   const notaries = leads.filter((lead) => String(lead.kind) === 'notary').length
   const contacts = leads.filter((lead) => String(lead.kind) === 'contact').length
@@ -735,26 +742,36 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
-        <MetricCard label="Total pengajuan" value={String(leads.length)} change="Dari halaman Open Partnership & Kontak" icon="users" />
+        <MetricCard label="Total pengajuan" value={String(leads.length)} change={scope === 'agent' ? 'Calon agen properti' : scope === 'non-agent' ? 'Notaris, institusi & mitra lain' : 'Dari halaman Open Partnership & Kontak'} icon="users" />
         <MetricCard label="Perlu ditindak" value={String(pending)} change="Status baru / ditinjau" icon="flag" />
-        <MetricCard label="Agensi & institusi" value={String(institutions)} change="Skema komisi khusus" icon="chart" />
-        <MetricCard label="Notaris / PPAT" value={String(notaries)} change="Mitra legal properti" icon="flag" />
-        <MetricCard label="Pesan kontak" value={String(contacts)} change="Dari halaman Kontak" icon="message" />
+        {scope === 'agent' ? (
+          <>
+            <MetricCard label="Disetujui" value={String(approvedCount)} change="Agen aktif" icon="chart" />
+            <MetricCard label="Ditolak" value={String(rejectedCount)} change="Ditutup" icon="flag" />
+            <MetricCard label="Belum ditinjau" value={String(newCount)} change="Status baru" icon="message" />
+          </>
+        ) : (
+          <>
+            <MetricCard label="Agensi & institusi" value={String(institutions)} change="Skema komisi khusus" icon="chart" />
+            <MetricCard label="Notaris / PPAT" value={String(notaries)} change="Mitra legal properti" icon="flag" />
+            <MetricCard label="Pesan kontak" value={String(contacts)} change="Dari halaman Kontak" icon="message" />
+          </>
+        )}
       </div>
 
       <Toast message={message} />
 
       <div className={ui.card}>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Calon mitra &amp; pesan masuk</h3>
+          <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">{scope === 'agent' ? 'Calon agen properti & pesan' : scope === 'non-agent' ? 'Verifikasi mitra & calon mitra (non-agen)' : 'Calon mitra & pesan masuk'}</h3>
           <div className="flex flex-wrap gap-2">
             <select value={kind} onChange={(event) => setKind(event.target.value)} className={ui.input + ' h-9 w-44 py-0'}>
               <option value="all">Semua jenis</option>
-              <option value="agent">Agen Properti</option>
-              <option value="agency">Agensi / Broker</option>
-              <option value="institution">Institusi Korporat</option>
-              <option value="notary">Notaris / PPAT</option>
-              <option value="contact">Pesan Kontak</option>
+              {scope !== 'non-agent' && <option value="agent">Agen Properti</option>}
+              {scope !== 'agent' && <option value="agency">Agensi / Broker</option>}
+              {scope !== 'agent' && <option value="institution">Institusi Korporat</option>}
+              {scope !== 'agent' && <option value="notary">Notaris / PPAT</option>}
+              {scope !== 'agent' && <option value="contact">Pesan Kontak</option>}
             </select>
             <select value={status} onChange={(event) => setStatus(event.target.value)} className={ui.input + ' h-9 w-40 py-0'}>
               <option value="all">Semua status</option>
@@ -828,6 +845,7 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
         </div>
       </div>
 
+      {showNotary && (<>
       <div className={ui.card}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Direktori notaris mitra</h3>
@@ -916,6 +934,7 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
           })}
         </div>
       </div>
+      </>)}
 
       <div className={ui.card}>
         <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Prosedur follow-up partnership</h3>
@@ -923,7 +942,7 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
           <li>1. Verifikasi identitas &amp; legalitas (KTP/izin usaha) sebelum menandai <strong>Disetujui</strong>.</li>
           <li>2. Untuk agensi/institusi, catat skema komisi bertingkat pada catatan verifikasi.</li>
           <li>3. Untuk Notaris/PPAT, verifikasi SK Kemenkumham / keanggotaan INI &amp; wilayah kerja sebelum disetujui — notaris yang disetujui otomatis tayang di <a href="/notaris" className="font-semibold text-[#0b3d2e] underline">direktori notaris</a>.</li>
-          <li>4. Setelah disetujui, minta mitra menandatangani Surat Perjanjian Kerja Sama di halaman <a href="/verify?role=agent&next=/list" className="font-semibold text-[#0b3d2e] underline">Perjanjian</a>.</li>
+          <li>4. {scope === 'agent' ? <>Calon agen <strong>wajib menandatangani Perjanjian Kerja Sama</strong> di halaman <a href="/verify?role=agent" className="font-semibold text-[#0b3d2e] underline">Perjanjian</a> sebelum pengajuan verifikasi bisa disetujui.</> : <>Setelah disetujui, minta mitra menandatangani Surat Perjanjian Kerja Sama di halaman <a href="/verify?role=agent&next=/list" className="font-semibold text-[#0b3d2e] underline">Perjanjian</a>.</>}</li>
           <li>5. Komisi wajib: Agen 0,5% dari total nilai transaksi.</li>
           <li>6. Semua tindakan moderasi tercatat otomatis di <strong>Log Audit</strong>.</li>
         </ul>
