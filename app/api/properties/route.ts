@@ -15,7 +15,8 @@ export async function GET(request: Request) {
   if (city) query = query.ilike('city', `%${city}%`)
   const { data, error } = await query.order('created_at', { ascending: false }).limit(50)
   if (error) return NextResponse.json({ error: 'Unable to load properties' }, { status: 500 })
-  return NextResponse.json({ data })
+  // Katalog publik jarang berubah — cache di edge agar repeat view tidak menyentuh DB.
+  return NextResponse.json({ data }, { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' } })
 }
 
 const PARTNER_ROLES = ['agent']

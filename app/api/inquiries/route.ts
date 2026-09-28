@@ -12,7 +12,7 @@ export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Authentication required' }, { status: 401 })
-  const { data, error } = await supabase.from('inquiries').select('id,property_id,agent_id,status,message,created_at,updated_at').or(`user_id.eq.${user.id},agent_id.eq.${user.id}`).order('created_at', { ascending: false })
+  const { data, error } = await supabase.from('inquiries').select('id,property_id,agent_id,status,message,created_at,updated_at').or(`user_id.eq.${user.id},agent_id.eq.${user.id}`).order('created_at', { ascending: false }).limit(100)
   if (error) return NextResponse.json({ error: 'Unable to load inquiries' }, { status: 500 })
   return NextResponse.json({ data })
 }
