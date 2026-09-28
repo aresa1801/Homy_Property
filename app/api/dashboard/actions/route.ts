@@ -121,7 +121,7 @@ export async function POST(request: Request) {
           kind: KIND[nextStatus],
           title: 'Jadwal kunjungan ' + KIND_LABEL[nextStatus],
           body: (property?.title ? String(property.title) + ' — ' : '') + when + ' WIB' + (isVisitorNotified && meetingPoint ? ' • Titik temu: ' + meetingPoint : ''),
-          href: isVisitorNotified ? '/dashboard/user/visits' : '/dashboard/property-owner/calendar',
+          href: isVisitorNotified ? '/dashboard/user/visits' : '/dashboard/agent/schedule',
           data: { visit_id: id, property_id: visitBefore?.property_id ?? null, status: nextStatus, meeting_point: meetingPoint, map_url: mapHref },
         })
         // Email titik temu ke pengunjung (hanya saat konfirmasi oleh agen/pemilik).
@@ -195,7 +195,7 @@ export async function POST(request: Request) {
     if (!salePrice || salePrice <= 0) return NextResponse.json({ error: 'Harga jual wajib diisi' }, { status: 400 })
     const rate = 0.5
     const amount = Math.round((salePrice * rate) / 100)
-    const mitraRole = body.role === 'property_owner' ? 'property_owner' : 'agent'
+    const mitraRole = 'agent'
     const { data, error } = await supabase
       .from('transaction_reports')
       .insert({

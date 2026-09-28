@@ -87,11 +87,11 @@ export default function AiAssistantPage() {
               </div>
 
               <div className="rounded-2xl border border-[#e5dccd] bg-[#0b3d2e] p-4 sm:p-5 text-white">
-                <p className="flex items-center gap-2 text-sm font-semibold"><Home className="size-4 text-[#c9a961]" /> Untuk agen &amp; pemilik properti</p>
+                <p className="flex items-center gap-2 text-sm font-semibold"><Home className="size-4 text-[#c9a961]" /> Untuk agen properti</p>
                 <p className="mt-2 text-sm text-white/75">Dashboard Anda punya panel <strong>Saran Harga AI</strong>: masukkan spesifikasi, AI menghitung harga wajar dari data harga rata-rata kecamatan/kota Anda.</p>
                 <div className="mt-3 flex flex-wrap gap-2 text-sm">
                   <Link href="/dashboard/agent/ai" className="rounded-full bg-[#c9a961] px-4 py-1.5 font-semibold text-[#0b3d2e]">Dashboard Agen</Link>
-                  <Link href="/dashboard/property-owner/ai" className="rounded-full border border-white/25 px-4 py-1.5 font-semibold text-white">Dashboard Pemilik</Link>
+                  <Link href="/dashboard/agent/ai" className="rounded-full border border-white/25 px-4 py-1.5 font-semibold text-white">Dashboard Agen</Link>
                 </div>
               </div>
             </div>

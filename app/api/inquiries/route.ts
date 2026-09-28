@@ -53,7 +53,7 @@ export async function POST(request: Request) {
           kind: 'inquiry.new',
           title: 'Pertanyaan baru untuk ' + String(property.title ?? 'listing Anda'),
           body: message.slice(0, 160),
-          href: '/dashboard/property-owner/inquiries',
+          href: '/dashboard/agent/leads',
           data: { inquiry_id: String(data.id), property_id: String(data.property_id) },
         })
       }

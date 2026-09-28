@@ -50,11 +50,11 @@ export const ADMIN_TOOLS: AiToolDef[] = [
     type: 'function',
     function: {
       name: 'query_users',
-      description: 'Cari/daftar pengguna. Bisa filter berdasarkan peran (user/agent/property_owner/admin/super_admin), atau cari nama/telepon. Mengembalikan id, nama, telepon, email, dan daftar peran.',
+      description: 'Cari/daftar pengguna. Bisa filter berdasarkan peran (user/agent/admin/super_admin), atau cari nama/telepon. Mengembalikan id, nama, telepon, email, dan daftar peran.',
       parameters: {
         type: 'object',
         properties: {
-          role: { type: 'string', description: 'Filter peran: user|agent|property_owner|admin|super_admin' },
+          role: { type: 'string', description: 'Filter peran: user|agent|admin|super_admin' },
           search: { type: 'string', description: 'Cari di nama atau nomor telepon' },
           limit: { type: 'number', description: 'Maksimum hasil (default 20)' },
         },
@@ -532,7 +532,7 @@ async function gatherTargetContext(target: AnalysisTarget): Promise<{ label: str
 /** Hasilkan analisa terstruktur untuk target tertentu (JSON terjamin). */
 export async function generateAnalysis(target: AnalysisTarget, actorId: string, audience?: string): Promise<AnalysisResult & { targetLabel: string }> {
   const { label, context } = await gatherTargetContext(target)
-  const audienceText = audience === 'agent' ? 'Agen' : audience === 'property_owner' || audience === 'owner' ? 'Pemilik Properti' : audience === 'partner' ? 'Mitra' : audience === 'admin' || audience === 'super_admin' ? 'Tim Admin' : 'pengguna'
+  const audienceText = audience === 'agent' ? 'Agen' : audience === 'partner' ? 'Mitra' : audience === 'admin' || audience === 'super_admin' ? 'Tim Admin' : 'pengguna'
   const result = await aiJson<AnalysisResult>(
     [
       { role: 'system', content: `Kamu analis data platform properti Homy. Susun ANALISA untuk audiens: ${audienceText}. Gunakan HANYA data yang diberikan. Bahasa Indonesia, actionable, jujur (jangan melebih-lebihkan).` },
@@ -576,7 +576,7 @@ export async function saveAnalysis(input: {
 
   let notified = false
   if (input.notify && input.target.id && input.target.type !== 'platform') {
-    const href = input.target.type === 'property' ? `/property/${input.target.id}` : input.target.type === 'agent' ? '/dashboard/agent' : '/dashboard/property-owner'
+    const href = input.target.type === 'property' ? `/property/${input.target.id}` : input.target.type === 'agent' ? '/dashboard/agent' : '/dashboard/user'
     const { error: notifyError } = await admin.from('notifications').insert({
       user_id: input.target.id, kind: 'ai.analysis', title: 'Analisa Homy AI untuk Anda',
       body: input.analysis.summary.slice(0, 200), href, data: { source: 'ai_admin', analysis_id: data?.id ?? null },

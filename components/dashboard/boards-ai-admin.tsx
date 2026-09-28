@@ -24,13 +24,12 @@ type Analysis = {
 type AnalysisRow = { id: string; target_type: string; target_id: string | null; audience_role: string | null; title: string; summary: string | null; model: string | null; created_at: string }
 
 const TARGET_LABEL: Record<string, string> = {
-  platform: 'Seluruh platform', agent: 'Agen', owner: 'Pemilik Properti', property: 'Listing Properti', partner: 'Mitra', user: 'Pengguna',
+  platform: 'Seluruh platform', agent: 'Agen', property: 'Listing Properti', partner: 'Mitra', user: 'Pengguna',
 }
 
 const AUDIENCES = [
   { value: 'admin', label: 'Tim Admin (internal)' },
   { value: 'agent', label: 'Agen' },
-  { value: 'property_owner', label: 'Pemilik Properti' },
   { value: 'partner', label: 'Mitra' },
   { value: 'user', label: 'Pengguna' },
 ]
@@ -98,7 +97,6 @@ export function AiAdminBoard({ data }: BoardProps) {
   const users = data.users ?? []
   const properties = data.properties ?? []
   const agents = useMemo(() => users.filter((u) => (u.roles ?? []).some((r) => r === 'agent' || r.startsWith('agent('))), [users])
-  const owners = useMemo(() => users.filter((u) => (u.roles ?? []).some((r) => r === 'property_owner' || r.startsWith('property_owner('))), [users])
 
   const [form, setForm] = useState({ targetType: 'platform', targetId: '', audience: 'admin', notify: false })
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
@@ -120,11 +118,10 @@ export function AiAdminBoard({ data }: BoardProps) {
 
   const targetOptions = useMemo(() => {
     if (form.targetType === 'agent') return agents.map((u) => ({ id: u.id, label: `${u.full_name ?? u.email ?? 'Agen'}${u.listings ? ` · ${u.listings} listing` : ''}` }))
-    if (form.targetType === 'owner') return owners.map((u) => ({ id: u.id, label: u.full_name ?? u.email ?? 'Pemilik' }))
     if (form.targetType === 'user') return users.map((u) => ({ id: u.id, label: `${u.full_name ?? u.email ?? 'Pengguna'} (${(u.roles ?? ['user']).join(', ')})` }))
     if (form.targetType === 'property') return properties.map((p) => ({ id: String(p.id), label: `${p.title ?? 'Listing'} · ${[p.district, p.city].filter(Boolean).join(', ')}` }))
     return []
-  }, [form.targetType, agents, owners, users, properties])
+  }, [form.targetType, agents, users, properties])
 
   const needsTarget = form.targetType !== 'platform'
 
@@ -234,7 +231,6 @@ export function AiAdminBoard({ data }: BoardProps) {
                 <select value={form.targetType} onChange={(e) => setForm((p) => ({ ...p, targetType: e.target.value, targetId: '' }))} className={ui.input}>
                   <option value="platform">Seluruh platform</option>
                   <option value="agent">Agen tertentu</option>
-                  <option value="owner">Pemilik tertentu</option>
                   <option value="property">Listing tertentu</option>
                   <option value="user">Pengguna tertentu</option>
                 </select>

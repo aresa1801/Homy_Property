@@ -18,7 +18,7 @@ export async function GET(request: Request) {
   return NextResponse.json({ data })
 }
 
-const PARTNER_ROLES = ['agent', 'property_owner']
+const PARTNER_ROLES = ['agent']
 const ADMIN_ROLES = ['admin', 'super_admin']
 
 /** Kolom yang boleh diisi mitra lewat API. Kolom moderasi/verifikasi hanya admin. */
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   const isAdmin = roles.some((role) => ADMIN_ROLES.includes(role))
   const isPartner = roles.some((role) => PARTNER_ROLES.includes(role))
   if (!isAdmin && !isPartner) {
-    return NextResponse.json({ error: 'Daftar dulu sebagai Agen atau Pemilik Properti untuk memasang listing.' }, { status: 403 })
+    return NextResponse.json({ error: 'Daftar dulu sebagai Agen Properti untuk memasang listing.' }, { status: 403 })
   }
 
   // Mitra yang sedang disuspend/diblokir tidak boleh memasang listing baru.

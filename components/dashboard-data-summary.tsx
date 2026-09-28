@@ -1,7 +1,7 @@
 'use client'
 
 import useSWR from 'swr'
-type DashboardRole = 'user' | 'agent' | 'property-owner' | 'admin' | 'super-admin'
+type DashboardRole = 'user' | 'agent' | 'admin' | 'super-admin'
 
 const fetcher = (url: string) => fetch(url).then(async (response) => {
   if (!response.ok) throw new Error('Gagal memuat data dasbor')
@@ -11,7 +11,6 @@ const fetcher = (url: string) => fetch(url).then(async (response) => {
 const labels: Record<DashboardRole, { keys: string[]; names: string[] }> = {
   user: { keys: ['favorites', 'inquiries', 'upcomingVisits', 'interests'], names: ['Favorit tersimpan', 'Pertanyaan aktif', 'Kunjungan mendatang', 'Konfirmasi ketertarikan'] },
   agent: { keys: ['activeListings', 'newLeads', 'interests', 'interestNegotiation'], names: ['Listing aktif', 'Prospek baru', 'Konfirmasi ketertarikan', 'Sedang negosiasi'] },
-  'property-owner': { keys: ['properties', 'publishedProperties', 'inquiries', 'interests'], names: ['Total properti', 'Properti tayang', 'Pertanyaan masuk', 'Konfirmasi ketertarikan'] },
   admin: { keys: ['pendingApprovals', 'openReports', 'activeUsers', 'interests'], names: ['Menunggu persetujuan', 'Laporan terbuka', 'Pengguna aktif', 'Konfirmasi ketertarikan'] },
   'super-admin': { keys: ['users', 'properties', 'auditEvents'], names: ['Pengguna', 'Properti', 'Aktivitas audit'] },
 }

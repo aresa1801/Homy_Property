@@ -97,7 +97,7 @@ export async function POST(request: Request) {
 
   const { data: roleRows } = await admin.from('user_roles').select('role').eq('user_id', user.id)
   const roles = (roleRows ?? []).map((row: { role: string }) => row.role)
-  const staffRole = roles.includes('agent') || roles.includes('property_owner')
+  const staffRole = roles.includes('agent')
 
   let source = 'buyer'
   if (propertyId) {

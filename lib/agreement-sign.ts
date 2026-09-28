@@ -13,7 +13,6 @@ export const JAKARTA_OFFSET = '+07:00'
 
 const ROLE_CODE: Record<string, string> = {
   agent: 'AGN',
-  property_owner: 'OWN',
 }
 
 function jakartaParts(iso: string) {

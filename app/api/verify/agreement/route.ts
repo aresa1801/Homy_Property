@@ -5,7 +5,7 @@ import { COMMISSION_RATE, AGREEMENT_VERSION, AGREEMENT_CONSENTS } from '@/lib/pa
 import { agreementFingerprint, signatureSerial } from '@/lib/agreement-sign'
 import { REQUIREMENT_LABELS, missingRequirements, type VerificationRecord, type VerificationRole } from '@/lib/verification'
 
-const PARTNER_ROLES: VerificationRole[] = ['agent', 'property_owner']
+const PARTNER_ROLES: VerificationRole[] = ['agent']
 
 function serviceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL

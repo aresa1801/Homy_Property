@@ -7,13 +7,13 @@ import { MetricCard } from '@/components/dashboard-shell'
 import { resubmitListing, rupiah, runAction, shortDate, shortDateTime, STATUS_LABEL, ui, VISIT_LABEL, type DashboardPayload, type DashboardVisit } from '@/lib/dashboard-client'
 import type { BoardProps } from '@/components/dashboard/boards-listing'
 
-const ROLE_KEY = { agent: 'agent', 'property-owner': 'property_owner' } as const
+const ROLE_KEY = { agent: 'agent' } as const
 
-/** Komisi platform: Agen 0,5% dari harga jual, Pemilik Properti 2%. */
-const COMMISSION = { agent: 0.5, 'property-owner': 2 } as const
+/** Komisi platform: satu model — 0,5% dari total nilai transaksi. */
+const COMMISSION = { agent: 0.5 } as const
 
 /** Halaman "Penagihan": lapor transaksi + komisi 0,5% untuk Homy. */
-export function BillingBoard({ data, loading, reload, type }: BoardProps & { type: 'agent' | 'property-owner' }) {
+export function BillingBoard({ data, loading, reload, type }: BoardProps & { type: 'agent' }) {
   const rate = COMMISSION[type]
   const reports = data.transactions ?? []
   const totalValue = reports.reduce((sum, row) => sum + Number(row.sale_price ?? 0), 0)
@@ -54,7 +54,7 @@ export function BillingBoard({ data, loading, reload, type }: BoardProps & { typ
       <div className="grid gap-4 xl:grid-cols-[1.1fr_1fr]">
         <div className={ui.card}>
           <div className="flex items-center gap-2"><WalletCards className="size-5 text-[#0b3d2e]" /><h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Lapor transaksi baru</h3></div>
-          <p className="mt-2 text-sm text-[#718078]">{'Sesuai Pasal 4 perjanjian kerja sama, setiap transaksi wajib dilaporkan ke Homy maksimal 3 hari kerja. Komisi ' + String(rate).replace('.', ',') + '% dari harga jual dihitung otomatis (' + (type === 'agent' ? 'Agen' : 'Pemilik Properti') + ').'}</p>
+          <p className="mt-2 text-sm text-[#718078]">{'Sesuai Pasal 4 perjanjian kerja sama, setiap transaksi wajib dilaporkan ke Homy maksimal 3 hari kerja. Komisi ' + String(rate).replace('.', ',') + '% dari total nilai transaksi dihitung otomatis.'}</p>
           <div className="mt-4 space-y-3">
             <select value={form.propertyId} onChange={(event) => { const item = (data.properties ?? []).find((row) => row.id === event.target.value); setForm({ ...form, propertyId: event.target.value, propertyTitle: item?.title ?? '' }) }} className={ui.input}>
               <option value="">Pilih properti (opsional)</option>
@@ -103,7 +103,7 @@ export function BillingBoard({ data, loading, reload, type }: BoardProps & { typ
 }
 
 /** Halaman "Kalender": jadwal kunjungan calon pembeli. */
-export function CalendarBoard({ data, loading, reload }: BoardProps & { type: 'agent' | 'property-owner' }) {
+export function CalendarBoard({ data, loading, reload }: BoardProps & { type: 'agent' }) {
   const visits = data.visits ?? []
   const [busy, setBusy] = useState<string | null>(null)
   const [editing, setEditing] = useState<string | null>(null)
@@ -246,7 +246,7 @@ export function CalendarBoard({ data, loading, reload }: BoardProps & { type: 'a
 }
 
 /** Halaman "Perjanjian Kerjasama": status + ringkasan kewajiban mitra. */
-export function AgreementBoard({ data, loading, type }: BoardProps & { type: 'agent' | 'property-owner' }) {
+export function AgreementBoard({ data, loading, type }: BoardProps & { type: 'agent' }) {
   const key = ROLE_KEY[type]
   const agreement = (data.agreements ?? []).find((row) => row.role === key)
   const active = agreement?.status === 'active'
@@ -269,7 +269,7 @@ export function AgreementBoard({ data, loading, type }: BoardProps & { type: 'ag
             <div className="mt-4 space-y-3">
               <span className="inline-flex items-center gap-2 rounded-full bg-[#edf2ed] px-3 py-1 text-xs font-semibold text-[#4e866d]"><CheckCircle2 className="size-4" /> Perjanjian aktif</span>
               <dl className="grid gap-3 sm:grid-cols-2">
-                {[['Nama mitra', agreement?.full_name], ['Peran', type === 'agent' ? 'Agen' : 'Pemilik Properti'], ['Nomor identitas', agreement?.identity_number ? `••••${String(agreement.identity_number).slice(-4)}` : '—'], ['Telepon', agreement?.phone], ['Komisi penjualan', `${agreement?.commission_rate ?? 0.5}% dari harga jual`], ['Versi', agreement?.agreement_version ?? 'v1.0'], ['Ditandatangani', shortDate(agreement?.signed_at)], ['Domisili', agreement?.address]].map(([label, value]) => (
+                {[['Nama mitra', agreement?.full_name], ['Peran', 'Agen Properti'], ['Nomor identitas', agreement?.identity_number ? `••••${String(agreement.identity_number).slice(-4)}` : '—'], ['Telepon', agreement?.phone], ['Komisi penjualan', `${agreement?.commission_rate ?? 0.5}% dari harga jual`], ['Versi', agreement?.agreement_version ?? 'v1.0'], ['Ditandatangani', shortDate(agreement?.signed_at)], ['Domisili', agreement?.address]].map(([label, value]) => (
                   <div key={String(label)} className="rounded-xl bg-[#f7f3ec] p-3">
                     <dt className="text-xs font-semibold uppercase tracking-wide text-[#a18a61]">{label}</dt>
                     <dd className="mt-1 text-sm text-[#20332c]">{String(value || '—')}</dd>
@@ -304,7 +304,7 @@ export function AgreementBoard({ data, loading, type }: BoardProps & { type: 'ag
 }
 
 /** Halaman "Pasang Properti": prasyarat, draf, dan mulai listing baru. */
-export function ListLauncher({ data, loading, reload, type }: BoardProps & { type: 'agent' | 'property-owner' }) {
+export function ListLauncher({ data, loading, reload, type }: BoardProps & { type: 'agent' }) {
   const key = ROLE_KEY[type]
   const agreementActive = (data.agreements ?? []).some((row) => row.role === key && row.status === 'active')
   const listings = data.properties ?? []
@@ -412,7 +412,7 @@ function minutesOf(time: string) {
 }
 
 /** Halaman "Ketersediaan": atur hari & jam siap menerima meeting/kunjungan calon pembeli. */
-export function AvailabilityBoard({ data, loading, reload }: BoardProps & { type: 'agent' | 'property-owner' }) {
+export function AvailabilityBoard({ data, loading, reload }: BoardProps & { type: 'agent' }) {
   const stored = (data.availability ?? []) as unknown as Array<Record<string, unknown>>
   const [days, setDays] = useState<DaySlot[]>(() => defaultDays(stored))
   const [hydrated, setHydrated] = useState(false)

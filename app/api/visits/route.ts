@@ -149,7 +149,7 @@ export async function POST(request: Request) {
     kind: 'visit.new',
     title: 'Jadwal kunjungan baru',
     body: visitorName + ' memilih ' + slot.dayLabel + ' pukul ' + slot.timeLabel + ' untuk ' + ctx.propertyTitle + '.',
-    href: '/dashboard/property-owner/calendar',
+    href: '/dashboard/agent/schedule',
     data: { visit_id: String(inserted.id), property_id: ctx.propertyId, scheduled_at: slot.iso },
   })
 

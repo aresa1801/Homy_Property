@@ -15,7 +15,7 @@ import { MAX_IDENTITY_UPLOAD_BYTES, VERIFICATION_BUCKET, defaultAvailability, ty
 import type { AgreementPartner } from '@/lib/agreement-pdf'
 
 export const ADMIN_ROLES = ['admin', 'super_admin']
-export const PARTNER_ROLES: VerificationRole[] = ['agent', 'property_owner']
+export const PARTNER_ROLES: VerificationRole[] = ['agent']
 
 export function serviceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
@@ -182,5 +182,5 @@ export function slug(value: string) {
 }
 
 export function roleSlug(role: VerificationRole) {
-  return role === 'agent' ? 'Agen' : 'Pemilik'
+  return 'Agen'
 }

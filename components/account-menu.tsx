@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { firstName, ROLE_META, useSessionProfile, type AppRole } from '@/lib/homy-session'
 import { UserAvatar } from '@/components/user-avatar'
 
-const PRIORITY: AppRole[] = ['super_admin', 'admin', 'agent', 'property_owner', 'user']
+const PRIORITY: AppRole[] = ['super_admin', 'admin', 'agent', 'user']
 
 /** Dasbor utama = peran tertinggi yang dimiliki akun. */
 export function primaryDashboard(roles: AppRole[]) {

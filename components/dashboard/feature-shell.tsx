@@ -2,7 +2,7 @@
 
 import { DashboardShell } from '@/components/dashboard-shell'
 
-type ShellRole = 'User' | 'Agent' | 'Property Owner' | 'Admin' | 'Super Admin'
+type ShellRole = 'User' | 'Agent' | 'Admin' | 'Super Admin'
 
 /** Kerangka halaman fitur dashboard: shell (tanpa ringkasan) + judul halaman dedicated. */
 export function FeatureShell({ role, eyebrow, title, description, actions, children }: { role: ShellRole; eyebrow: string; title: string; description: string; actions?: React.ReactNode; children: React.ReactNode }) {

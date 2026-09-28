@@ -130,7 +130,7 @@ export function MessagesInbox() {
   const [activeKey, setActiveKey] = useState<string | null>(null)
   const [mobileThreadOpen, setMobileThreadOpen] = useState(false)
 
-  const ownerSide = (profile?.roles ?? []).some((role) => role === 'agent' || role === 'property_owner' || role === 'admin' || role === 'super_admin')
+  const ownerSide = (profile?.roles ?? []).some((role) => role === 'agent' || role === 'admin' || role === 'super_admin')
 
   async function load() {
     setBusy(true)
@@ -384,7 +384,7 @@ export function MessagesInbox() {
                 )}
                 <Link href="/ai-assistant" className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#d8ccbb] px-4 text-sm font-semibold text-[#33433d]">Asisten AI</Link>
                 {ownerSide && (
-                  <Link href={profile?.roles.includes('property_owner') && !profile?.roles.includes('agent') ? '/dashboard/property-owner/inquiries' : '/dashboard/agent/leads'} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#d8ccbb] px-4 text-sm font-semibold text-[#33433d]">
+                  <Link href={'/dashboard/agent/leads'} className="inline-flex h-10 items-center gap-2 rounded-lg border border-[#d8ccbb] px-4 text-sm font-semibold text-[#33433d]">
                     <MessageSquare className="size-4" /> Buka Inquiries / Leads
                   </Link>
                 )}

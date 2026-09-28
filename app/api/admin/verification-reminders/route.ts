@@ -14,10 +14,10 @@ import { isEmailConfigured, sendVerificationReminderEmail } from '@/lib/email'
 import { REQUIREMENT_LABELS, completionPercent, missingRequirements } from '@/lib/verification'
 
 const ADMIN_ROLES = ['admin', 'super_admin']
-const PARTNER_ROLES = ['agent', 'property_owner']
+const PARTNER_ROLES = ['agent']
 const COOLDOWN_DAYS = 7
 const MAX_RECIPIENTS = 200
-const ROLE_LABEL: Record<string, string> = { agent: 'Agen Properti', property_owner: 'Pemilik Properti' }
+const ROLE_LABEL: Record<string, string> = { agent: 'Agen Properti' }
 
 type Target = {
   userId: string

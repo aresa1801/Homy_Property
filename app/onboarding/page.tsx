@@ -2,21 +2,20 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { BrandMark } from '@/components/brand-mark'
-import { ArrowRight, Briefcase, Check, Home, UserRound } from 'lucide-react'
+import { ArrowRight, Briefcase, Check, UserRound } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/dashboard-shell'
 import { ROLE_META, type AppRole } from '@/lib/homy-session'
 
-type Role = 'user' | 'agent' | 'property_owner'
+type Role = 'user' | 'agent'
 
 const ROLE_OPTIONS: { value: Role; title: string; description: string; icon: typeof UserRound }[] = [
   { value: 'user', title: 'Menjelajah properti', description: 'Cari dan simpan properti.', icon: UserRound },
   { value: 'agent', title: 'Saya Agen Properti', description: 'Kelola klien dan listing.', icon: Briefcase },
-  { value: 'property_owner', title: 'Saya Pemilik Properti', description: 'Pasang dan kelola properti saya.', icon: Home },
 ]
 
-const PRIORITY: Role[] = ['agent', 'property_owner', 'user']
+const PRIORITY: Role[] = ['agent', 'user']
 
 export default function OnboardingPage() {
   const [selected, setSelected] = useState<Role[]>(['user'])
@@ -36,7 +35,7 @@ export default function OnboardingPage() {
       const user = data?.user
       const meta = (user?.user_metadata ?? {}) as Record<string, unknown>
       const requestedRole = new URLSearchParams(window.location.search).get('role')
-      if (requestedRole === 'agent' || requestedRole === 'property_owner') {
+      if (requestedRole === 'agent') {
         setSelected((current) => (current.includes(requestedRole as Role) ? current : [...current, requestedRole as Role]))
       }
       setEmail(user?.email ?? '')
@@ -82,7 +81,7 @@ export default function OnboardingPage() {
         .update({ full_name: name, phone, avatar_url: avatarUrl || null, role: primary })
         .eq('id', user.id)
 
-      // Grant every selected role so one account can hold user + agent + property_owner.
+      // Grant every selected role so one account can hold user + agent.
       await supabase
         .from('user_roles')
         .upsert(selected.map((role) => ({ user_id: user.id, role, status: 'active' })), { onConflict: 'user_id,role' })
@@ -120,7 +119,7 @@ export default function OnboardingPage() {
         <div className="mt-6 sm:mt-10 max-w-2xl">
           <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c09b54]">Hampir selesai</p>
           <h1 className="mt-3 font-serif text-3xl sm:text-5xl leading-tight text-[#0b3d2e] md:text-6xl">Bagaimana Anda akan menggunakan Homy?</h1>
-          <p className="mt-5 max-w-xl text-base sm:text-lg leading-8 text-[#65706c]">Pilih satu atau beberapa peran sekaligus. Anda bisa menjadi Agen dan Pemilik Properti dalam satu akun — setiap dasbor memakai foto, nama, dan email Google Anda.</p>
+          <p className="mt-5 max-w-xl text-base sm:text-lg leading-8 text-[#65706c]">Pilih peran Anda. Anda bisa menjadi Agen Properti — setiap dasbor memakai foto, nama, dan email Google Anda.</p>
         </div>
         <form onSubmit={submit} className="mt-8 sm:mt-12">
           <div className="grid gap-4 md:grid-cols-3">

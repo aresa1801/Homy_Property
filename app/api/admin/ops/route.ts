@@ -8,7 +8,7 @@ import { sanitizeAreas, NOTARY_REQUEST_STATUS_META } from '@/lib/notary'
 
 const ADMIN_ROLES = ['admin', 'super_admin']
 const SUPER_ROLES = ['super_admin']
-const GRANTABLE = ['user', 'agent', 'property_owner', 'admin', 'super_admin']
+const GRANTABLE = ['user', 'agent', 'admin', 'super_admin']
 
 function serviceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
@@ -313,7 +313,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, setting: data })
   }
 
-  // ---------- Verifikasi mitra (Agen / Pemilik Properti) ----------
+  // ---------- Verifikasi mitra (Agen Properti) ----------
   if (kind === 'verification.approve' || kind === 'verification.reject' || kind === 'verification.reopen') {
     const id = String(body.id ?? '')
     if (!id) return NextResponse.json({ error: 'ID verifikasi wajib' }, { status: 400 })
@@ -350,7 +350,7 @@ export async function POST(request: Request) {
     // Persetujuan = buka akses peran mitra (dan set peran utama bila masih 'user').
     if (status === 'approved') {
       const role = String(before.requested_role ?? '')
-      if (['agent', 'property_owner'].includes(role)) {
+      if (role === 'agent') {
         const { error: roleError } = await admin
           .from('user_roles')
           .upsert({ user_id: before.user_id, role, status: 'active', granted_at: now }, { onConflict: 'user_id,role' })
@@ -372,7 +372,7 @@ export async function POST(request: Request) {
     })
 
     try {
-      const roleLabel = String(before.requested_role) === 'agent' ? 'Agen Properti' : 'Pemilik Properti'
+      const roleLabel = 'Agen Properti'
       await notifyUser({
         userId: String(before.user_id),
         kind: status === 'approved' ? 'verification.approved' : status === 'rejected' ? 'verification.rejected' : 'verification.submitted',
@@ -401,19 +401,19 @@ export async function POST(request: Request) {
     const LEVELS: Record<string, number> = { teguran: 1, peringatan: 2, suspend: 3, blokir: 4 }
     const CATEGORIES = ['etika', 'komisi', 'rule', 'penipuan', 'lainnya']
 
-    // Sinkronkan status peran mitra (agent/property_owner) mengikuti sanksi efektif.
+    // Sinkronkan status peran mitra (agent) mengikuti sanksi efektif.
     async function syncRoleStatus(userId: string) {
       const { data: st } = await admin!.rpc('partner_sanction_state', { p_uid: userId })
       const state = String((st as Record<string, unknown> | null)?.state ?? 'active')
       const next = state === 'blokir' ? 'blocked' : state === 'suspend' ? 'suspended' : 'active'
-      await admin!.from('user_roles').update({ status: next }).eq('user_id', userId).in('role', ['agent', 'property_owner'])
+      await admin!.from('user_roles').update({ status: next }).eq('user_id', userId).in('role', ['agent'])
       return state
     }
 
     if (kind === 'sanction.add') {
       const userId = String(body.userId ?? '')
       if (!userId) return NextResponse.json({ error: 'Mitra wajib dipilih' }, { status: 400 })
-      const role = ['agent', 'property_owner', 'all'].includes(String(body.role ?? '')) ? String(body.role) : 'all'
+      const role = ['agent', 'all'].includes(String(body.role ?? '')) ? String(body.role) : 'all'
       const kindSlug = String(body.sanctionKind ?? '')
       if (!(kindSlug in LEVELS)) return NextResponse.json({ error: 'Tingkat sanksi tidak valid.' }, { status: 400 })
       const level = LEVELS[kindSlug]

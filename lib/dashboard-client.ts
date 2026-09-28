@@ -260,7 +260,7 @@ export type DashboardTransactionAdmin = DashboardTransaction & { user?: { name?:
 export type DashboardDuplicate = { key: string; count: number; ids: string[]; titles: string[] }
 export type DashboardRoleCount = { role: string; count: number }
 
-/** Verifikasi mitra (KYC Agen/Pemilik Properti) dari alur /verify. */
+/** Verifikasi mitra (KYC Agen Properti) dari alur /verify. */
 export type DashboardVerification = {
   id: string
   user_id: string

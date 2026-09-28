@@ -28,7 +28,7 @@ const categories = [
 ]
 
 export default function Home() {
-  const t = (key: string) => ({ sale: 'Jual', rent: 'Sewa', explore: 'Jelajahi', messages: 'Pesan', dashboard: 'Dasbor', signIn: 'Masuk', listProperty: 'Pasang Properti', becomePartner: 'Daftar sebagai Agen atau Pemilik', aiPropertySearch: 'Pencarian properti berbasis AI', findPlace: 'Temukan tempat untuk disebut rumah.', heroDescription: 'Temukan properti pilihan yang sesuai dengan gaya hidup dan tujuan Anda.', tellUs: 'Ceritakan hunian yang Anda cari', location: 'Lokasi', propertyType: 'Tipe properti', budget: 'Anggaran', anyType: 'Semua tipe', anyBudget: 'Semua anggaran', searchNow: 'Cari sekarang', curatedForYou: 'Pilihan khusus untuk Anda', propertiesYouLove: 'Properti yang mungkin Anda sukai', personalizedPicks: 'Pilihan personal berdasarkan kebutuhan Anda.', exploreByType: 'Jelajahi berdasarkan tipe', whatLookingFor: 'Apa yang sedang Anda cari?', viewAll: 'Lihat semua', planConfidence: 'Rencanakan dengan yakin', moveClarity: 'Ambil keputusan dengan jelas.', kprCalculator: 'Kalkulator KPR', estimateInstallment: 'Perkirakan cicilan bulanan Anda', nextChapter: 'Babak berikutnya dimulai di sini.', talkAssistant: 'Bicara dengan asisten AI', house: 'Rumah', apartment: 'Apartemen', land: 'Tanah', shopHouse: 'Ruko', villa: 'Vila', boardingHouse: 'Kost' }[key] ?? key)
+  const t = (key: string) => ({ sale: 'Jual', rent: 'Sewa', explore: 'Jelajahi', messages: 'Pesan', dashboard: 'Dasbor', signIn: 'Masuk', listProperty: 'Pasang Properti', becomePartner: 'Daftar sebagai Agen', aiPropertySearch: 'Pencarian properti berbasis AI', findPlace: 'Temukan tempat untuk disebut rumah.', heroDescription: 'Temukan properti pilihan yang sesuai dengan gaya hidup dan tujuan Anda.', tellUs: 'Ceritakan hunian yang Anda cari', location: 'Lokasi', propertyType: 'Tipe properti', budget: 'Anggaran', anyType: 'Semua tipe', anyBudget: 'Semua anggaran', searchNow: 'Cari sekarang', curatedForYou: 'Pilihan khusus untuk Anda', propertiesYouLove: 'Properti yang mungkin Anda sukai', personalizedPicks: 'Pilihan personal berdasarkan kebutuhan Anda.', exploreByType: 'Jelajahi berdasarkan tipe', whatLookingFor: 'Apa yang sedang Anda cari?', viewAll: 'Lihat semua', planConfidence: 'Rencanakan dengan yakin', moveClarity: 'Ambil keputusan dengan jelas.', kprCalculator: 'Kalkulator KPR', estimateInstallment: 'Perkirakan cicilan bulanan Anda', nextChapter: 'Babak berikutnya dimulai di sini.', talkAssistant: 'Bicara dengan asisten AI', house: 'Rumah', apartment: 'Apartemen', land: 'Tanah', shopHouse: 'Ruko', villa: 'Vila', boardingHouse: 'Kost' }[key] ?? key)
   const language = 'id'
   const [mode, setMode] = useState('Sale')
   const [location, setLocation] = useState('')
@@ -43,7 +43,7 @@ export default function Home() {
       // Peran utama diambil dari user_roles (sumber otorisasi), bukan profiles.role.
       const { data: roleRows } = await createClient().from('user_roles').select('role').eq('user_id', data.user.id)
       const owned = Array.isArray(roleRows) ? roleRows.map((row: { role: string }) => row.role) : []
-      const priority = ['super_admin', 'admin', 'agent', 'property_owner']
+      const priority = ['super_admin', 'admin', 'agent']
       const highest = priority.find((item) => owned.includes(item))
       if (highest) {
         setProfileRole(highest)
@@ -70,7 +70,7 @@ export default function Home() {
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#f7f3ec] text-[#1c1c1c]">
-            <SiteHeader cta={profileRole ? { label: t('dashboard'), href: profileRole === 'agent' ? '/dashboard/agent' : profileRole === 'property_owner' ? '/dashboard/property-owner' : profileRole === 'admin' ? '/dashboard/admin' : profileRole === 'super_admin' ? '/dashboard/super-admin' : '/dashboard/user' } : undefined} />
+            <SiteHeader cta={profileRole ? { label: t('dashboard'), href: profileRole === 'agent' ? '/dashboard/agent' : profileRole === 'admin' ? '/dashboard/admin' : profileRole === 'super_admin' ? '/dashboard/super-admin' : '/dashboard/user' } : undefined} />
 
       <section id="top" className="relative min-h-[590px] bg-[#0b3d2e] pt-24 text-white sm:min-h-[650px] sm:pt-32">
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(11,61,46,.96)_0%,rgba(11,61,46,.8)_42%,rgba(11,61,46,.16)_100%),url('https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=2000&q=90')] bg-cover bg-center" />

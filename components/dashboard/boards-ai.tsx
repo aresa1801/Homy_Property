@@ -45,7 +45,7 @@ const CONFIDENCE: Record<string, string> = {
   tinggi: 'bg-[#edf2ed] text-[#4e866d]',
 }
 
-/** Papan AI untuk Agen & Pemilik: saran harga berbasis data pasar + tanya-jawab. */
+/** Papan AI untuk Agen: saran harga berbasis data pasar + tanya-jawab. */
 export function AiBoard({ data }: BoardProps) {
   const properties = data.properties ?? []
   const [form, setForm] = useState({

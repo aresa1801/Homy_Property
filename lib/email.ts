@@ -35,7 +35,7 @@ export function isEmailConfigured() {
 
 function copyFor(input: ListingMailInput) {
   const listing = escapeHtml(input.title || 'Listing properti')
-  const dashboard = `${appUrl()}/dashboard/property-owner`
+  const dashboard = `${appUrl()}/dashboard/agent/listings`
 
   if (input.reason === 'resubmitted') {
     return {
@@ -187,7 +187,7 @@ function visitHtml(input: VisitMailInput) {
     )
     .join('')
 
-  const ctaUrl = `${appUrl()}/dashboard/property-owner/calendar`
+  const ctaUrl = `${appUrl()}/dashboard/agent/schedule`
   const greeting = input.ownerName ? `<p style="margin:0 0 12px;color:#65706c">Halo ${escapeHtml(input.ownerName)},</p>` : ''
 
   return `<!doctype html><html><body style="margin:0;background:#f7f3ec;font-family:'Segoe UI',Helvetica,Arial,sans-serif">
@@ -460,7 +460,7 @@ export type VerificationReminderMailInput = {
   message?: string | null
 }
 
-const VERIFY_ROLE_LABEL: Record<string, string> = { agent: 'Agen Properti', property_owner: 'Pemilik Properti' }
+const VERIFY_ROLE_LABEL: Record<string, string> = { agent: 'Agen Properti' }
 
 export function verificationReminderSubject(input: VerificationReminderMailInput) {
   const roles = (input.roles ?? []).map((role) => VERIFY_ROLE_LABEL[role] ?? role).join(' & ')
@@ -556,7 +556,6 @@ export type PartnerMailInput = {
 
 const PARTNER_KIND_TEXT: Record<string, string> = {
   agent: 'Agen Properti',
-  owner: 'Pemilik Properti',
   agency: 'Agensi / Broker Properti',
   institution: 'Institusi Korporat',
   notary: 'Notaris / PPAT & Mitra Legal',

@@ -20,7 +20,6 @@ function useAdminDashboard(type: AdminType) {
 const ROLE_LABEL: Record<string, string> = {
   user: 'Pengguna',
   agent: 'Agen',
-  property_owner: 'Pemilik',
   admin: 'Admin',
   super_admin: 'Super Admin',
 }
@@ -82,7 +81,7 @@ export function UsersBoard({ data, loading, reload, type }: BoardProps & { type:
     }
   }
 
-  const mitra = users.filter((u) => (u.roles ?? []).some((r) => ['agent', 'property_owner'].includes(r))).length
+  const mitra = users.filter((u) => (u.roles ?? []).some((r) => r === 'agent')).length
   const admins = users.filter((u) => (u.roles ?? []).some((r) => ['admin', 'super_admin'].includes(r))).length
 
   return (
@@ -131,7 +130,7 @@ export function UsersBoard({ data, loading, reload, type }: BoardProps & { type:
                   {canManage && (
                     <td className="py-3">
                       <div className="flex flex-wrap gap-1">
-                        {['agent', 'property_owner', 'admin', 'super_admin'].map((role) => {
+                        {['agent', 'admin', 'super_admin'].map((role) => {
                           const has = (user.roles ?? []).includes(role)
                           return (
                             <button key={role} type="button" disabled={busy === user.id + role} onClick={() => toggleRole(user.id, role, has)} className={has ? ui.ghost : ui.btn}>
@@ -434,7 +433,6 @@ export function RolesBoard({ data, reload, type }: BoardProps & { type: AdminTyp
   const counts = data.roleCounts ?? []
   const roleInfo = [
     { role: 'user', title: 'Pengguna', detail: 'Mencari properti, menyimpan favorit, mengirim pertanyaan, dan menjadwalkan kunjungan.' },
-    { role: 'property_owner', title: 'Pemilik Properti', detail: 'Memasang properti sendiri, menerima pertanyaan, mengatur jadwal kunjungan, dan wajib melaporkan transaksi.' },
     { role: 'agent', title: 'Agen', detail: 'Mengelola banyak listing, CRM prospek, analitik, dan penagihan komisi 0,5%.' },
     { role: 'admin', title: 'Admin', detail: 'Moderasi listing, verifikasi komisi mitra, menindak laporan, dan memantau AI.' },
     { role: 'super_admin', title: 'Super Admin', detail: 'Semua akses admin plus peran & izin, konfigurasi platform, dan feature flag.' },
@@ -753,7 +751,6 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
             <select value={kind} onChange={(event) => setKind(event.target.value)} className={ui.input + ' h-9 w-44 py-0'}>
               <option value="all">Semua jenis</option>
               <option value="agent">Agen Properti</option>
-              <option value="owner">Pemilik Properti</option>
               <option value="agency">Agensi / Broker</option>
               <option value="institution">Institusi Korporat</option>
               <option value="notary">Notaris / PPAT</option>
@@ -927,7 +924,7 @@ export function PartnershipBoard({ data, loading, reload }: BoardProps) {
           <li>2. Untuk agensi/institusi, catat skema komisi bertingkat pada catatan verifikasi.</li>
           <li>3. Untuk Notaris/PPAT, verifikasi SK Kemenkumham / keanggotaan INI &amp; wilayah kerja sebelum disetujui — notaris yang disetujui otomatis tayang di <a href="/notaris" className="font-semibold text-[#0b3d2e] underline">direktori notaris</a>.</li>
           <li>4. Setelah disetujui, minta mitra menandatangani Surat Perjanjian Kerja Sama di halaman <a href="/verify?role=agent&next=/list" className="font-semibold text-[#0b3d2e] underline">Perjanjian</a>.</li>
-          <li>5. Komisi wajib: Agen 0,5% dan Pemilik Properti 2% dari harga transaksi final.</li>
+          <li>5. Komisi wajib: Agen 0,5% dari total nilai transaksi.</li>
           <li>6. Semua tindakan moderasi tercatat otomatis di <strong>Log Audit</strong>.</li>
         </ul>
       </div>
@@ -963,7 +960,7 @@ function sanctionLevelMeta(level?: number | null) {
 
 export function PartnerSanctionsBoard({ data, reload }: BoardProps & { type: AdminType }) {
   const users = useMemo(
-    () => (data.users ?? []).filter((u) => (u.roles ?? []).some((r) => ['agent', 'property_owner'].includes(r))),
+    () => (data.users ?? []).filter((u) => (u.roles ?? []).some((r) => r === 'agent')),
     [data.users],
   )
   const sanctions = data.sanctions ?? []
@@ -1043,7 +1040,7 @@ export function PartnerSanctionsBoard({ data, reload }: BoardProps & { type: Adm
               <option value="">Pilih mitra…</option>
               {users.map((user) => (
                 <option key={user.id} value={user.id}>
-                  {(user.full_name ?? user.email ?? user.id)} — {(user.roles ?? []).filter((r) => ['agent', 'property_owner'].includes(r)).map((r) => ROLE_LABEL[r] ?? r).join(', ')}{user.role_status === 'suspended' ? ' (suspend)' : user.role_status === 'blocked' ? ' (blokir)' : ''}
+                  {(user.full_name ?? user.email ?? user.id)} — {(user.roles ?? []).filter((r) => r === 'agent').map((r) => ROLE_LABEL[r] ?? r).join(', ')}{user.role_status === 'suspended' ? ' (suspend)' : user.role_status === 'blocked' ? ' (blokir)' : ''}
                 </option>
               ))}
             </select>
@@ -1053,7 +1050,6 @@ export function PartnerSanctionsBoard({ data, reload }: BoardProps & { type: Adm
             <select value={role} onChange={(event) => setRole(event.target.value)} className={ui.input}>
               <option value="all">Semua peran mitra</option>
               <option value="agent">Agen</option>
-              <option value="property_owner">Pemilik Properti</option>
             </select>
           </label>
           <label className="text-sm">

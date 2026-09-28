@@ -19,7 +19,7 @@ function first(value: string | string[] | undefined) {
 export default async function LegacyAgreementPage({ searchParams }: { searchParams: SearchParams | Promise<SearchParams> }) {
   const params = (await searchParams) ?? {}
   const rawRole = String(first(params.role) ?? '').toLowerCase()
-  const role = rawRole === 'property_owner' || rawRole === 'property-owner' || rawRole === 'owner' ? 'property_owner' : 'agent'
+  const role = 'agent'
   const rawNext = first(params.next)
   const query = new URLSearchParams({ role })
   if (rawNext && rawNext.startsWith('/')) query.set('next', rawNext)

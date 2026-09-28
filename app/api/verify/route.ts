@@ -17,7 +17,7 @@ import {
   type VerificationRole,
 } from '@/lib/verification'
 
-const PARTNER_ROLES: VerificationRole[] = ['agent', 'property_owner']
+const PARTNER_ROLES: VerificationRole[] = ['agent']
 
 /** Kolom yang boleh ditulis pemohon (sisanya hanya admin/verifikasi). */
 const EDITABLE_FIELDS = [
@@ -301,7 +301,7 @@ export async function POST(request: Request) {
           notifyUser({
             userId: id,
             kind: 'verification.submitted',
-            title: `Verifikasi mitra baru — ${role === 'agent' ? 'Agen' : 'Pemilik'}`,
+            title: `Verifikasi mitra baru — Agen`,
             body: `${draft.full_name ?? 'Mitra'} mengirim data verifikasi untuk ditinjau.`,
             href: '/dashboard/admin/verifications',
             data: { role, verification_id: (saved as VerificationRecord | null)?.id ?? null },

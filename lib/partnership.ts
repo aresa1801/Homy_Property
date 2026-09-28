@@ -2,7 +2,7 @@
 // Dipakai oleh halaman publik /partnership, formulir pengajuan, dan dasbor admin
 // supaya label, badge, dan opsi selalu konsisten di seluruh aplikasi.
 
-export type PartnerKind = 'agent' | 'owner' | 'agency' | 'institution' | 'notary'
+export type PartnerKind = 'agent' | 'agency' | 'institution' | 'notary'
 
 export type PartnerKindMeta = {
   /** Label lengkap (form + admin). */
@@ -20,7 +20,7 @@ export type PartnerKindMeta = {
 }
 
 /** Urutan tampil di halaman publik. */
-export const PARTNER_KIND_ORDER: PartnerKind[] = ['agent', 'owner', 'agency', 'institution', 'notary']
+export const PARTNER_KIND_ORDER: PartnerKind[] = ['agent', 'agency', 'institution', 'notary']
 
 export const PARTNER_KINDS: Record<PartnerKind, PartnerKindMeta> = {
   agent: {
@@ -30,14 +30,6 @@ export const PARTNER_KINDS: Record<PartnerKind, PartnerKindMeta> = {
     blurb: 'Profesional pemasaran properti yang membawa listing dan pembeli. Dapat dashboard CRM, analitik, dan penagihan komisi otomatis.',
     highlights: ['CRM prospek & jadwal kunjungan', 'Saran harga berbasis AI', 'Laporan transaksi 3 hari kerja'],
     tone: 'bg-[#eef3fa] text-[#3f6b9c]',
-  },
-  owner: {
-    label: 'Pemilik Properti (komisi 2%)',
-    short: 'Pemilik Properti',
-    commission: 'Komisi 2%',
-    blurb: 'Pemilik rumah, apartemen, ruko, atau tanah yang ingin menjual/menyewakan langsung tanpa perantara berlapis.',
-    highlights: ['Pasang listing tanpa biaya', 'Moderasi cepat & transparan', 'Pantau pertanyaan & kunjungan'],
-    tone: 'bg-[#edf2ed] text-[#4e866d]',
   },
   agency: {
     label: 'Agensi / Broker Properti',
@@ -88,7 +80,6 @@ export const FOCUS_AREA_OPTIONS = ['Rumah', 'Apartemen', 'Ruko', 'Tanah', 'Villa
 /** Layanan yang ditawarkan — berbeda per jenis kemitraan. */
 export const SERVICE_OPTIONS: Record<PartnerKind, string[]> = {
   agent: ['Pemasaran listing', 'Pendampingan kunjungan', 'Negosiasi harga', 'Bantuan KPR', 'Fotografi/video properti', 'Virtual tour'],
-  owner: [],
   agency: ['Manajemen tim agent', 'Co-branding & feed listing', 'Integrasi API/CSV', 'Konsultasi developer', 'Pelatihan tim'],
   institution: ['Integrasi API/CSV', 'Co-branding', 'Inventory bank/repossession', 'Skema komisi bertingkat', 'Account manager khusus'],
   notary: ['Akta Jual Beli (AJB)', 'PPAT & balik nama', 'Legal review / opini hukum', 'Perjanjian sewa & PPJB', 'Pendirian badan usaha', 'Waris, hibah & pembagian hak'],

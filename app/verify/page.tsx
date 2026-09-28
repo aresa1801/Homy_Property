@@ -219,7 +219,7 @@ export default function VerifyPage() {
         const requested = params.get('role')
         const rawNext = params.get('next')
         if (rawNext && rawNext.startsWith('/')) setNextTarget(rawNext)
-        const initialRole: VerificationRole | null = requested === 'agent' || requested === 'property_owner' ? requested : null
+        const initialRole: VerificationRole | null = requested === 'agent' ? 'agent' : null
         if (initialRole) {
           const existing = map[initialRole]
           setRole(initialRole)
@@ -591,13 +591,13 @@ export default function VerifyPage() {
             </h1>
             <p className="mt-4 leading-7 text-[#65706c]">
               {approved
-                ? `Data Anda sebagai ${role === 'agent' ? 'Agen Properti' : 'Pemilik Properti'} telah diverifikasi admin Homy. Anda dapat mulai memasang listing properti.`
+                ? `Data Anda sebagai Agen Properti telah diverifikasi admin Homy. Anda dapat mulai memasang listing properti.`
                 : 'Tim Homy sedang memeriksa data dan dokumen Anda (estimasi 1–2 hari kerja). Kami akan mengirim notifikasi begitu verifikasi selesai.'}
             </p>
 
             <dl className="mt-6 grid gap-3 rounded-2xl bg-[#f7f3ec] p-4 text-sm sm:grid-cols-2">
               <div><dt className="text-[#718078]">Nama mitra</dt><dd className="font-semibold text-[#0b3d2e]">{record?.full_name || '—'}</dd></div>
-              <div><dt className="text-[#718078]">Peran</dt><dd className="font-semibold text-[#0b3d2e]">{role === 'agent' ? 'Agen Properti' : 'Pemilik Properti'}</dd></div>
+              <div><dt className="text-[#718078]">Peran</dt><dd className="font-semibold text-[#0b3d2e]">Agen Properti</dd></div>
               <div><dt className="text-[#718078]">Dikirim</dt><dd className="font-semibold text-[#0b3d2e]">{formatDateTimeId(record?.submitted_at)}</dd></div>
               <div><dt className="text-[#718078]">Perjanjian</dt><dd className="font-semibold text-[#0b3d2e]">{agreementSigned ? `Ditandatangani (${record?.agreement_version ?? AGREEMENT_VERSION})` : 'Belum'}</dd></div>
             </dl>
@@ -613,13 +613,13 @@ export default function VerifyPage() {
                   <a href="/list" className="inline-flex items-center gap-2 rounded-full bg-[#0b3d2e] px-6 py-3 text-sm font-semibold text-white hover:bg-[#14553f]">
                     <Home className="size-4" /> Pasang listing properti
                   </a>
-                  <a href={`/dashboard/${role === 'agent' ? 'agent' : 'property-owner'}`} className="inline-flex items-center gap-2 rounded-full border border-[#d8ccbb] px-6 py-3 text-sm font-semibold text-[#33433d] hover:border-[#c9a961]">
+                  <a href="/dashboard/agent" className="inline-flex items-center gap-2 rounded-full border border-[#d8ccbb] px-6 py-3 text-sm font-semibold text-[#33433d] hover:border-[#c9a961]">
                     Lewati dulu — ke dasbor mitra
                   </a>
                 </>
               ) : (
                 <>
-                  <a href={`/dashboard/${role === 'agent' ? 'agent' : 'property-owner'}`} className="inline-flex items-center gap-2 rounded-full bg-[#0b3d2e] px-6 py-3 text-sm font-semibold text-white hover:bg-[#14553f]">
+                  <a href="/dashboard/agent" className="inline-flex items-center gap-2 rounded-full bg-[#0b3d2e] px-6 py-3 text-sm font-semibold text-white hover:bg-[#14553f]">
                     Lihat status di dasbor
                   </a>
                   <button type="button" onClick={() => { setSubmitted(false); setStep(1); setMaxStep(6) }} className="rounded-full border border-[#d8ccbb] px-6 py-3 text-sm font-semibold text-[#33433d] hover:border-[#c9a961]">
@@ -660,7 +660,7 @@ export default function VerifyPage() {
 
         <div className="mt-8 max-w-3xl">
           <p className="text-xs font-semibold uppercase tracking-[.18em] text-[#c09b54]">Verifikasi Mitra Homy</p>
-          <h1 className="mt-3 font-serif text-2xl leading-tight text-[#0b3d2e] sm:text-4xl">Pengajuan Agen &amp; Pemilik Properti</h1>
+          <h1 className="mt-3 font-serif text-2xl leading-tight text-[#0b3d2e] sm:text-4xl">Pengajuan Mitra Agen Properti</h1>
           <p className="mt-4 text-[#65706c]">
             Lengkapi data diri, dokumen identitas, dan ketersediaan waktu Anda. Setelah data lengkap, Anda akan diarahkan
             menandatangani <strong className="text-[#0b3d2e]">{AGREEMENT_TITLE}</strong> dan mengirim pengajuan ke admin Homy.

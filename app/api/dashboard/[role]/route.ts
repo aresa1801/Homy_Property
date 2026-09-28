@@ -48,8 +48,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
   const callerRoles = Array.isArray(callerRoleRows) ? callerRoleRows.map((row: { role: string }) => row.role) : []
   const callerIsAdmin = callerRoles.some((role) => ADMIN_ROLES.includes(role))
 
-  if (role === 'agent' || role === 'property-owner') {
-    const needed = role === 'agent' ? 'agent' : 'property_owner'
+  if (role === 'agent') {
+    const needed = 'agent'
     if (!callerIsAdmin && !callerRoles.includes(needed)) {
       return NextResponse.json({ ...base, forbidden: true, metrics: {} })
     }
@@ -236,7 +236,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     const roleStatusMap: Record<string, string> = {}
     for (const row of roleRows.data ?? []) {
       roleMap[row.user_id] = [...(roleMap[row.user_id] ?? []), row.role]
-      if (['agent', 'property_owner'].includes(row.role) && row.status && row.status !== 'active') {
+      if (['agent'].includes(row.role) && row.status && row.status !== 'active') {
         const rank: Record<string, number> = { suspended: 1, blocked: 2 }
         const cur = roleStatusMap[row.user_id]
         if (!cur || (rank[row.status] ?? 0) > (rank[cur] ?? 0)) roleStatusMap[row.user_id] = row.status
@@ -255,7 +255,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
         roles,
         created_at: profile.created_at,
         listings: listingCount.get(profile.id) ?? 0,
-        verification: roles.some((r) => ['agent', 'property_owner'].includes(r)) ? (roleMap[profile.id]?.includes('admin') ? 'admin' : 'mitra') : 'pengguna',
+        verification: roles.some((r) => ['agent'].includes(r)) ? (roleMap[profile.id]?.includes('admin') ? 'admin' : 'mitra') : 'pengguna',
         role_status: roleStatusMap[profile.id] ?? 'active',
       }
     })

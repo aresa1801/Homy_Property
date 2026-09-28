@@ -17,7 +17,7 @@ function StatusBadge({ status }: { status?: string }) {
 }
 
 /** Halaman "Listing Saya" / "Properti Saya": papan lengkap listing + aksi per listing. */
-export function ListingBoard({ data, loading, reload, type }: BoardProps & { type: 'agent' | 'property-owner' }) {
+export function ListingBoard({ data, loading, reload, type }: BoardProps & { type: 'agent' }) {
   const [filter, setFilter] = useState('all')
   const [query, setQuery] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
@@ -145,7 +145,7 @@ export function ListingBoard({ data, loading, reload, type }: BoardProps & { typ
 }
 
 /** Halaman "Pertanyaan" (owner) / "CRM Prospek" (agent): pipeline + balasan. */
-export function LeadsBoard({ data, loading, reload, type }: BoardProps & { type: 'agent' | 'property-owner' }) {
+export function LeadsBoard({ data, loading, reload, type }: BoardProps & { type: 'agent' }) {
   const [openId, setOpenId] = useState<string | null>(null)
   const [reply, setReply] = useState('')
   const [note, setNote] = useState('')
@@ -296,7 +296,7 @@ export function LeadsBoard({ data, loading, reload, type }: BoardProps & { type:
 }
 
 /** Halaman "Analitik": kinerja listing & prospek per properti. */
-export function AnalyticsBoard({ data, loading, type }: BoardProps & { type: 'agent' | 'property-owner' }) {
+export function AnalyticsBoard({ data, loading, type }: BoardProps & { type: 'agent' }) {
   const listings = data.properties ?? []
   const leads = data.inquiries ?? []
   const priceOf = (item: DashboardProperty) => (typeof item.price === 'string' ? Number(item.price) : item.price ?? 0)

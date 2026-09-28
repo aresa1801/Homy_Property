@@ -20,7 +20,7 @@ const NOTARY_POINTS = [
 
 const STEPS = [
   { icon: FileSignature, title: '1. Daftar & verifikasi', body: 'Isi formulir kemitraan, tim Homy memverifikasi identitas dan legalitas usaha maksimal 1×24 jam kerja.' },
-  { icon: BadgeCheck, title: '2. Tanda tangan perjanjian', body: 'Anda menandatangani Surat Perjanjian Kerja Sama digital: komisi Agen 0,5%, Pemilik 2%, dan kewajiban pelaporan transaksi.' },
+  { icon: BadgeCheck, title: '2. Tanda tangan perjanjian', body: 'Anda menandatangani Surat Perjanjian Kerja Sama digital: komisi Agen 0,5% dari total nilai transaksi, dan kewajiban pelaporan transaksi.' },
   { icon: Sparkles, title: '3. Pasang listing', body: 'Lengkapi data properti pada form komprehensif yang terbaca AI, lalu kirim untuk moderasi sebelum tayang.' },
   { icon: LineChart, title: '4. Transaksi & lapor', body: 'Kelola prospek dari dashboard, tutup transaksi, lalu laporkan maksimal 3 hari kerja untuk perhitungan komisi.' },
 ]
@@ -36,7 +36,7 @@ const FEATURES = [
 
 const FAQ = [
   { q: 'Apakah ada biaya bergabung?', a: 'Tidak. Pendaftaran mitra Homy Property gratis tanpa biaya langganan. Pendapatan kami murni dari komisi transaksi yang berhasil.' },
-  { q: 'Bagaimana skema komisi akhirnya?', a: 'Agen 0,5% dan Pemilik Properti 2% dari harga transaksi final yang dilaporkan serta terverifikasi. Aggensi dan institusi dapat memperoleh skema bertingkat sesuai volume — dibahas saat onboarding.' },
+  { q: 'Bagaimana skema komisi akhirnya?', a: 'Agen 0,5% dari total nilai transaksi final yang dilaporkan serta terverifikasi. Aggensi dan institusi dapat memperoleh skema bertingkat sesuai volume — dibahas saat onboarding.' },
   { q: 'Apakah Homy bekerja sama dengan notaris atau PPAT?', a: 'Ya. Kami membuka kemitraan dengan notaris, PPAT, dan kantor hukum properti. Transaksi yang berjalan di Homy dapat diarahkan ke mitra notaris untuk pengurusan AJB, PPAT, dan balik nama, dan sebaliknya klien notaris dapat mencari properti di Homy. Pilih jenis kemitraan "Notaris / PPAT & Mitra Legal" saat mengajukan.' },
   { q: 'Bagaimana jika listing saya ditolak moderator?', a: 'Catatan moderator tampil di dashboard Anda dan listing dapat diajukan ulang setelah diperbaiki. Kami hanya menolak listing yang tidak akurat, duplikat, atau melanggar ketentuan.' },
   { q: 'Apakah transaksi wajib dilaporkan?', a: 'Ya. Perjanjian kerja sama mewajibkan pelaporan setiap transaksi maksimal 3 hari kerja sebagai dasar perhitungan komisi dan kepatuhan platform.' },
@@ -145,7 +145,7 @@ export default function PartnershipPage() {
           <div className="rounded-2xl bg-[#0f2a44] p-4 sm:p-6 text-white md:p-8">
             <h3 className="font-serif text-xl sm:text-2xl">Skema komisi &amp; kewajiban</h3>
             <div className="mt-5 space-y-3">
-              {[['Agen Properti', '0,5%', 'dari harga transaksi final'], ['Pemilik Properti', '2%', 'dari harga transaksi final'], ['Agensi / Institusi', 'Bertingkat', 'dibahas saat onboarding']].map(([role, rate, note]) => (
+              {[['Agen Properti', '0,5%', 'dari total nilai transaksi'], ['Agensi / Institusi', 'Bertingkat', 'dibahas saat onboarding']].map(([role, rate, note]) => (
                 <div key={role} className="flex items-center justify-between gap-4 rounded-xl bg-white/10 px-4 py-3">
                   <div><p className="font-semibold">{role}</p><p className="text-xs text-white/60">{note}</p></div>
                   <p className="font-serif text-xl sm:text-2xl text-[#f6e2a8]">{rate}</p>

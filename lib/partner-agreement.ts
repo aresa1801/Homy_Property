@@ -1,5 +1,5 @@
 /**
- * Homy — Perjanjian Kerja Sama Mitra (Agen & Pemilik Properti).
+ * Homy — Perjanjian Kerja Sama Mitra (Agen Properti).
  *
  * Template tunggal yang dipakai oleh:
  *  - wizard `/verify` (langkah perjanjian, versi baca di layar)
@@ -38,7 +38,6 @@ export type AgreementClause = {
 
 export const PARTNER_ROLE_LABEL: Record<VerificationRole, string> = {
   agent: 'Agen Properti',
-  property_owner: 'Pemilik Properti',
 }
 
 export const COMMISSION_EXAMPLE = {

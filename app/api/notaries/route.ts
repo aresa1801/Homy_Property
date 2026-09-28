@@ -92,7 +92,7 @@ export async function GET(request: Request) {
     if (user) {
       const rolesResult = await admin.from('user_roles').select('role').eq('user_id', user.id)
       const roles = (rolesResult.data ?? []).map((row: { role: string }) => row.role)
-      const staffRole = roles.includes('agent') || roles.includes('property_owner')
+      const staffRole = roles.includes('agent')
       if (!propertyId) {
         can_request = true
       } else {

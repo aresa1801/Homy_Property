@@ -3,12 +3,11 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
-export type AppRole = 'user' | 'agent' | 'property_owner' | 'admin' | 'super_admin'
+export type AppRole = 'user' | 'agent' | 'admin' | 'super_admin'
 
 export const ROLE_META: Record<AppRole, { label: string; dashboard: string }> = {
   user: { label: 'Pengguna', dashboard: '/dashboard/user' },
   agent: { label: 'Agen', dashboard: '/dashboard/agent' },
-  property_owner: { label: 'Pemilik Properti', dashboard: '/dashboard/property-owner' },
   admin: { label: 'Admin', dashboard: '/dashboard/admin' },
   super_admin: { label: 'Super Admin', dashboard: '/dashboard/super-admin' },
 }

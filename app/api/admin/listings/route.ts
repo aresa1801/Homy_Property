@@ -121,7 +121,7 @@ export async function POST(request: Request) {
         body: status === 'published'
           ? '"' + title + '" sudah tayang dan bisa dilihat calon pembeli.'
           : '"' + title + '" belum disetujui.' + (note ? ' Catatan moderator: ' + note : ''),
-        href: status === 'published' ? '/dashboard/property-owner/properties' : '/dashboard/property-owner/list',
+        href: status === 'published' ? '/dashboard/agent/listings' : '/dashboard/agent/list',
         data: { property_id: id, status },
       })
     }

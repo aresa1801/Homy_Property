@@ -87,7 +87,7 @@ export default function ListPage() {
 
   // Gate: partners must sign the cooperation agreement (PPK) before publishing a listing.
   const [agreementGate, setAgreementGate] = useState<'checking' | 'ok' | 'missing'>('checking')
-  const [partnerRole, setPartnerRole] = useState<'agent' | 'property_owner'>('property_owner')
+  const [partnerRole] = useState<'agent'>('agent')
 
   useEffect(() => {
     let active = true
@@ -104,7 +104,7 @@ export default function ListPage() {
         try {
           const { data: roles } = await supabase.from('user_roles').select('role').eq('user_id', user.id)
           const list = Array.isArray(roles) ? roles.map((r: { role: string }) => r.role) : []
-          if (list.includes('agent')) setPartnerRole('agent')
+          void list
           const { data: agreements } = await supabase.from('partner_agreements').select('role').eq('user_id', user.id).eq('status', 'active')
           const signed = Array.isArray(agreements) ? agreements.map((a: { role: string }) => a.role) : []
           if (!active) return
@@ -560,7 +560,7 @@ export default function ListPage() {
             <span className="grid size-12 sm:size-14 place-items-center rounded-2xl bg-[#fff7e3] text-[#c09b54]"><FileSignature /></span>
             <h1 className="mt-6 font-serif text-2xl sm:text-3xl text-[#0b3d2e] md:text-4xl">Perjanjian kerja sama diperlukan</h1>
             <p className="mt-4 leading-7 text-[#65706c]">
-              Sebelum memasang properti, Agen dan Pemilik Properti wajib mendaftar sebagai Mitra Homy, menandatangani
+              Sebelum memasang properti, Agen wajib mendaftar sebagai Mitra Homy, menandatangani
               <strong className="text-[#0b3d2e]"> Surat Perjanjian Kerja Sama</strong>, menyetujui komisi penjualan
               <strong className="text-[#0b3d2e]"> 0,5%</strong> dari harga jual, dan melaporkan setiap transaksi kepada Homy Property.
             </p>

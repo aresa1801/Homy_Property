@@ -11,7 +11,7 @@ import { VerificationBoard, VerificationReviewBoard } from '@/components/dashboa
 import { ReferralAdminBoard, ReferralBoard } from '@/components/dashboard/boards-referral'
 import { OwnerAgreementBoard } from '@/components/dashboard/boards-owner-agreement'
 
-export type SectionRole = 'agent' | 'property-owner' | 'admin' | 'super-admin'
+export type SectionRole = 'agent' | 'admin' | 'super-admin'
 
 type SectionMeta = { eyebrow: string; title: string; description: string }
 
@@ -32,32 +32,20 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
     list: { eyebrow: 'Publikasi', title: 'Pasang Properti', description: 'Siapkan syarat publikasi, lanjutkan listing yang tertunda, dan mulai listing baru dari form lengkap yang terbaca AI.' },
     ai: { eyebrow: 'Kecerdasan Buatan', title: 'Asisten AI', description: 'Saran harga otomatis dari data harga rata-rata kecamatan/kota Anda, pembanding listing, dan tanya-jawab bebas dengan Homy AI.' },
   },
-  'property-owner': {
-    properties: { eyebrow: 'Portofolio', title: 'Properti Saya', description: 'Semua properti Anda dalam satu papan: status moderasi, harga, jumlah pertanyaan masuk, dan aksi cepat mengajukan ulang.' },
-    inquiries: { eyebrow: 'Pertanyaan', title: 'Pertanyaan Masuk', description: 'Semua pertanyaan calon pembeli/penyewa per properti. Balas langsung dan tandai tahap tindak lanjutnya.' },
-    calendar: { eyebrow: 'Jadwal', title: 'Kalender & Ketersediaan', description: 'Satu tempat untuk jadwal kunjungan calon pembeli dan pengaturan hari/jam Anda siap menerima meeting. Konfirmasi jadwal, ubah waktu, atur ketersediaan, lalu tindak lanjuti hasil kunjungan.' },
-    schedule: { eyebrow: 'Jadwal', title: 'Kalender & Ketersediaan', description: 'Satu tempat untuk jadwal kunjungan calon pembeli dan pengaturan hari/jam Anda siap menerima meeting. Konfirmasi jadwal, ubah waktu, atur ketersediaan, lalu tindak lanjuti hasil kunjungan.' },
-    availability: { eyebrow: 'Jadwal', title: 'Kalender & Ketersediaan', description: 'Satu tempat untuk jadwal kunjungan calon pembeli dan pengaturan hari/jam Anda siap menerima meeting. Konfirmasi jadwal, ubah waktu, atur ketersediaan, lalu tindak lanjuti hasil kunjungan.' },
-    conversations: { eyebrow: 'Rekaman', title: 'Rekam Percakapan', description: 'Riwayat tanya-jawab calon pembeli/penyewa dengan Homy AI tentang properti Anda. Pakai untuk memahami pertanyaan yang paling sering muncul dan menyiapkan jawaban terbaik.' },
-    agreement: { eyebrow: 'Kemitraan', title: 'Perjanjian Kerjasama', description: 'Status perjanjian mitra Anda, data perjanjian yang tersimpan, dan ringkasan kewajiban sebagai pemilik properti.' },
-    verification: { eyebrow: 'Kemitraan', title: 'Verifikasi Mitra', description: 'Lengkapi data diri, dokumen identitas (KTP/SIM), alamat domisili, dan ketersediaan waktu. Setelah disetujui admin, Anda dapat langsung memasang listing properti.' },
-    list: { eyebrow: 'Publikasi', title: 'Pasang Properti', description: 'Siapkan syarat publikasi, lanjutkan properti yang tertunda, dan mulai listing baru dari form lengkap yang terbaca AI.' },
-    ai: { eyebrow: 'Kecerdasan Buatan', title: 'Asisten AI', description: 'Saran harga otomatis dari data harga rata-rata kecamatan/kota Anda, pembanding listing, dan tanya-jawab bebas dengan Homy AI.' },
-  },
   admin: {
     moderation: { eyebrow: 'Moderasi', title: 'Moderasi Listing', description: 'Tinjau listing yang dikirim mitra: setujui untuk tayang di halaman publik atau tolak dengan catatan agar pemilik bisa memperbaiki.' },
     users: { eyebrow: 'Pengguna', title: 'Pengguna & Agen', description: 'Daftar seluruh akun Homy beserta peran (pengguna, agen, pemilik, admin) dan jumlah listing yang mereka kelola.' },
     billing: { eyebrow: 'Keuangan', title: 'Penagihan & Komisi Mitra', description: 'Verifikasi laporan transaksi dari agen dan pemilik. Komisi 0,5% yang terverifikasi di sini adalah pendapatan platform — status ini tampil di dashboard mitra.' },
     reports: { eyebrow: 'Keamanan', title: 'Laporan & Penipuan', description: 'Tindak lanjuti laporan pengguna, plus pemeriksaan otomatis: duplikat judul listing dan listing tayang yang belum punya foto.' },
     ai: { eyebrow: 'Kecerdasan Buatan', title: 'Pemantauan AI', description: 'Pastikan Homy AI menjawab dari data listing yang tayang: status kunci AI, cakupan ringkasan AI, dan uji tanya-jawab langsung.' },
-    verifications: { eyebrow: 'Kemitraan', title: 'Verifikasi Agen & Pemilik', description: 'Tinjau pengajuan verifikasi mitra: data diri, alamat domisili, dokumen identitas (KTP/SIM), ketersediaan waktu, dan Perjanjian Kerja Sama yang sudah ditandatangani. Setujui untuk mengaktifkan peran mitra.' },
+    verifications: { eyebrow: 'Kemitraan', title: 'Verifikasi Agen', description: 'Tinjau pengajuan verifikasi mitra: data diri, alamat domisili, dokumen identitas (KTP/SIM), ketersediaan waktu, dan Perjanjian Kerja Sama yang sudah ditandatangani. Setujui untuk mengaktifkan peran mitra.' },
     partnership: { eyebrow: 'Kemitraan', title: 'Calon Mitra & Partnership', description: 'Pengajuan kemitraan dari halaman Open Partnership (agen, pemilik, agensi, institusi, notaris/PPAT) dan pesan dari halaman Kontak: verifikasi, hubungi, setujui, atau tolak — keputusan otomatis mengirim email balasan ke calon mitra. Notaris yang disetujui tayang di direktori /notaris, dan pengajuan pendampingan notaris ditindaklanjuti di sini.' },
     sanctions: { eyebrow: 'Disiplin', title: 'Sanksi & Teguran Mitra', description: 'Jatuhkan hukuman berjenjang kepada Agen & Mitra yang melanggar: Teguran, Peringatan, Suspend, hingga Blokir. Dipakai untuk pelanggaran etika, komisi yang tidak dibayar, atau pelanggaran aturan perjanjian kerja sama.' },
-    'ai-admin': { eyebrow: 'Kecerdasan Buatan', title: 'Homy AI Admin', description: 'Asisten AI yang bertindak sebagai admin: mengetahui seluruh database Homy, bisa menjawab pertanyaan operasional dari data nyata, berinteraksi dengan pengguna (kirim notifikasi, balas pertanyaan), serta menyusun analisa untuk Agen, Pemilik Properti, dan Mitra lainnya.' },
+    'ai-admin': { eyebrow: 'Kecerdasan Buatan', title: 'Homy AI Admin', description: 'Asisten AI yang bertindak sebagai admin: mengetahui seluruh database Homy, bisa menjawab pertanyaan operasional dari data nyata, berinteraksi dengan pengguna (kirim notifikasi, balas pertanyaan), serta menyusun analisa untuk Agen dan Mitra lainnya.' },
     referral: { eyebrow: 'Pertumbuhan', title: 'Program Referral', description: 'Pantau program bonus referral agent → agent: peserta, klik link, agen yang bergabung, tinjauan indikasi fraud, buku komisi, batch pembayaran, dan pengaturan tarif/cap/masa tahan.' },
   },
   'super-admin': {
-    verifications: { eyebrow: 'Kemitraan', title: 'Verifikasi Agen & Pemilik', description: 'Tinjau pengajuan verifikasi mitra: data diri, alamat domisili, dokumen identitas (KTP/SIM), ketersediaan waktu, dan Perjanjian Kerja Sama. Setujui untuk mengaktifkan peran mitra.' },
+    verifications: { eyebrow: 'Kemitraan', title: 'Verifikasi Agen', description: 'Tinjau pengajuan verifikasi mitra: data diri, alamat domisili, dokumen identitas (KTP/SIM), ketersediaan waktu, dan Perjanjian Kerja Sama. Setujui untuk mengaktifkan peran mitra.' },
     roles: { eyebrow: 'Akses', title: 'Peran & Izin', description: 'Komposisi peran seluruh akun dan pengaturan akses peran (pengguna, agen, pemilik, admin, super admin).' },
     billing: { eyebrow: 'Keuangan', title: 'Penagihan Platform', description: 'Pusat komisi Homy: laporan transaksi mitra, komisi terverifikasi (pendapatan platform), dan komisi yang masih menunggu.' },
     audit: { eyebrow: 'Jejak', title: 'Log Audit', description: 'Semua tindakan penting platform: moderasi listing, verifikasi komisi, perubahan peran, konfigurasi, dan flag.' },
@@ -65,7 +53,7 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
     flags: { eyebrow: 'Rilis', title: 'Feature Flag', description: 'Nyalakan atau matikan fitur platform dan atur bertahap (rollout) tanpa perlu deploy ulang.' },
     partnership: { eyebrow: 'Kemitraan', title: 'Calon Mitra & Partnership', description: 'Pengajuan kemitraan dari halaman Open Partnership (agen, pemilik, agensi, institusi korporat seperti Ray White/LJ Hooker) dan pesan dari halaman Kontak: verifikasi, hubungi, setujui, atau tolak.' },
     sanctions: { eyebrow: 'Disiplin', title: 'Sanksi & Teguran Mitra', description: 'Jatuhkan hukuman berjenjang kepada Agen & Mitra yang melanggar: Teguran, Peringatan, Suspend, hingga Blokir. Dipakai untuk pelanggaran etika, komisi yang tidak dibayar, atau pelanggaran aturan perjanjian kerja sama.' },
-    'ai-admin': { eyebrow: 'Kecerdasan Buatan', title: 'Homy AI Admin', description: 'Asisten AI yang bertindak sebagai admin: mengetahui seluruh database Homy, bisa menjawab pertanyaan operasional dari data nyata, berinteraksi dengan pengguna (kirim notifikasi, balas pertanyaan), serta menyusun analisa untuk Agen, Pemilik Properti, dan Mitra lainnya.' },
+    'ai-admin': { eyebrow: 'Kecerdasan Buatan', title: 'Homy AI Admin', description: 'Asisten AI yang bertindak sebagai admin: mengetahui seluruh database Homy, bisa menjawab pertanyaan operasional dari data nyata, berinteraksi dengan pengguna (kirim notifikasi, balas pertanyaan), serta menyusun analisa untuk Agen dan Mitra lainnya.' },
     referral: { eyebrow: 'Pertumbuhan', title: 'Program Referral', description: 'Pantau program bonus referral agent → agent: peserta, klik link, agen yang bergabung, tinjauan indikasi fraud, buku komisi, batch pembayaran, dan pengaturan tarif/cap/masa tahan.' },
   },
 }
@@ -75,7 +63,7 @@ function adminOr(role: SectionRole): 'admin' | 'super-admin' {
 }
 
 /** Kalender kunjungan + pengaturan ketersediaan digabung dalam satu halaman. */
-function ScheduleBoard({ data, loading, reload, type }: { data: Parameters<typeof CalendarBoard>[0]['data']; loading: boolean; reload: () => void; type: 'agent' | 'property-owner' }) {
+function ScheduleBoard({ data, loading, reload, type }: { data: Parameters<typeof CalendarBoard>[0]['data']; loading: boolean; reload: () => void; type: 'agent' }) {
   return (
     <div className="space-y-5">
       <CalendarBoard data={data} loading={loading} reload={reload} type={type} />
@@ -130,7 +118,7 @@ export function DashboardSection({ role, section }: { role: SectionRole; section
     return boards[section]
   }
 
-  const shellRole = role === 'agent' ? 'Agent' : role === 'property-owner' ? 'Property Owner' : role === 'admin' ? 'Admin' : 'Super Admin'
+  const shellRole = role === 'agent' ? 'Agent' : role === 'admin' ? 'Admin' : 'Super Admin'
 
   return (
     <FeatureShell

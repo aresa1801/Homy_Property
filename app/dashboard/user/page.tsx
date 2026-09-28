@@ -23,7 +23,7 @@ export default function UserDashboard() {
     <DashboardShell role="User">
       <div className="mb-5 sm:mb-8 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
         <DashboardGreeting welcome="Selamat pagi, {name}" headline="Perjalanan hunian Anda." description="Pantau hunian dan percakapan penting bagi Anda." />
-        <a href="/onboarding" className="inline-flex items-center justify-center rounded-full bg-[#0b3d2e] px-5 py-3 text-sm font-semibold text-white hover:bg-[#14543f]">Daftar sebagai Agen atau Pemilik</a>
+        <a href="/onboarding" className="inline-flex items-center justify-center rounded-full bg-[#0b3d2e] px-5 py-3 text-sm font-semibold text-white hover:bg-[#14543f]">Daftar sebagai Agen</a>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">

@@ -17,7 +17,7 @@ const STATUS_META: Record<string, { label: string; className: string }> = {
   rejected: { label: 'Perlu perbaikan', className: 'bg-[#fbeeec] text-[#b45c50]' },
 }
 
-const ROLE_LABEL: Record<string, string> = { agent: 'Agen Properti', property_owner: 'Pemilik Properti' }
+const ROLE_LABEL: Record<string, string> = { agent: 'Agen Properti' }
 
 type ReminderTarget = {
   userId: string
@@ -58,9 +58,9 @@ function readAvailability(value: unknown) {
   return value.filter((row): row is Record<string, unknown> => Boolean(row) && typeof row === 'object')
 }
 
-/** Halaman "Verifikasi Mitra" (Agen / Pemilik Properti): status pengajuan + langkah lanjutan. */
-export function VerificationBoard({ data, loading, type }: BoardProps & { type: 'agent' | 'property-owner' }) {
-  const requestedRole = type === 'agent' ? 'agent' : 'property_owner'
+/** Halaman "Verifikasi Mitra" (Agen): status pengajuan + langkah lanjutan. */
+export function VerificationBoard({ data, loading, type }: BoardProps & { type: 'agent' }) {
+  const requestedRole = 'agent'
   const record = useMemo(
     () => (data.verifications ?? []).find((row) => String(row.requested_role ?? '') === requestedRole) ?? null,
     [data.verifications, requestedRole],

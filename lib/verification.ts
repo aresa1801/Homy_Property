@@ -1,5 +1,5 @@
 /**
- * Homy — alur verifikasi Mitra (Agen & Pemilik Properti).
+ * Homy — alur verifikasi Mitra (Agen Properti).
  *
  * Berisi konstanta + tipe yang dipakai bersama oleh:
  *  - `app/verify/page.tsx` (wizard pengisian data mitra)
@@ -11,7 +11,7 @@
  * File ini aman diimpor dari client maupun server (tanpa dependensi Node).
  */
 
-export type VerificationRole = 'agent' | 'property_owner'
+export type VerificationRole = 'agent'
 export type VerificationStatus = 'draft' | 'pending' | 'approved' | 'rejected'
 export type IdentityType = 'ktp' | 'sim'
 export type AvailabilityMode = 'online' | 'onsite' | 'both'
@@ -103,12 +103,6 @@ export const VERIFICATION_ROLES: { value: VerificationRole; label: string; short
     label: 'Agen Properti',
     short: 'Agen',
     blurb: 'Memasarkan properti milik klien, mendampingi pembeli/penyewa, dan melaporkan setiap transaksi.',
-  },
-  {
-    value: 'property_owner',
-    label: 'Pemilik Properti',
-    short: 'Pemilik',
-    blurb: 'Memasang properti milik sendiri dan menyetujui komisi 0,5% untuk transaksi yang difasilitasi Homy.',
   },
 ]
 
