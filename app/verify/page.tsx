@@ -33,7 +33,6 @@ import {
   fileExtension,
   formatBytes,
   formatDateTimeId,
-  isComplete,
   missingRequirements,
   type AvailabilityEntry,
   type IdentityType,
@@ -243,17 +242,26 @@ export default function VerifyPage() {
     [record?.availability],
   )
 
-  const missing = useMemo(() => missingRequirements(record), [record])
-  const percent = useMemo(() => {
-    const total = Object.keys(REQUIREMENT_LABELS).length
-    return Math.max(0, Math.min(100, Math.round(((total - missing.length) / total) * 100)))
-  }, [missing])
-
   const agreementSigned = Boolean(record?.agreement_signed_at) || signedRoles.includes(String(role))
   const activeAgreement = agreementRows.find((row) => row.role === String(role))
   const agreementSerial = activeAgreement?.signature_serial ?? null
   const agreementStamp = activeAgreement?.signed_at ?? record?.agreement_signed_at ?? null
   const agreementHash = activeAgreement?.signature_hash ?? null
+
+  // Perjanjian dianggap lengkap bila ada tanda tangan aktif. Tahan terhadap data lama yang
+  // kolom `agreement_id`/`agreement_signed_at` di baris verifikasi belum terisi.
+  const missing = useMemo(() => {
+    if (!record) return missingRequirements(record)
+    return missingRequirements({
+      ...record,
+      agreement_id: record.agreement_id ?? (agreementSigned ? 'signed' : null),
+      agreement_signed_at: record.agreement_signed_at ?? (agreementSigned ? agreementStamp : null),
+    })
+  }, [record, agreementSigned, agreementStamp])
+  const percent = useMemo(() => {
+    const total = Object.keys(REQUIREMENT_LABELS).length
+    return Math.max(0, Math.min(100, Math.round(((total - missing.length) / total) * 100)))
+  }, [missing])
 
   function pickRole(nextRole: VerificationRole) {
     const existing = records[nextRole]
@@ -474,6 +482,87 @@ export default function VerifyPage() {
 
   function signOut() {
     createClient().auth.signOut().finally(() => window.location.assign('/'))
+  }
+
+  /**
+   * Kartu "Penandatangan Perjanjian Kerja Sama".
+   * mode="sign"   -> dipakai di langkah Perjanjian Kerja Sama (tombol: Setuju)
+   * mode="review" -> dipakai di langkah Tinjau & Kirim (tombol: Setuju dan Tandatangani,
+   *                  sejajar dengan tombol Unduh PDF Perjanjian yang baru aktif setelah ttd).
+   */
+  function renderAgreementCard(mode: 'sign' | 'review') {
+    const review = mode === 'review'
+    const canSign =
+      !busy &&
+      AGREEMENT_CONSENTS.every((item) => consents[item.key]) &&
+      signature.trim().toLowerCase() === String(record?.full_name ?? '').trim().toLowerCase()
+
+    return (
+      <div className="mt-6 rounded-2xl border border-[#e5dccd] bg-white p-4 sm:p-5">
+        <h3 className="flex items-center gap-2 font-serif text-lg text-[#0b3d2e] sm:text-xl">
+          <FileSignature className="size-5" /> Penandatangan Perjanjian Kerja Sama
+        </h3>
+        <p className="mt-2 text-sm text-[#65706c]">
+          Tulis <strong className="text-[#0b3d2e]">nama lengkap</strong> Anda persis seperti data verifikasi, lalu tekan <strong className="text-[#0b3d2e]">{review ? 'Setuju dan Tandatangani' : 'Setuju'}</strong>. Sistem akan memvalidasi dan menambahkan tanda tangan digital berupa <strong className="text-[#0b3d2e]">timestamp</strong> dan <strong className="text-[#0b3d2e]">sidik jari original SHA-256</strong> sebagai bukti keaslian.
+        </p>
+
+        {agreementSigned ? (
+          <div className="mt-4 rounded-2xl border border-[#bfd8cb] bg-[#f4faf6] p-4">
+            <p className="flex items-center gap-2 font-semibold text-[#0b3d2e]"><BadgeCheck className="size-4" /> Perjanjian sudah ditandatangani</p>
+            <p className="mt-2 text-sm text-[#65706c]">Ditandatangani pada {formatDateTimeId(agreementStamp)} · versi {record?.agreement_version ?? AGREEMENT_VERSION}</p>
+            <dl className="mt-3 space-y-2 text-xs text-[#65706c]">
+              <div className="flex justify-between gap-3"><dt>Penandatangan</dt><dd className="font-semibold text-[#0b3d2e]">{String(record?.full_name ?? signature ?? '') || '—'}</dd></div>
+              <div className="flex justify-between gap-3"><dt>Serial tanda tangan</dt><dd className="font-mono font-semibold text-[#0b3d2e]">{agreementSerial ?? '—'}</dd></div>
+              <div className="flex justify-between gap-3"><dt>Timestamp</dt><dd className="text-[#3f4b46]">{formatDateTimeId(agreementStamp)} WIB</dd></div>
+              <div className="pt-1">
+                <dt>Sidik jari original (SHA-256)</dt>
+                <dd className="mt-1 break-all rounded-lg border border-[#d8e6dd] bg-white px-3 py-2 font-mono text-[11px] font-semibold tracking-wider text-[#0b3d2e]">{formatFingerprint(agreementHash)}</dd>
+              </div>
+            </dl>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <a href={`/api/agreement/pdf?role=${role}`} className="inline-flex items-center gap-2 rounded-full bg-[#0b3d2e] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#14553f]">
+                <Download className="size-4" /> Unduh PDF Perjanjian
+              </a>
+              <span className="text-xs text-[#65706c]">Tanda tangan aktif — PDF siap diunduh.</span>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={signAgreement} className="mt-4 space-y-3">
+            {AGREEMENT_CONSENTS.map((consent) => (
+              <label key={consent.key} className="flex items-start gap-3 rounded-xl border border-[#eee5d8] p-3 text-sm">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={Boolean(consents[consent.key])}
+                  onChange={(e) => setConsents((current) => ({ ...current, [consent.key]: e.target.checked }))}
+                />
+                <span className="text-[#3f4b46]">{consent.label}</span>
+              </label>
+            ))}
+            <label className={labelClass}>Tanda tangan digital (tulis nama lengkap) *
+              <input className={inputClass} value={signature} onChange={(e) => setSignature(e.target.value)} placeholder={String(record?.full_name ?? 'Nama lengkap Anda')} autoComplete="off" />
+            </label>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                disabled
+                title="Tandatangani perjanjian dulu untuk mengaktifkan unduhan PDF"
+                className="inline-flex cursor-not-allowed items-center gap-2 rounded-full border border-[#d8ccbb] px-5 py-2.5 text-sm font-semibold text-[#9aa39e] opacity-60"
+              >
+                <Download className="size-4" /> Unduh PDF Perjanjian
+              </button>
+              <button
+                type="submit"
+                disabled={!canSign}
+                className="inline-flex items-center gap-2 rounded-full bg-[#0b3d2e] px-6 py-3 text-sm font-semibold text-white hover:bg-[#14553f] disabled:opacity-50"
+              >
+                {busy ? <Loader2 className="size-4 animate-spin" /> : <FileSignature className="size-4" />} {review ? 'Setuju dan Tandatangani' : 'Setuju'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    )
   }
 
   if (loading) {
@@ -949,57 +1038,7 @@ export default function VerifyPage() {
                 ))}
               </div>
 
-              <div className="mt-6 rounded-2xl border border-[#e5dccd] bg-white p-4 sm:p-5">
-                <h3 className="flex items-center gap-2 font-serif text-lg text-[#0b3d2e] sm:text-xl">
-                  <FileSignature className="size-5" /> Penandatangan Perjanjian Kerja Sama
-                </h3>
-                <p className="mt-2 text-sm text-[#65706c]">
-                  Tulis <strong className="text-[#0b3d2e]">nama lengkap</strong> Anda persis seperti data verifikasi, lalu tekan <strong className="text-[#0b3d2e]">Setuju</strong>. Sistem akan memvalidasi dan menambahkan tanda tangan digital berupa <strong className="text-[#0b3d2e]">timestamp</strong> dan <strong className="text-[#0b3d2e]">sidik jari original SHA-256</strong> sebagai bukti keaslian.
-                </p>
-
-                {agreementSigned ? (
-                  <div className="mt-4 rounded-2xl border border-[#bfd8cb] bg-[#f4faf6] p-4">
-                    <p className="flex items-center gap-2 font-semibold text-[#0b3d2e]"><BadgeCheck className="size-4" /> Perjanjian sudah ditandatangani</p>
-                    <p className="mt-2 text-sm text-[#65706c]">Ditandatangani pada {formatDateTimeId(agreementStamp)} · versi {record?.agreement_version ?? AGREEMENT_VERSION}</p>
-                    <dl className="mt-3 space-y-2 text-xs text-[#65706c]">
-                      <div className="flex justify-between gap-3"><dt>Penandatangan</dt><dd className="font-semibold text-[#0b3d2e]">{String(record?.full_name ?? signature ?? '') || '—'}</dd></div>
-                      <div className="flex justify-between gap-3"><dt>Serial tanda tangan</dt><dd className="font-mono font-semibold text-[#0b3d2e]">{agreementSerial ?? '—'}</dd></div>
-                      <div className="flex justify-between gap-3"><dt>Timestamp</dt><dd className="text-[#3f4b46]">{formatDateTimeId(agreementStamp)} WIB</dd></div>
-                      <div className="pt-1">
-                        <dt>Sidik jari original (SHA-256)</dt>
-                        <dd className="mt-1 break-all rounded-lg border border-[#d8e6dd] bg-white px-3 py-2 font-mono text-[11px] font-semibold tracking-wider text-[#0b3d2e]">{formatFingerprint(agreementHash)}</dd>
-                      </div>
-                    </dl>
-                    <a href={`/api/agreement/pdf?role=${role}`} className="mt-3 inline-flex items-center gap-2 rounded-full bg-[#0b3d2e] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#14553f]">
-                      <Download className="size-4" /> Unduh PDF perjanjian
-                    </a>
-                  </div>
-                ) : (
-                  <form onSubmit={signAgreement} className="mt-4 space-y-3">
-                    {AGREEMENT_CONSENTS.map((consent) => (
-                      <label key={consent.key} className="flex items-start gap-3 rounded-xl border border-[#eee5d8] p-3 text-sm">
-                        <input
-                          type="checkbox"
-                          className="mt-1"
-                          checked={Boolean(consents[consent.key])}
-                          onChange={(e) => setConsents((current) => ({ ...current, [consent.key]: e.target.checked }))}
-                        />
-                        <span className="text-[#3f4b46]">{consent.label}</span>
-                      </label>
-                    ))}
-                    <label className={labelClass}>Tanda tangan digital (tulis nama lengkap) *
-                      <input className={inputClass} value={signature} onChange={(e) => setSignature(e.target.value)} placeholder={String(record?.full_name ?? 'Nama lengkap Anda')} autoComplete="off" />
-                    </label>
-                    <button
-                      type="submit"
-                      disabled={busy || AGREEMENT_CONSENTS.some((item) => !consents[item.key]) || signature.trim().toLowerCase() !== String(record?.full_name ?? '').trim().toLowerCase()}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#0b3d2e] px-6 py-3 text-sm font-semibold text-white hover:bg-[#14553f] disabled:opacity-50 sm:w-auto"
-                    >
-                      {busy ? <Loader2 className="size-4 animate-spin" /> : <FileSignature className="size-4" />} Setuju
-                    </button>
-                  </form>
-                )}
-              </div>
+              {renderAgreementCard('sign')}
             </div>
           )}
 
@@ -1062,12 +1101,14 @@ export default function VerifyPage() {
                 <button
                   type="button"
                   onClick={submitApplication}
-                  disabled={busy || !isComplete(record)}
+                  disabled={busy || missing.length > 0}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#0b3d2e] px-6 py-3 text-sm font-semibold text-white hover:bg-[#14553f] disabled:opacity-50 sm:w-auto"
                 >
                   {busy ? <Loader2 className="size-4 animate-spin" /> : <ShieldCheck className="size-4" />} Kirim pengajuan verifikasi
                 </button>
               </div>
+
+              {renderAgreementCard('review')}
             </div>
           )}
 

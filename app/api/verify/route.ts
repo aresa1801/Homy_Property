@@ -206,6 +206,25 @@ export async function POST(request: Request) {
 
   if (action === 'submit') {
     const missing = missingRequirements(draft)
+    // Perjanjian disimpan di tabel partner_agreements; kolom agreement_* di
+    // partner_verifications bisa belum terisi (data lama). Cek sumber kebenarannya dulu
+    // supaya mitra yang sudah menandatangani tidak ditolak karena poin ini.
+    if (missing.includes('agreement') && !draft.agreement_id && !draft.agreement_signed_at) {
+      const { data: signedAgreement } = await admin
+        .from('partner_agreements')
+        .select('id, signed_at, agreement_version')
+        .eq('user_id', user.id)
+        .eq('role', role)
+        .eq('status', 'active')
+        .maybeSingle()
+      if (signedAgreement) {
+        const index = missing.indexOf('agreement')
+        if (index >= 0) missing.splice(index, 1)
+        patch.agreement_id = patch.agreement_id ?? (signedAgreement as { id?: string }).id ?? null
+        patch.agreement_signed_at = patch.agreement_signed_at ?? (signedAgreement as { signed_at?: string }).signed_at ?? null
+        patch.agreement_version = patch.agreement_version ?? (signedAgreement as { agreement_version?: string }).agreement_version ?? null
+      }
+    }
     if (missing.length) {
       return NextResponse.json(
         {
