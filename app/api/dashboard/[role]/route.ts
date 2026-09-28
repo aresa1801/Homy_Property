@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import { myReferralOverview, referralsForAdmin } from '@/lib/referral'
+import { emailsFor } from '@/lib/user-emails'
 
 const ADMIN_ROLES = ['admin', 'super_admin']
 
@@ -17,19 +18,19 @@ async function adminScopedClient(supabase: Awaited<ReturnType<typeof createClien
 
 /** Profil rekan (pembeli/penyewa) — hanya untuk id yang memang ada di data milik user. */
 async function counterpartProfiles(ids: string[]) {
-  const unique = Array.from(new Set(ids.filter(Boolean))).slice(0, 25)
+  const unique = Array.from(new Set(ids.filter(Boolean))).slice(0, 200)
   const map: Record<string, { name?: string; email?: string; phone?: string }> = {}
   if (!unique.length) return map
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY
   if (!url || !key) return map
   const admin = createServiceClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
-  const [profiles, users] = await Promise.all([
+  const [profiles, emailMap] = await Promise.all([
     admin.from('profiles').select('id,full_name,phone').in('id', unique),
-    Promise.all(unique.map((id) => admin.auth.admin.getUserById(id).then((r) => r.data?.user ?? null).catch(() => null))),
+    emailsFor(admin, unique),
   ])
   for (const profile of profiles.data ?? []) map[profile.id] = { name: profile.full_name ?? undefined, phone: profile.phone ?? undefined }
-  for (const user of users) if (user?.id) map[user.id] = { ...(map[user.id] ?? {}), email: user.email ?? undefined }
+  for (const [uid, email] of emailMap) map[uid] = { ...(map[uid] ?? {}), email }
   return map
 }
 
@@ -224,12 +225,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     const profileIds = Array.from(new Set([...ownerIds, ...actorIds, ...txUserIds, ...interestUserIds, ...sanctionUserIds])).slice(0, 200)
     const profileMap: Record<string, { name?: string; email?: string; phone?: string }> = {}
     if (profileIds.length) {
-      const [profileRows, userRows] = await Promise.all([
+      const [profileRows, emailMap] = await Promise.all([
         admin.from('profiles').select('id,full_name,phone').in('id', profileIds),
-        Promise.all(profileIds.map((id) => admin.auth.admin.getUserById(id).then((r) => r.data?.user ?? null).catch(() => null))),
+        emailsFor(admin, profileIds),
       ])
       for (const profile of profileRows.data ?? []) profileMap[profile.id] = { name: profile.full_name ?? undefined, phone: profile.phone ?? undefined }
-      for (const u of userRows) if (u?.id) profileMap[u.id] = { ...(profileMap[u.id] ?? {}), email: u.email ?? undefined }
+      for (const [uid, email] of emailMap) profileMap[uid] = { ...(profileMap[uid] ?? {}), email }
     }
 
     const roleMap: Record<string, string[]> = {}

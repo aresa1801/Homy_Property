@@ -12,6 +12,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { notifyUser } from '@/lib/notifications'
 import { isEmailConfigured, sendVerificationReminderEmail } from '@/lib/email'
 import { REQUIREMENT_LABELS, completionPercent, missingRequirements } from '@/lib/verification'
+import { emailsFor } from '@/lib/user-emails'
 
 const ADMIN_ROLES = ['admin', 'super_admin']
 const PARTNER_ROLES = ['agent']
@@ -131,15 +132,9 @@ async function collectTargets(admin: NonNullable<ReturnType<typeof serviceClient
     })
   }
 
-  // Email diambil lewat auth admin (profiles tidak menyimpan email).
-  await Promise.all(
-    targets.map(async (target) => {
-      try {
-        const { data } = await admin.auth.admin.getUserById(target.userId)
-        target.email = data?.user?.email ?? null
-      } catch { /* email opsional */ }
-    }),
-  )
+  // Email diambil dari tabel klon user_emails (1 query) — bukan N panggilan Admin Auth.
+  const emailMap = await emailsFor(admin, targets.map((target) => target.userId))
+  for (const target of targets) target.email = emailMap.get(target.userId) ?? null
 
   targets.sort((a, b) => b.missing.length - a.missing.length || (a.name ?? '').localeCompare(b.name ?? ''))
   return targets

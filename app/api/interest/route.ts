@@ -10,6 +10,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { serviceClient } from '@/lib/visits'
+import { emailsFor } from '@/lib/user-emails'
 import { notifyUser } from '@/lib/notifications'
 import { analyzeInterest, interestModel, scoreInterest, INTEREST_STAGES, type InterestAnalysis } from '@/lib/interest'
 
@@ -60,13 +61,13 @@ export async function GET(request: Request) {
     const admin = serviceClient()
     if (admin) {
       const ids = Array.from(new Set(rows.map((row) => String(row.user_id ?? '')).filter(Boolean))).slice(0, 40)
-      const [{ data: profiles }, users] = await Promise.all([
+      const [{ data: profiles }, emailMap] = await Promise.all([
         admin.from('profiles').select('id,full_name,phone').in('id', ids),
-        Promise.all(ids.map((id) => admin.auth.admin.getUserById(id).then((r) => r.data?.user ?? null).catch(() => null))),
+        emailsFor(admin, ids),
       ])
       const nameMap: Record<string, { name?: string; email?: string; phone?: string }> = {}
       for (const profile of profiles ?? []) nameMap[profile.id] = { name: profile.full_name ?? undefined, phone: profile.phone ?? undefined }
-      for (const user of users) if (user?.id) nameMap[user.id] = { ...(nameMap[user.id] ?? {}), email: user.email ?? undefined }
+      for (const [uid, email] of emailMap) nameMap[uid] = { ...(nameMap[uid] ?? {}), email }
       for (const row of rows) row.buyer = nameMap[String(row.user_id ?? '')] ?? null
     }
   }
