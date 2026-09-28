@@ -14,6 +14,7 @@ export type NotificationKind =
   | 'sanction.warning' | 'sanction.suspended' | 'sanction.blocked' | 'sanction.lifted'
   | 'referral.joined' | 'referral.commission' | 'referral.payout'
   | 'notary.request' | 'notary.recommended'
+  | 'partnership.updated' | 'partnership.invite'
 
 export type NotificationInput = {
   userId: string

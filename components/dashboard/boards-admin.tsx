@@ -6,7 +6,7 @@ import { BcaPaymentCard } from '@/components/bca-payment-card'
 import { MetricCard } from '@/components/dashboard-shell'
 import { ModerationQueue } from '@/components/moderation-queue'
 import type { BoardProps } from '@/components/dashboard/boards-listing'
-import { adminAction, rupiah, shortDate, shortDateTime, ui, useDashboard, type DashboardSetting, type DashboardSanction } from '@/lib/dashboard-client'
+import { adminAction, rupiah, shortDate, shortDateTime, ui, useDashboard, type DashboardSetting, type DashboardSanction, type DashboardUser } from '@/lib/dashboard-client'
 import { LEAD_KIND_BADGE, LEAD_STATUS_META } from '@/lib/partnership'
 import { NOTARY_REQUEST_STATUS_META, areaLabel, notaryLabel } from '@/lib/notary'
 
@@ -52,18 +52,24 @@ export function ModerationBoard() {
   )
 }
 
-/* ============================ PENGGUNA & MITRA ============================ */
+/* ============================ PENGGUNA & AGEN ============================ */
 export function UsersBoard({ data, loading, reload, type }: BoardProps & { type: AdminType }) {
   const users = data.users ?? []
   const [query, setQuery] = useState('')
   const [roleFilter, setRoleFilter] = useState('all')
   const [busy, setBusy] = useState<string | null>(null)
   const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
+  const [invite, setInvite] = useState<{ name: string; link: string; email: string | null } | null>(null)
+  const [copied, setCopied] = useState(false)
   const canManage = type === 'super-admin'
 
   const filtered = useMemo(() => users.filter((user) => {
     const matchQuery = !query || `${user.full_name ?? ''} ${user.email ?? ''}`.toLowerCase().includes(query.toLowerCase())
-    const matchRole = roleFilter === 'all' || (user.roles ?? []).includes(roleFilter)
+    const matchRole = roleFilter === 'all' ? true
+      : roleFilter === 'agent-active' ? Boolean(user.agent_active)
+      : roleFilter === 'agent-pending' ? Boolean(user.is_agent) && !user.agent_active
+      : roleFilter === 'non-agent' ? !user.is_agent
+      : (user.roles ?? []).includes(roleFilter)
     return matchQuery && matchRole
   }), [users, query, roleFilter])
 
@@ -81,37 +87,83 @@ export function UsersBoard({ data, loading, reload, type }: BoardProps & { type:
     }
   }
 
-  const mitra = users.filter((u) => (u.roles ?? []).some((r) => r === 'agent')).length
-  const admins = users.filter((u) => (u.roles ?? []).some((r) => ['admin', 'super_admin'].includes(r))).length
+  // Tawarkan pengguna (belum Agent) menjadi Agen Properti → kirim undangan in-app + siapkan tautan onboarding
+  // yang langsung mengarahkan ke langkah Perjanjian Kerja Sama (/verify?role=agent).
+  async function inviteAgent(user: DashboardUser) {
+    setBusy(user.id + 'invite')
+    setMessage(null)
+    setCopied(false)
+    try {
+      const result = await adminAction({ kind: 'agent.invite', userId: user.id }) as { link?: string; email?: string | null }
+      setInvite({ name: user.full_name || 'Pengguna', link: result?.link || '/verify?role=agent', email: result?.email ?? user.email ?? null })
+      setMessage({ tone: 'ok', text: `Undangan menjadi Agen Properti dikirim ke ${user.full_name || user.email || 'pengguna'}. Tautan onboarding sudah disiapkan di bawah.` })
+      reload()
+    } catch (error) {
+      setMessage({ tone: 'err', text: error instanceof Error ? error.message : 'Gagal mengirim undangan' })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  // Definisi "Agent terdaftar" = sudah lolos verifikasi + punya listing tayang (aktif).
+  const agentsActive = users.filter((u) => u.agent_active).length
+  const agentsVerified = users.filter((u) => u.agent_verified).length
+  const candidates = users.filter((u) => !u.is_agent).length
 
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <MetricCard label="Total akun" value={String(users.length)} change="Pengguna terdaftar" icon="users" />
-        <MetricCard label="Mitra (agen/pemilik)" value={String(mitra)} change="Punya perjanjian kerja sama" icon="shield" />
-        <MetricCard label="Admin & super admin" value={String(admins)} change="Akses operasional" icon="key" />
-        <MetricCard label="Punya listing" value={String(users.filter((u) => (u.listings ?? 0) > 0).length)} change="Akun yang sudah memasang properti" icon="home" />
+        <MetricCard label="Agen aktif" value={String(agentsActive)} change="Lolos verifikasi & punya listing tayang" icon="shield" />
+        <MetricCard label="Agen terverifikasi" value={String(agentsVerified)} change="Lolos verifikasi (belum punya listing aktif)" icon="key" />
+        <MetricCard label="Calon Agen" value={String(candidates)} change="Pengguna non-Agen — bisa ditawarkan jadi Agen" icon="home" />
       </div>
       {message && <Toast message={message} />}
+      {invite && (
+        <div className={ui.card}>
+          <h3 className="font-serif text-lg text-[#0b3d2e]">Tautan onboarding Agen — {invite.name}</h3>
+          <p className="mt-1 text-sm text-[#718078]">
+            Kirim tautan ini ke <strong>{invite.email || 'pengguna'}</strong>. Tautan langsung mengarah ke halaman verifikasi
+            pada langkah <strong>Perjanjian Kerja Sama</strong> — calon agen wajib menandatangani perjanjian dulu sebelum bisa diverifikasi.
+          </p>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <input readOnly value={invite.link} className={ui.input + ' flex-1 min-w-[240px] font-mono text-xs'} onFocus={(event) => event.currentTarget.select()} />
+            <button
+              type="button"
+              className={ui.btn}
+              onClick={async () => {
+                try { await navigator.clipboard.writeText(invite.link); setCopied(true) } catch { setCopied(false) }
+              }}
+            >
+              {copied ? 'Tersalin ✓' : 'Salin tautan'}
+            </button>
+            <a href={invite.link} target="_blank" rel="noreferrer" className={ui.ghost}>Buka</a>
+            <button type="button" className={ui.ghost} onClick={() => { setInvite(null); setCopied(false) }}>Tutup</button>
+          </div>
+        </div>
+      )}
       <div className={ui.card}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Pengguna & mitra Homy</h3>
-            <p className="mt-1 text-sm text-[#718078]">{canManage ? 'Cari akun, lihat peran, dan atur akses peran (super admin).' : 'Cari akun dan pantau peran serta jumlah listing-nya.'}</p>
+            <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Pengguna &amp; Agen Homy</h3>
+            <p className="mt-1 text-sm text-[#718078]">{canManage ? 'Cari akun, lihat peran, dan atur akses peran (super admin).' : 'Cari akun, pantau peran, status Agen (lolos verifikasi + listing tayang), dan tawarkan pengguna menjadi Agen Properti.'}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Cari nama / email" className={ui.input + ' sm:w-56'} />
-            <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)} className={ui.input + ' sm:w-44'}>
-              <option value="all">Semua peran</option>
+            <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)} className={ui.input + ' sm:w-52'}>
+              <option value="all">Semua akun</option>
+              <option value="agent-active">Agen aktif (verifikasi + listing)</option>
+              <option value="agent-pending">Agen (belum aktif)</option>
+              <option value="non-agent">Calon Agen (non-Agen)</option>
               {Object.keys(ROLE_LABEL).map((role) => <option key={role} value={role}>{ROLE_LABEL[role]}</option>)}
             </select>
             <button type="button" onClick={reload} className={ui.ghost}>Muat ulang</button>
           </div>
         </div>
         <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-sm">
+          <table className="w-full min-w-[900px] text-left text-sm">
             <thead className="text-xs uppercase tracking-wider text-[#a18a61]">
-              <tr><th className="pb-3">Akun</th><th className="pb-3">Peran</th><th className="pb-3">Listing</th><th className="pb-3">Terdaftar</th>{canManage && <th className="pb-3">Kelola peran</th>}</tr>
+              <tr><th className="pb-3">Akun</th><th className="pb-3">Peran</th><th className="pb-3">Listing aktif</th><th className="pb-3">Status Agen</th><th className="pb-3">Terdaftar</th><th className="pb-3">Tindakan</th></tr>
             </thead>
             <tbody>
               {filtered.map((user) => (
@@ -125,22 +177,37 @@ export function UsersBoard({ data, loading, reload, type }: BoardProps & { type:
                       {(user.roles ?? []).map((role) => <span key={role} className={`${ui.badge} bg-[#f7f3ec] text-[#0b3d2e]`}>{ROLE_LABEL[role] ?? role}</span>)}
                     </div>
                   </td>
-                  <td className="py-3 font-semibold text-[#0b3d2e]">{user.listings ?? 0}</td>
+                  <td className="py-3 font-semibold text-[#0b3d2e]">
+                    {user.active_listings ?? 0}
+                    <span className="block text-xs font-normal text-[#718078]">total {user.listings ?? 0}</span>
+                  </td>
+                  <td className="py-3">
+                    {user.agent_active ? (
+                      <span className={`${ui.badge} bg-[#e2eee7] text-[#0b3d2e]`}>Agen aktif</span>
+                    ) : user.is_agent ? (
+                      <span className={`${ui.badge} bg-[#fff7e3] text-[#9b762a]`}>Agen — belum aktif</span>
+                    ) : (
+                      <span className="text-xs text-[#718078]">Bukan Agen</span>
+                    )}
+                  </td>
                   <td className="py-3 text-[#718078]">{shortDate(user.created_at)}</td>
-                  {canManage && (
-                    <td className="py-3">
-                      <div className="flex flex-wrap gap-1">
-                        {['agent', 'admin', 'super_admin'].map((role) => {
-                          const has = (user.roles ?? []).includes(role)
-                          return (
-                            <button key={role} type="button" disabled={busy === user.id + role} onClick={() => toggleRole(user.id, role, has)} className={has ? ui.ghost : ui.btn}>
-                              {has ? '− ' : '+ '}{ROLE_LABEL[role]}
-                            </button>
-                          )
-                        })}
-                      </div>
-                    </td>
-                  )}
+                  <td className="py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {!user.is_agent && (
+                        <button type="button" disabled={busy === user.id + 'invite'} onClick={() => inviteAgent(user)} className={ui.btn}>
+                          {busy === user.id + 'invite' ? 'Mengirim…' : 'Tawarkan jadi Agen'}
+                        </button>
+                      )}
+                      {canManage && ['agent', 'admin', 'super_admin'].map((role) => {
+                        const has = (user.roles ?? []).includes(role)
+                        return (
+                          <button key={role} type="button" disabled={busy === user.id + role} onClick={() => toggleRole(user.id, role, has)} className={has ? ui.ghost : ui.btn}>
+                            {has ? '− ' : '+ '}{ROLE_LABEL[role]}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -163,13 +230,16 @@ export function PlatformBillingBoard({ data, loading, reload, type }: BoardProps
 
   const filtered = filter === 'all' ? rows : rows.filter((row) => row.status === filter)
   const totalSale = rows.reduce((sum, row) => sum + Number(row.sale_price ?? 0), 0)
+  // Dashboard Admin hanya menangani Agen Properti; Super Admin menangani mitra non-agen.
+  const party = type === 'admin' ? 'Agen' : 'Mitra'
+  const partyLower = party.toLowerCase()
 
   async function decide(id: string, action: 'verify' | 'reject') {
     setBusy(id)
     setMessage(null)
     try {
       await adminAction({ kind: action === 'verify' ? 'billing.verify' : 'billing.reject', id, note: notes[id] ?? '' })
-      setMessage({ tone: 'ok', text: action === 'verify' ? 'Komisi diverifikasi — mitra akan melihat status terverifikasi di dashboard-nya.' : 'Laporan transaksi ditolak. Mitra melihat catatan Anda di dashboard-nya.' })
+      setMessage({ tone: 'ok', text: action === 'verify' ? `Komisi diverifikasi — ${partyLower} akan melihat status terverifikasi di dashboard-nya.` : `Laporan transaksi ditolak. ${party} melihat catatan Anda di dashboard-nya.` })
       reload()
     } catch (error) {
       setMessage({ tone: 'err', text: error instanceof Error ? error.message : 'Gagal memproses' })
@@ -182,7 +252,7 @@ export function PlatformBillingBoard({ data, loading, reload, type }: BoardProps
     <div className="space-y-4 sm:space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 sm:gap-4 xl:grid-cols-4">
         <MetricCard label="Laporan transaksi" value={String(rows.length)} change={`${metrics.pendingCommissionCount ?? 0} menunggu verifikasi`} icon="wallet" />
-        <MetricCard label="Nilai transaksi mitra" value={rupiah(totalSale)} change="Akumulasi harga jual dilaporkan" icon="chart" />
+        <MetricCard label={`Nilai transaksi ${partyLower}`} value={rupiah(totalSale)} change="Akumulasi harga jual dilaporkan" icon="chart" />
         <MetricCard label="Komisi terverifikasi" value={rupiah(metrics.commissionVerified ?? 0)} change="Pendapatan Homy yang sudah divalidasi" icon="shield" />
         <MetricCard label="Komisi menunggu" value={rupiah(metrics.commissionPending ?? 0)} change="Belum diverifikasi admin" icon="sparkles" />
       </div>
@@ -191,7 +261,7 @@ export function PlatformBillingBoard({ data, loading, reload, type }: BoardProps
       <div className={ui.card}>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Verifikasi laporan transaksi mitra</h3>
+            <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Verifikasi laporan transaksi {partyLower}</h3>
             <p className="mt-1 text-sm text-[#718078]">Agen & pemilik wajib melaporkan transaksi (Pasal 4 perjanjian) dengan komisi 0,5%. Verifikasi di sini — status langsung terlihat di dashboard Penagihan mereka{type === 'super-admin' ? ' dan menjadi dasar laporan pendapatan platform.' : '.'}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -206,7 +276,7 @@ export function PlatformBillingBoard({ data, loading, reload, type }: BoardProps
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[900px] text-left text-sm">
             <thead className="text-xs uppercase tracking-wider text-[#a18a61]">
-              <tr><th className="pb-3">Properti / pembeli</th><th className="pb-3">Mitra</th><th className="pb-3">Harga jual</th><th className="pb-3">Komisi 0,5%</th><th className="pb-3">Status</th><th className="pb-3">Tindakan</th></tr>
+              <tr><th className="pb-3">Properti / pembeli</th><th className="pb-3">{party}</th><th className="pb-3">Harga jual</th><th className="pb-3">Komisi 0,5%</th><th className="pb-3">Status</th><th className="pb-3">Tindakan</th></tr>
             </thead>
             <tbody>
               {filtered.map((row) => {
@@ -219,7 +289,7 @@ export function PlatformBillingBoard({ data, loading, reload, type }: BoardProps
                       {row.review_note && <p className="mt-1 text-xs text-[#b45c50]">Catatan: {row.review_note}</p>}
                     </td>
                     <td className="py-3">
-                      <p className="font-semibold text-[#20332c]">{row.user?.name || 'Mitra'}</p>
+                      <p className="font-semibold text-[#20332c]">{row.user?.name || party}</p>
                       <p className="text-xs text-[#718078]">{ROLE_LABEL[String(row.role)] ?? row.role} · {row.user?.email || '—'}</p>
                     </td>
                     <td className="py-3 font-semibold text-[#0b3d2e]">{rupiah(row.sale_price)}</td>
@@ -434,7 +504,7 @@ export function RolesBoard({ data, reload, type }: BoardProps & { type: AdminTyp
   const roleInfo = [
     { role: 'user', title: 'Pengguna', detail: 'Mencari properti, menyimpan favorit, mengirim pertanyaan, dan menjadwalkan kunjungan.' },
     { role: 'agent', title: 'Agen', detail: 'Mengelola banyak listing, CRM prospek, analitik, dan penagihan komisi 0,5%.' },
-    { role: 'admin', title: 'Admin', detail: 'Moderasi listing, verifikasi komisi mitra, menindak laporan, dan memantau AI.' },
+    { role: 'admin', title: 'Admin', detail: 'Moderasi listing, verifikasi komisi agen, menindak laporan, dan memantau AI.' },
     { role: 'super_admin', title: 'Super Admin', detail: 'Semua akses admin plus peran & izin, konfigurasi platform, dan feature flag.' },
   ]
   return (
@@ -566,12 +636,14 @@ export function AdminOverviewBoard({ type }: { type: AdminType }) {
   const metrics = data.metrics ?? {}
   const audit = (data.audit ?? []).slice(0, 6)
   const pendingTx = (data.transactions ?? []).filter((row) => row.status === 'reported').slice(0, 4)
+  const party = type === 'admin' ? 'Agen' : 'Mitra'
+  const partyLower = party.toLowerCase()
 
   const tiles: Array<[string, string, string]> = type === 'admin'
     ? [
         ['moderation', 'Moderasi Listing', 'Tinjau & tayangkan listing baru'],
-        ['users', 'Pengguna & Agen', 'Pantau akun, peran, dan mitra'],
-        ['billing', 'Penagihan & Komisi', 'Verifikasi laporan transaksi mitra'],
+        ['users', 'Pengguna & Agen', 'Pantau akun, peran, dan Agent'],
+        ['billing', 'Penagihan & Komisi', 'Verifikasi laporan transaksi Agent'],
         ['reports', 'Laporan & Penipuan', 'Tindak laporan dan pemeriksaan otomatis'],
         ['ai', 'Pemantauan AI', 'Cek kualitas jawaban Homy AI'],
       ]
@@ -634,12 +706,12 @@ export function AdminOverviewBoard({ type }: { type: AdminType }) {
         </div>
         <div className={ui.card}>
           <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Komisi menunggu verifikasi</h3>
-          <p className="mt-1 text-sm text-[#718078]">Laporan transaksi mitra yang belum divalidasi.</p>
+          <p className="mt-1 text-sm text-[#718078]">Laporan transaksi {partyLower} yang belum divalidasi.</p>
           <div className="mt-3 space-y-2">
             {pendingTx.map((row) => (
               <div key={row.id} className="rounded-xl bg-[#f7f3ec] p-3 text-sm">
                 <p className="font-semibold text-[#20332c]">{row.property_title || 'Properti'}</p>
-                <p className="text-xs text-[#718078]">{row.user?.name || 'Mitra'} · komisi {rupiah(row.commission_amount)}</p>
+                <p className="text-xs text-[#718078]">{row.user?.name || party} · komisi {rupiah(row.commission_amount)}</p>
               </div>
             ))}
             {!loading && pendingTx.length === 0 && <Empty text="Tidak ada komisi menunggu. 👍" />}
@@ -673,6 +745,9 @@ export function PartnershipBoard({ data, loading, reload, scope = 'all', showNot
   const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
   const [notes, setNotes] = useState<Record<string, string>>({})
   const [requestNotary, setRequestNotary] = useState<Record<string, string>>({})
+  // Cakupan halaman: Admin = Agen Properti; Super Admin = mitra non-agen.
+  const party = scope === 'agent' ? 'Agen' : 'Mitra'
+  const partyLower = party.toLowerCase()
 
   const filtered = useMemo(() => leads.filter((lead) => {
     if (kind !== 'all' && String(lead.kind) !== kind) return false
@@ -690,7 +765,7 @@ export function PartnershipBoard({ data, loading, reload, scope = 'all', showNot
 
   async function review(id: string, next: string) {
     if (next === 'rejected' && !(notes[id] ?? '').trim()) {
-      setMessage({ tone: 'err', text: 'Isi catatan alasan dulu — catatan ini dikirim sebagai email balasan ke calon mitra.' })
+      setMessage({ tone: 'err', text: `Isi catatan alasan dulu — catatan ini dikirim sebagai email balasan ke calon ${partyLower}.` })
       return
     }
     setBusy(id)
@@ -827,15 +902,15 @@ export function PartnershipBoard({ data, loading, reload, scope = 'all', showNot
                   {String(lead.last_email_status ?? '') === 'sent'
                     ? <span className="text-[#4e866d]">✉️ Email balasan terkirim{lead.last_emailed_at ? ' · ' + shortDate(String(lead.last_emailed_at)) : ''}{lead.last_email_subject ? ' · “' + String(lead.last_email_subject) + '”' : ''}</span>
                     : String(lead.last_email_status ?? '') === 'failed'
-                      ? <span className="text-[#b45c50]">✉️ Email balasan gagal terkirim — hubungi mitra via WhatsApp/telepon</span>
+                      ? <span className="text-[#b45c50]">✉️ Email balasan gagal terkirim — hubungi {partyLower} via WhatsApp/telepon</span>
                       : <span className="text-[#8a928e]">Belum ada email balasan terkirim</span>}
                 </p>
                 {lead.review_note ? <p className="mt-1 text-xs text-[#718078]">Catatan: {String(lead.review_note)}</p> : null}
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <input value={notes[id] ?? ''} onChange={(event) => setNotes({ ...notes, [id]: event.target.value })} placeholder={isContact ? 'Catatan balasan (opsional)' : 'Catatan verifikasi — dikirim ke email mitra'} className={ui.input + ' h-9 max-w-xs py-0'} />
+                  <input value={notes[id] ?? ''} onChange={(event) => setNotes({ ...notes, [id]: event.target.value })} placeholder={isContact ? 'Catatan balasan (opsional)' : `Catatan verifikasi — dikirim ke email ${partyLower}`} className={ui.input + ' h-9 max-w-xs py-0'} />
                   {!isContact && String(lead.status) !== 'reviewing' && <button type="button" disabled={busy === id} onClick={() => review(id, 'reviewing')} className={ui.ghost}>Tandai ditinjau</button>}
                   {!isContact && String(lead.status) !== 'contacted' && <button type="button" disabled={busy === id} onClick={() => review(id, 'contacted')} className={ui.ghost}>Sudah dihubungi</button>}
-                  {!isContact && String(lead.status) !== 'approved' && <button type="button" disabled={busy === id} onClick={() => review(id, 'approved')} className={ui.btn}>Setujui mitra</button>}
+                  {!isContact && String(lead.status) !== 'approved' && <button type="button" disabled={busy === id} onClick={() => review(id, 'approved')} className={ui.btn}>Setujui {partyLower}</button>}
                   {String(lead.status) !== 'rejected' && <button type="button" disabled={busy === id} onClick={() => review(id, 'rejected')} className={ui.ghost}>{isContact ? 'Tandai selesai' : 'Tolak'}</button>}
                   <a href={'mailto:' + String(lead.email ?? '')} className={ui.ghost}>Balas email</a>
                 </div>
@@ -951,12 +1026,12 @@ export function PartnershipBoard({ data, loading, reload, scope = 'all', showNot
   )
 }
 
-/* ============================ SANKSI MITRA (TEGURAN / PERINGATAN / SUSPEND / BLOKIR) ============================ */
+/* ============================ SANKSI (TEGURAN / PERINGATAN / SUSPEND / BLOKIR) ============================ */
 const SANCTION_LEVELS: Array<{ kind: string; level: number; label: string; className: string; hint: string }> = [
   { kind: 'teguran', level: 1, label: 'Teguran', className: 'bg-[#fff7e3] text-[#9b762a]', hint: 'Teguran tertulis pertama — tercatat di audit, tidak membatasi akses.' },
   { kind: 'peringatan', level: 2, label: 'Peringatan', className: 'bg-[#fdeee6] text-[#b4661f]', hint: 'Peringatan keras. Pelanggaran berulang dapat berujung suspend.' },
-  { kind: 'suspend', level: 3, label: 'Suspend', className: 'bg-[#fbeeec] text-[#b45c50]', hint: 'Menangguhkan mitra sementara: listing disembunyikan dari publik & tidak bisa memasang listing baru.' },
-  { kind: 'blokir', level: 4, label: 'Blokir', className: 'bg-[#3a1512] text-[#f6c9c2]', hint: 'Blokir permanen: akun mitra dinonaktifkan total, listing tidak tayang.' },
+  { kind: 'suspend', level: 3, label: 'Suspend', className: 'bg-[#fbeeec] text-[#b45c50]', hint: 'Menangguhkan akun sementara: listing disembunyikan dari publik & tidak bisa memasang listing baru.' },
+  { kind: 'blokir', level: 4, label: 'Blokir', className: 'bg-[#3a1512] text-[#f6c9c2]', hint: 'Blokir permanen: akun dinonaktifkan total, listing tidak tayang.' },
 ]
 
 const SANCTION_CATEGORIES: Array<{ value: string; label: string }> = [
@@ -977,7 +1052,7 @@ function sanctionLevelMeta(level?: number | null) {
   return SANCTION_LEVELS.find((item) => item.level === Number(level)) ?? SANCTION_LEVELS[0]
 }
 
-export function PartnerSanctionsBoard({ data, reload }: BoardProps & { type: AdminType }) {
+export function PartnerSanctionsBoard({ data, reload, type }: BoardProps & { type: AdminType }) {
   const users = useMemo(
     () => (data.users ?? []).filter((u) => (u.roles ?? []).some((r) => r === 'agent')),
     [data.users],
@@ -994,13 +1069,16 @@ export function PartnerSanctionsBoard({ data, reload }: BoardProps & { type: Adm
   const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
 
   const active = sanctions.filter((row) => String(row.status ?? '') === 'active')
+  // Dashboard Admin = Agen Properti; Super Admin = mitra non-agen.
+  const party = type === 'admin' ? 'Agen' : 'Mitra'
+  const partyLower = party.toLowerCase()
   const suspended = active.filter((row) => Number(row.level ?? 0) === 3).length
   const blocked = active.filter((row) => Number(row.level ?? 0) >= 4).length
   const selectedLevel = sanctionLevelMeta(SANCTION_LEVELS.find((item) => item.kind === kindSlug)?.level).level
 
   async function submit() {
     setMessage(null)
-    if (!userId) { setMessage({ tone: 'err', text: 'Pilih mitra yang akan dikenai sanksi.' }); return }
+    if (!userId) { setMessage({ tone: 'err', text: `Pilih ${partyLower} yang akan dikenai sanksi.` }); return }
     if (reason.trim().length < 5) { setMessage({ tone: 'err', text: 'Alasan pelanggaran wajib diisi (min. 5 karakter).' }); return }
     setBusy('add')
     try {
@@ -1014,7 +1092,7 @@ export function PartnerSanctionsBoard({ data, reload }: BoardProps & { type: Adm
         note: note.trim(),
         durationDays: Number(durationDays) || 7,
       })
-      setMessage({ tone: 'ok', text: `Sanksi "${sanctionLevelMeta(selectedLevel).label}" berhasil diterapkan & mitra dinotifikasi.` })
+      setMessage({ tone: 'ok', text: `Sanksi "${sanctionLevelMeta(selectedLevel).label}" berhasil diterapkan & ${partyLower} dinotifikasi.` })
       setReason(''); setNote(''); setUserId('')
       reload()
     } catch (error) {
@@ -1029,7 +1107,7 @@ export function PartnerSanctionsBoard({ data, reload }: BoardProps & { type: Adm
     setMessage(null)
     try {
       await adminAction({ kind: 'sanction.lift', id: row.id })
-      setMessage({ tone: 'ok', text: 'Sanksi dicabut. Status mitra diperbarui.' })
+      setMessage({ tone: 'ok', text: `Sanksi dicabut. Status ${partyLower} diperbarui.` })
       reload()
     } catch (error) {
       setMessage({ tone: 'err', text: error instanceof Error ? error.message : 'Gagal mencabut sanksi' })
@@ -1041,7 +1119,7 @@ export function PartnerSanctionsBoard({ data, reload }: BoardProps & { type: Adm
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        <MetricCard label="Mitra aktif" value={String(users.length)} change="Agen & pemilik properti" icon="users" />
+        <MetricCard label={`${party} aktif`} value={String(users.length)} change="Agen & pemilik properti" icon="users" />
         <MetricCard label="Sanksi aktif" value={String(active.length)} change="Teguran s/d blokir" icon="flag" />
         <MetricCard label="Sedang suspend" value={String(suspended)} change="Listing disembunyikan" icon="shield" />
         <MetricCard label="Diblokir" value={String(blocked)} change="Nonaktif permanen" icon="key" />
@@ -1050,13 +1128,13 @@ export function PartnerSanctionsBoard({ data, reload }: BoardProps & { type: Adm
       {message && <Toast message={message} />}
 
       <div className={ui.card}>
-        <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Jatuhkan sanksi mitra</h3>
-        <p className="mt-2 text-sm text-[#718078]">Terapkan hukuman berjenjang kepada Agen / Mitra yang melanggar kode etik, tidak membayar komisi, atau melanggar aturan perjanjian kerja sama. Setiap keputusan tercatat di log audit, mengirim notifikasi ke mitra, dan langsung berlaku.</p>
+        <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Jatuhkan sanksi {partyLower}</h3>
+        <p className="mt-2 text-sm text-[#718078]">Terapkan hukuman berjenjang kepada {party} yang melanggar kode etik, tidak membayar komisi, atau melanggar aturan perjanjian kerja sama. Setiap keputusan tercatat di log audit, mengirim notifikasi ke {partyLower}, dan langsung berlaku.</p>
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <label className="text-sm">
-            <span className="mb-1 block font-medium text-[#33433d]">Mitra</span>
+            <span className="mb-1 block font-medium text-[#33433d]">{party}</span>
             <select value={userId} onChange={(event) => setUserId(event.target.value)} className={ui.input}>
-              <option value="">Pilih mitra…</option>
+              <option value="">Pilih {partyLower}…</option>
               {users.map((user) => (
                 <option key={user.id} value={user.id}>
                   {(user.full_name ?? user.email ?? user.id)} — {(user.roles ?? []).filter((r) => r === 'agent').map((r) => ROLE_LABEL[r] ?? r).join(', ')}{user.role_status === 'suspended' ? ' (suspend)' : user.role_status === 'blocked' ? ' (blokir)' : ''}
@@ -1067,7 +1145,7 @@ export function PartnerSanctionsBoard({ data, reload }: BoardProps & { type: Adm
           <label className="text-sm">
             <span className="mb-1 block font-medium text-[#33433d]">Peran yang dikenai</span>
             <select value={role} onChange={(event) => setRole(event.target.value)} className={ui.input}>
-              <option value="all">Semua peran mitra</option>
+              <option value="all">Semua peran {partyLower}</option>
               <option value="agent">Agen</option>
             </select>
           </label>
@@ -1090,7 +1168,7 @@ export function PartnerSanctionsBoard({ data, reload }: BoardProps & { type: Adm
             </label>
           )}
           <label className="text-sm sm:col-span-2">
-            <span className="mb-1 block font-medium text-[#33433d]">Alasan pelanggaran (tampil ke mitra)</span>
+            <span className="mb-1 block font-medium text-[#33433d]">Alasan pelanggaran (tampil ke {partyLower})</span>
             <input value={reason} onChange={(event) => setReason(event.target.value)} placeholder="cth. Tidak menyetorkan komisi penjualan melewati tenggat 14 hari." className={ui.input} />
           </label>
           <label className="text-sm sm:col-span-2">
@@ -1105,14 +1183,14 @@ export function PartnerSanctionsBoard({ data, reload }: BoardProps & { type: Adm
       </div>
 
       <div className={ui.card}>
-        <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Riwayat sanksi mitra</h3>
+        <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Riwayat sanksi {partyLower}</h3>
         {sanctions.length === 0 ? (
-          <Empty text="Belum ada sanksi mitra. Riwayat akan muncul di sini." />
+          <Empty text={`Belum ada sanksi ${partyLower}. Riwayat akan muncul di sini.`} />
         ) : (
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[820px] text-left text-sm">
               <thead className="text-xs uppercase tracking-wider text-[#a18a61]">
-                <tr><th className="pb-3">Mitra</th><th className="pb-3">Tingkat</th><th className="pb-3">Kategori</th><th className="pb-3">Alasan</th><th className="pb-3">Masa</th><th className="pb-3">Status</th><th className="pb-3">Aksi</th></tr>
+                <tr><th className="pb-3">{party}</th><th className="pb-3">Tingkat</th><th className="pb-3">Kategori</th><th className="pb-3">Alasan</th><th className="pb-3">Masa</th><th className="pb-3">Status</th><th className="pb-3">Aksi</th></tr>
               </thead>
               <tbody>
                 {sanctions.map((row) => {

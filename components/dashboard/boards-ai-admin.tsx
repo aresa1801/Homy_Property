@@ -48,8 +48,13 @@ function metricText(value: unknown): string {
 }
 
 /** Homy AI Admin — asisten admin yang tahu seluruh database + pembuat analisa. */
-export function AiAdminBoard({ data }: BoardProps) {
+export function AiAdminBoard({ data, type }: BoardProps & { type?: string }) {
   const [tab, setTab] = useState<'chat' | 'analyze'>('chat')
+  // Scope Dashboard Admin = Agen Properti; Super Admin = mitra non-agen.
+  const party = type === 'super-admin' ? 'Mitra' : 'Agen'
+  const partyLower = party.toLowerCase()
+  const targetLabel: Record<string, string> = { ...TARGET_LABEL, partner: party }
+  const audiences = AUDIENCES.map((a) => (a.value === 'partner' ? { ...a, label: party } : a))
 
   /* ----------------------- chat ----------------------- */
   const [turns, setTurns] = useState<ChatTurn[]>([])
@@ -62,7 +67,7 @@ export function AiAdminBoard({ data }: BoardProps) {
     'Ringkas kondisi platform hari ini',
     'Berapa listing yang menunggu moderasi?',
     'Agen siapa yang paling banyak prospeknya?',
-    'Ada mitra yang sedang disanksi aktif?',
+    `Ada ${partyLower} yang sedang disanksi aktif?`,
     'Prospek dari Homy AI paling banyak tentang properti apa?',
   ]
 
@@ -162,7 +167,7 @@ export function AiAdminBoard({ data }: BoardProps) {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="flex items-center gap-2 text-sm font-semibold text-[#0b3d2e]"><Bot className="size-4" /> Homy AI Admin — asisten sadar-database</p>
-            <p className="mt-1 text-sm text-[#718078]">Tanyakan apa saja tentang data Homy (pengguna, listing, prospek, kunjungan, komisi, sanksi, mitra) atau minta analisa siap-kirim untuk agen, pemilik, dan mitra.</p>
+            <p className="mt-1 text-sm text-[#718078]">Tanyakan apa saja tentang data Homy (pengguna, listing, prospek, kunjungan, komisi, sanksi, {partyLower}) atau minta analisa siap-kirim untuk agen, pemilik, dan {partyLower}.</p>
           </div>
           <div className="flex gap-2">
             <button type="button" onClick={() => setTab('chat')} className={tab === 'chat' ? ui.btn : ui.ghost}><Database className="size-4" /> Tanya Data</button>
@@ -212,7 +217,7 @@ export function AiAdminBoard({ data }: BoardProps) {
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send(input) } }}
               rows={2}
-              placeholder="Contoh: ada berapa pengguna yang belum verifikasi mitra? kirim pengingat ke mereka."
+              placeholder={`Contoh: ada berapa pengguna yang belum verifikasi ${partyLower}? kirim pengingat ke mereka.`}
               className={ui.input}
             />
             <button type="submit" disabled={busy || !input.trim()} className={`${ui.btn} h-10 px-4`}><Send className="size-4" /> Kirim</button>
@@ -236,7 +241,7 @@ export function AiAdminBoard({ data }: BoardProps) {
                 </select>
               </label>
               {needsTarget && (
-                <label className="space-y-1 sm:col-span-2"><span className={ui.eyebrow}>Pilih {TARGET_LABEL[form.targetType]}</span>
+                <label className="space-y-1 sm:col-span-2"><span className={ui.eyebrow}>Pilih {targetLabel[form.targetType]}</span>
                   <select value={form.targetId} onChange={(e) => setForm((p) => ({ ...p, targetId: e.target.value }))} className={ui.input}>
                     <option value="">— pilih —</option>
                     {targetOptions.map((opt) => <option key={opt.id} value={opt.id}>{opt.label}</option>)}
@@ -245,11 +250,11 @@ export function AiAdminBoard({ data }: BoardProps) {
               )}
               <label className="space-y-1"><span className={ui.eyebrow}>Audiens laporan</span>
                 <select value={form.audience} onChange={(e) => setForm((p) => ({ ...p, audience: e.target.value }))} className={ui.input}>
-                  {AUDIENCES.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
+                  {audiences.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
                 </select>
               </label>
             </div>
-            {needsTarget && !targetOptions.length && <p className="mt-2 text-xs text-[#9b762a]">Belum ada {TARGET_LABEL[form.targetType]} pada data dasbor ini.</p>}
+            {needsTarget && !targetOptions.length && <p className="mt-2 text-xs text-[#9b762a]">Belum ada {targetLabel[form.targetType]} pada data dasbor ini.</p>}
             <div className="mt-3 flex flex-wrap items-center gap-4">
               <label className="flex items-center gap-2 text-sm text-[#33433d]">
                 <input type="checkbox" checked={form.notify} onChange={(e) => setForm((p) => ({ ...p, notify: e.target.checked }))} />
@@ -307,7 +312,7 @@ export function AiAdminBoard({ data }: BoardProps) {
                   <div key={row.id} className="flex items-start justify-between gap-3 py-3">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-[#20332c]">{row.title}</p>
-                      <p className="mt-0.5 text-xs text-[#718078]">{[TARGET_LABEL[row.target_type] ?? row.target_type, row.audience_role ? `→ ${row.audience_role}` : null, new Date(row.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })].filter(Boolean).join(' · ')}</p>
+                      <p className="mt-0.5 text-xs text-[#718078]">{[targetLabel[row.target_type] ?? row.target_type, row.audience_role ? `→ ${row.audience_role}` : null, new Date(row.created_at).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })].filter(Boolean).join(' · ')}</p>
                     </div>
                   </div>
                 ))}

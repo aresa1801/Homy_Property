@@ -195,7 +195,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
     if (!admin) {
       return NextResponse.json({ ...base, forbidden: true, metrics: { pendingApprovals: 0, published: 0, rejected: 0, activeUsers: 0, openReports: 0 } })
     }
-    const [rows, media, adminReports, profiles, roleRows, transactions, audit, flags, settings, partnerLeads, adminInterests, notaries, notaryRequests, sanctionRows] = await Promise.all([
+    const [rows, media, adminReports, profiles, roleRows, transactions, audit, flags, settings, partnerLeads, adminInterests, notaries, notaryRequests, sanctionRows, partnerVerif] = await Promise.all([
       admin.from('properties').select('id,title,address,city,province,district,listing_type,property_type,price,price_period,status,owner_id,created_at,moderation_note,verified_at,ai_summary').order('created_at', { ascending: false }).limit(200),
       admin.from('property_media').select('property_id').limit(3000),
       admin.from('moderation_reports').select('id,property_id,reported_user_id,reason,status,resolution_note,created_at').order('created_at', { ascending: false }).limit(50),
@@ -210,6 +210,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       admin.from('notaries').select('id,lead_id,user_id,name,office_name,sk_no,phone,whatsapp,email,website,province,kabupaten,kecamatan,services,focus_areas,notes,status,featured,verified_at,created_at,notary_areas(province,kabupaten,kecamatan)').order('created_at', { ascending: false }).limit(200),
       admin.from('notary_requests').select('id,user_id,property_id,notary_id,source,intent,buyer_name,contact_phone,contact_email,province,kabupaten,kecamatan,message,status,admin_note,created_at,updated_at').order('created_at', { ascending: false }).limit(200),
       admin.from('partner_sanctions').select('id,user_id,role,level,kind,category,reason,note,status,starts_at,ends_at,created_by,lifted_by,lifted_at,created_at').order('created_at', { ascending: false }).limit(200),
+      // status verifikasi per user (dipakai untuk definisi “Agent terdaftar = lolos verifikasi + punya listing aktif”).
+      admin.from('partner_verifications').select('user_id,requested_role,status').limit(600),
     ])
 
     const list = rows.data ?? []
@@ -244,10 +246,25 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       }
     }
     const listingCount = new Map<string, number>()
-    for (const p of list) if (p.owner_id) listingCount.set(p.owner_id, (listingCount.get(p.owner_id) ?? 0) + 1)
+    const activeListingCount = new Map<string, number>()
+    for (const p of list) {
+      if (!p.owner_id) continue
+      listingCount.set(p.owner_id, (listingCount.get(p.owner_id) ?? 0) + 1)
+      if (p.status === 'published') activeListingCount.set(p.owner_id, (activeListingCount.get(p.owner_id) ?? 0) + 1)
+    }
+
+    // “Agent terdaftar/aktif” = peran agent + lolos verifikasi (partner_verifications approved) + punya listing tayang.
+    const verifiedAgentIds = new Set(
+      ((partnerVerif.data ?? []) as Array<{ user_id?: string | null; requested_role?: string | null; status?: string | null }>)
+        .filter((row) => row.requested_role === 'agent' && row.status === 'approved')
+        .map((row) => String(row.user_id)),
+    )
 
     const users = (profiles.data ?? []).map((profile) => {
       const roles = roleMap[profile.id] ?? (profile.role ? [profile.role] : [])
+      const isAgent = roles.includes('agent')
+      const agentVerified = isAgent && verifiedAgentIds.has(String(profile.id))
+      const activeListings = activeListingCount.get(profile.id) ?? 0
       return {
         id: profile.id,
         full_name: profile.full_name,
@@ -256,7 +273,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
         roles,
         created_at: profile.created_at,
         listings: listingCount.get(profile.id) ?? 0,
-        verification: roles.some((r) => ['agent'].includes(r)) ? (roleMap[profile.id]?.includes('admin') ? 'admin' : 'mitra') : 'pengguna',
+        active_listings: activeListings,
+        is_agent: isAgent,
+        agent_verified: agentVerified,
+        agent_active: agentVerified && activeListings > 0,
+        verification: isAgent ? (roles.includes('admin') ? 'admin' : 'agent') : 'pengguna',
         role_status: roleStatusMap[profile.id] ?? 'active',
       }
     })

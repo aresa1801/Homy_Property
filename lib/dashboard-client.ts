@@ -123,6 +123,10 @@ export type DashboardUser = {
   roles?: string[]
   created_at?: string
   listings?: number
+  active_listings?: number
+  is_agent?: boolean
+  agent_verified?: boolean
+  agent_active?: boolean
   verification?: string
   role_status?: string | null
 }

@@ -269,6 +269,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, status, id })
   }
 
+  // ---------- Undang pengguna (non-agent) menjadi Agen Properti ----------
+  if (kind === 'agent.invite') {
+    const userId = String(body.userId ?? '')
+    if (!userId) return NextResponse.json({ error: 'userId wajib' }, { status: 400 })
+    const { data: profile } = await admin.from('profiles').select('id,full_name').eq('id', userId).maybeSingle()
+    let email: string | null = null
+    try {
+      const { data: authUser } = await admin.auth.admin.getUserById(userId)
+      email = authUser?.user?.email ?? null
+    } catch { /* email opsional */ }
+    // Link onboarding: langsung mengarahkan ke langkah Perjanjian Kerja Sama di halaman verifikasi.
+    const link = `${new URL(request.url).origin}/verify?role=agent`
+    await notifyUser({
+      userId,
+      kind: 'partnership.invite',
+      title: 'Undangan menjadi Agen Properti Homy',
+      body: 'Anda ditawarkan menjadi Agen Properti Homy. Tandatangani Perjanjian Kerja Sama lebih dulu, lalu lengkapi verifikasi (KTP/SIM + selfie) untuk mengaktifkan akun Agen.',
+      href: '/verify?role=agent',
+      data: { invited_by: actor.id },
+    })
+    await audit('agent.invited', 'profile', userId, { name: profile?.full_name ?? null, email })
+    return NextResponse.json({ ok: true, link, email })
+  }
+
   // ---------- Peran & izin (super admin) ----------
   if (kind === 'role.grant' || kind === 'role.revoke') {
     const superGate = await requireRole(SUPER_ROLES)

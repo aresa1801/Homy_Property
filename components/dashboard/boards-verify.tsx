@@ -99,7 +99,7 @@ export function VerificationBoard({ data, loading, type }: BoardProps & { type: 
             </span>
             <div>
               <p className="font-serif text-xl text-[#0b3d2e]">Verifikasi {ROLE_LABEL[requestedRole]}</p>
-              <p className="text-sm text-[#718078]">{record?.full_name ? `Nama mitra: ${record.full_name}` : 'Belum ada pengajuan verifikasi'}</p>
+              <p className="text-sm text-[#718078]">{record?.full_name ? `Nama agen: ${record.full_name}` : 'Belum ada pengajuan verifikasi'}</p>
             </div>
           </div>
           <StatusBadge status={status} />
@@ -197,8 +197,11 @@ export function VerificationBoard({ data, loading, type }: BoardProps & { type: 
   )
 }
 
-/** Halaman admin: tinjau & setujui verifikasi mitra. */
+/** Halaman admin: tinjau & setujui verifikasi mitra/agen. */
 export function VerificationReviewBoard({ data, loading, reload, scope = 'agent' }: BoardProps & { scope?: 'agent' | 'non-agent' }) {
+  // Dashboard Admin hanya menangani Agen Properti; Super Admin menangani mitra non-agen.
+  const party = scope === 'agent' ? 'Agen' : 'Mitra'
+  const partyLower = party.toLowerCase()
   const [filter, setFilter] = useState('pending')
   const [openId, setOpenId] = useState<string | null>(null)
   const [note, setNote] = useState('')
@@ -243,7 +246,7 @@ export function VerificationReviewBoard({ data, loading, reload, scope = 'agent'
       const emailed = Array.isArray(body?.sent) ? body.sent.filter((item: { emailSent?: boolean }) => item.emailSent).length : 0
       setMessage({
         tone: 'ok',
-        text: `Pengingat terkirim ke ${sentCount} mitra${emailed ? ` (${emailed} lewat email)` : ''}. Pengingat berikutnya bisa dikirim setelah ${reminders.cooldownDays} hari.`,
+        text: `Pengingat terkirim ke ${sentCount} ${partyLower}${emailed ? ` (${emailed} lewat email)` : ''}. Pengingat berikutnya bisa dikirim setelah ${reminders.cooldownDays} hari.`,
       })
       await loadReminders()
     } catch (error) {
@@ -275,7 +278,7 @@ export function VerificationReviewBoard({ data, loading, reload, scope = 'agent'
     setMessage(null)
     try {
       await adminAction({ kind, id: record.id, note: note.trim() })
-      setMessage({ tone: 'ok', text: kind === 'verification.approve' ? 'Verifikasi disetujui. Peran mitra aktif & pengguna diberi notifikasi.' : kind === 'verification.reject' ? 'Verifikasi ditolak. Pengguna diberi catatan perbaikan.' : 'Pengajuan dikembalikan ke status menunggu.' })
+      setMessage({ tone: 'ok', text: kind === 'verification.approve' ? `Verifikasi disetujui. Peran ${partyLower} aktif & pengguna diberi notifikasi.` : kind === 'verification.reject' ? 'Verifikasi ditolak. Pengguna diberi catatan perbaikan.' : 'Pengajuan dikembalikan ke status menunggu.' })
       setNote('')
       setOpenId(null)
       reload()
@@ -290,9 +293,9 @@ export function VerificationReviewBoard({ data, loading, reload, scope = 'agent'
     <div className="space-y-4 sm:space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <MetricCard label="Menunggu review" value={String(rows.filter((row) => row.status === 'pending').length)} change="Perlu keputusan admin" icon="shield" />
-        <MetricCard label="Disetujui" value={String(rows.filter((row) => row.status === 'approved').length)} change="Mitra aktif" icon="shield" />
-        <MetricCard label="Ditolak" value={String(rows.filter((row) => row.status === 'rejected').length)} change="Menunggu perbaikan mitra" icon="flag" />
-        <MetricCard label="Draf" value={String(rows.filter((row) => !row.status || row.status === 'draft').length)} change="Belum dikirim mitra" icon="file" />
+        <MetricCard label="Disetujui" value={String(rows.filter((row) => row.status === 'approved').length)} change={`${party} aktif`} icon="shield" />
+        <MetricCard label="Ditolak" value={String(rows.filter((row) => row.status === 'rejected').length)} change={`Menunggu perbaikan ${partyLower}`} icon="flag" />
+        <MetricCard label="Draf" value={String(rows.filter((row) => !row.status || row.status === 'draft').length)} change={`Belum dikirim ${partyLower}`} icon="file" />
       </div>
 
       {message && <p className={`rounded-xl px-4 py-3 text-sm font-medium ${message.tone === 'ok' ? 'bg-[#edf2ed] text-[#0b3d2e]' : 'bg-[#fbeeec] text-[#b45c50]'}`}>{message.text}</p>}
@@ -301,9 +304,9 @@ export function VerificationReviewBoard({ data, loading, reload, scope = 'agent'
       <div className={ui.card}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="flex items-center gap-2 font-serif text-xl text-[#0b3d2e]"><Bell className="size-5 text-[#0b3d2e]" /> Pengingat verifikasi mitra</h3>
+            <h3 className="flex items-center gap-2 font-serif text-xl text-[#0b3d2e]"><Bell className="size-5 text-[#0b3d2e]" /> Pengingat verifikasi {partyLower}</h3>
             <p className="mt-1 text-sm text-[#718078]">
-              Agen &amp; pemilik yang belum melengkapi/mengirim verifikasi. Pengingat dikirim sebagai notifikasi in-app{reminders.emailConfigured ? ' + email' : ' (email belum aktif)'} dan dibatasi 1× per {reminders.cooldownDays} hari per mitra.
+              Agen &amp; pemilik yang belum melengkapi/mengirim verifikasi. Pengingat dikirim sebagai notifikasi in-app{reminders.emailConfigured ? ' + email' : ' (email belum aktif)'} dan dibatasi 1× per {reminders.cooldownDays} hari per {partyLower}.
             </p>
           </div>
           <button type="button" disabled={sending || reminders.loading || reminders.dueCount === 0} onClick={sendReminders} className={ui.btn + ' disabled:opacity-50'}>
@@ -311,10 +314,10 @@ export function VerificationReviewBoard({ data, loading, reload, scope = 'agent'
           </button>
         </div>
 
-        {reminders.loading && <p className="mt-3 flex items-center gap-2 text-sm text-[#718078]"><RefreshCw className="size-4 animate-spin" /> Memuat daftar mitra…</p>}
+        {reminders.loading && <p className="mt-3 flex items-center gap-2 text-sm text-[#718078]"><RefreshCw className="size-4 animate-spin" /> Memuat daftar {partyLower}…</p>}
         {!reminders.loading && reminders.error && <p className="mt-3 text-sm text-[#b45c50]">{reminders.error}</p>}
         {!reminders.loading && !reminders.error && reminders.targets.length === 0 && (
-          <p className="mt-3 text-sm text-[#718078]">Semua mitra aktif sudah melengkapi verifikasi. 🎉</p>
+          <p className="mt-3 text-sm text-[#718078]">Semua {partyLower} aktif sudah melengkapi verifikasi. 🎉</p>
         )}
         {!reminders.loading && reminders.targets.length > 0 && (
           <div className="mt-4 space-y-2">
@@ -359,7 +362,7 @@ export function VerificationReviewBoard({ data, loading, reload, scope = 'agent'
                 <div>
                   <p className="font-serif text-lg text-[#0b3d2e]">{record.full_name || record.applicant?.name || 'Tanpa nama'}</p>
                   <p className="mt-0.5 text-xs text-[#718078]">
-                    {ROLE_LABEL[String(record.requested_role ?? '')] ?? 'Mitra'} · {record.email || record.applicant?.email || '—'} · {record.phone || '—'}
+                    {ROLE_LABEL[String(record.requested_role ?? '')] ?? party} · {record.email || record.applicant?.email || '—'} · {record.phone || '—'}
                   </p>
                   <p className="mt-0.5 text-xs text-[#a18a61]">
                     {record.status === 'draft' ? `Draf · diperbarui ${shortDateTime(record.updated_at)}` : `Dikirim ${shortDateTime(record.submitted_at ?? record.updated_at)}`}
@@ -434,11 +437,11 @@ export function VerificationReviewBoard({ data, loading, reload, scope = 'agent'
                   {record.reviewer_note && <p className="rounded-xl bg-[#f7f3ec] p-3 text-xs text-[#718078]">Catatan review sebelumnya: {record.reviewer_note}</p>}
 
                   {!record.agreement_id && (
-                    <p className="rounded-xl bg-[#fff7e3] p-3 text-xs text-[#9b762a]">Mitra belum menandatangani Perjanjian Kerja Sama. Tombol “Setujui” dinonaktifkan sampai perjanjian ditandatangani — mitra diarahkan menandatangani di halaman verifikasi.</p>
+                    <p className="rounded-xl bg-[#fff7e3] p-3 text-xs text-[#9b762a]">{party} belum menandatangani Perjanjian Kerja Sama. Tombol “Setujui” dinonaktifkan sampai perjanjian ditandatangani — {partyLower} diarahkan menandatangani di halaman verifikasi.</p>
                   )}
 
                   <div className="space-y-2">
-                    <textarea rows={2} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Catatan untuk mitra (wajib bila menolak)" className={ui.input} />
+                    <textarea rows={2} value={note} onChange={(event) => setNote(event.target.value)} placeholder={`Catatan untuk ${partyLower} (wajib bila menolak)`} className={ui.input} />
                     <div className="flex flex-wrap gap-2">
                       <button type="button" disabled={busy === record.id || record.status === 'approved' || !record.agreement_id} title={!record.agreement_id ? 'Menunggu tanda tangan Perjanjian Kerja Sama' : undefined} onClick={() => act(record, 'verification.approve')} className={ui.btn}>
                         <BadgeCheck className="size-3.5" /> {busy === record.id ? 'Memproses…' : 'Setujui & aktifkan peran'}

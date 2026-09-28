@@ -33,14 +33,14 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
     ai: { eyebrow: 'Kecerdasan Buatan', title: 'Asisten AI', description: 'Saran harga otomatis dari data harga rata-rata kecamatan/kota Anda, pembanding listing, dan tanya-jawab bebas dengan Homy AI.' },
   },
   admin: {
-    moderation: { eyebrow: 'Moderasi', title: 'Moderasi Listing', description: 'Tinjau listing yang dikirim mitra: setujui untuk tayang di halaman publik atau tolak dengan catatan agar pemilik bisa memperbaiki.' },
+    moderation: { eyebrow: 'Moderasi', title: 'Moderasi Listing', description: 'Tinjau listing yang dikirim agen & pemilik: setujui untuk tayang di halaman publik atau tolak dengan catatan agar pemilik bisa memperbaiki.' },
     users: { eyebrow: 'Pengguna', title: 'Pengguna & Agen', description: 'Daftar seluruh akun Homy beserta peran (pengguna, agen, pemilik, admin) dan jumlah listing yang mereka kelola.' },
-    billing: { eyebrow: 'Keuangan', title: 'Penagihan & Komisi Mitra', description: 'Verifikasi laporan transaksi dari agen dan pemilik. Komisi 0,5% yang terverifikasi di sini adalah pendapatan platform — status ini tampil di dashboard mitra.' },
+    billing: { eyebrow: 'Keuangan', title: 'Penagihan & Komisi Agen', description: 'Verifikasi laporan transaksi dari agen dan pemilik. Komisi 0,5% yang terverifikasi di sini adalah pendapatan platform — status ini tampil di dashboard agen.' },
     reports: { eyebrow: 'Keamanan', title: 'Laporan & Penipuan', description: 'Tindak lanjuti laporan pengguna, plus pemeriksaan otomatis: duplikat judul listing dan listing tayang yang belum punya foto.' },
     ai: { eyebrow: 'Kecerdasan Buatan', title: 'Pemantauan AI', description: 'Pastikan Homy AI menjawab dari data listing yang tayang: status kunci AI, cakupan ringkasan AI, dan uji tanya-jawab langsung.' },
-    verifications: { eyebrow: 'Kemitraan', title: 'Verifikasi Mitra', description: 'Tinjau calon Agen Properti di satu tempat: pengajuan kemitraan (halaman Open Partnership) + verifikasi data diri, alamat domisili, dokumen identitas (KTP/SIM), ketersediaan waktu, dan Perjanjian Kerja Sama yang sudah ditandatangani. Verifikasi, hubungi, setujui, atau tolak — keputusan otomatis mengirim email balasan. Calon agen wajib menandatangani Perjanjian Kerja Sama sebelum disetujui. Notaris/institusi/agensi ditangani Super Admin.' },
-    sanctions: { eyebrow: 'Disiplin', title: 'Sanksi & Teguran Mitra', description: 'Jatuhkan hukuman berjenjang kepada Agen & Mitra yang melanggar: Teguran, Peringatan, Suspend, hingga Blokir. Dipakai untuk pelanggaran etika, komisi yang tidak dibayar, atau pelanggaran aturan perjanjian kerja sama.' },
-    'ai-admin': { eyebrow: 'Kecerdasan Buatan', title: 'Homy AI Admin', description: 'Asisten AI yang bertindak sebagai admin: mengetahui seluruh database Homy, bisa menjawab pertanyaan operasional dari data nyata, berinteraksi dengan pengguna (kirim notifikasi, balas pertanyaan), serta menyusun analisa untuk Agen dan Mitra lainnya.' },
+    verifications: { eyebrow: 'Kemitraan', title: 'Verifikasi Agen', description: 'Tinjau calon Agen Properti di satu tempat: pengajuan kemitraan (halaman Open Partnership) + verifikasi data diri, alamat domisili, dokumen identitas (KTP/SIM), ketersediaan waktu, dan Perjanjian Kerja Sama yang sudah ditandatangani. Verifikasi, hubungi, setujui, atau tolak — keputusan otomatis mengirim email balasan. Calon agen wajib menandatangani Perjanjian Kerja Sama sebelum disetujui. Notaris/institusi/agensi ditangani Super Admin.' },
+    sanctions: { eyebrow: 'Disiplin', title: 'Sanksi & Teguran Agen', description: 'Jatuhkan hukuman berjenjang kepada Agen Properti yang melanggar: Teguran, Peringatan, Suspend, hingga Blokir. Dipakai untuk pelanggaran etika, komisi yang tidak dibayar, atau pelanggaran aturan perjanjian kerja sama.' },
+    'ai-admin': { eyebrow: 'Kecerdasan Buatan', title: 'Homy AI Admin', description: 'Asisten AI yang bertindak sebagai admin: mengetahui seluruh database Homy, bisa menjawab pertanyaan operasional dari data nyata, berinteraksi dengan pengguna (kirim notifikasi, balas pertanyaan), serta menyusun analisa untuk Agen Properti.' },
     referral: { eyebrow: 'Pertumbuhan', title: 'Program Referral', description: 'Pantau program bonus referral agent → agent: peserta, klik link, agen yang bergabung, tinjauan indikasi fraud, buku komisi, batch pembayaran, dan pengaturan tarif/cap/masa tahan.' },
   },
   'super-admin': {
@@ -71,7 +71,7 @@ function SuperAdminPartnershipView({ data, loading, reload }: { data: Parameters
   )
 }
 
-/** Admin: satu halaman "Verifikasi Mitra" — verifikasi Agen Properti + data kemitraan calon agen (tanpa halaman Partnership terpisah). */
+/** Admin: satu halaman "Verifikasi Agen" — verifikasi Agen Properti + data kemitraan calon agen (tanpa halaman Partnership terpisah). */
 function AdminVerificationsView({ data, loading, reload }: { data: Parameters<typeof PartnershipBoard>[0]['data']; loading: boolean; reload: () => void }) {
   return (
     <div className="space-y-5">
@@ -112,7 +112,7 @@ export function DashboardSection({ role, section }: { role: SectionRole; section
       if (section === 'partnership') {
         // URL Partnership tersisa hanya untuk Super Admin (non-Agen).
         // Halaman Partnership di Dashboard Admin dihapus — semua data kemitraan Agen
-        // ditinjau di halaman "Verifikasi Mitra" admin.
+        // ditinjau di halaman "Verifikasi Agen" admin.
         return <SuperAdminPartnershipView data={data} loading={loading} reload={reload} />
       }
       if (section === 'verifications') {
