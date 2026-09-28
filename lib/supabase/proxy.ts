@@ -3,6 +3,12 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request })
+  // Tanpa cookie sesi Supabase, tidak ada yang perlu disegarkan → hindari
+  // round-trip ke Supabase Auth di setiap request anonim (mayoritas trafik).
+  const hasSession = request.cookies
+    .getAll()
+    .some((cookie) => cookie.name.startsWith('sb-') && /-auth-token(\.\d+)?$/.test(cookie.name))
+  if (!hasSession) return response
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
