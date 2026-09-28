@@ -2,10 +2,11 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  AlertTriangle, ArrowLeft, ArrowRight, BadgeCheck, Briefcase, CalendarClock, Check, CheckCircle2,
+  AlertTriangle, ArrowLeft, ArrowRight, BadgeCheck, Briefcase, CalendarClock, Camera, Check, CheckCircle2,
   Clock, Download, FileSignature, FileText, Home, Loader2, Lock, LogOut, ShieldCheck, Upload, UserRound, X,
 } from 'lucide-react'
 import { BrandMark } from '@/components/brand-mark'
+import { CameraCapture } from '@/components/camera-capture'
 import { UserAvatar } from '@/components/dashboard-shell'
 import { createClient } from '@/lib/supabase/client'
 import {
@@ -50,11 +51,15 @@ type DocSlot = {
   maxBytes?: number
   /** Kompres otomatis di browser bila berkas melebihi batas (khusus foto identitas). */
   compress?: boolean
+  /** Bila diset, slot mendukung kamera dalam-aplikasi pada mode ini (environment = kamera belakang, user = kamera depan). */
+  camera?: 'environment' | 'user'
+  /** Panduan bingkai kamera: card (persegi, utk kartu) atau face (oval, utk selfie). */
+  cameraGuide?: 'card' | 'face'
 }
 
 const DOC_SLOTS: DocSlot[] = [
-  { key: 'identity_doc_path', title: 'Foto KTP / SIM', hint: 'Foto seluruh bagian kartu, tidak terpotong dan tidak silau. Maks 1 MB — otomatis dikompres bila lebih besar.', required: true, accept: 'image/jpeg,image/png,image/webp', maxBytes: MAX_IDENTITY_UPLOAD_BYTES, compress: true },
-  { key: 'selfie_doc_path', title: 'Selfie dengan identitas', hint: 'Wajah Anda + kartu identitas dalam satu foto. Maks 1 MB — otomatis dikompres bila lebih besar.', required: true, accept: 'image/jpeg,image/png,image/webp', maxBytes: MAX_IDENTITY_UPLOAD_BYTES, compress: true },
+  { key: 'identity_doc_path', title: 'Foto KTP / SIM', hint: 'Foto seluruh bagian kartu, tidak terpotong dan tidak silau. Maks 1 MB — otomatis dikompres bila lebih besar.', required: true, accept: 'image/jpeg,image/png,image/webp', maxBytes: MAX_IDENTITY_UPLOAD_BYTES, compress: true, camera: 'environment', cameraGuide: 'card' },
+  { key: 'selfie_doc_path', title: 'Selfie dengan identitas', hint: 'Wajah Anda + kartu identitas dalam satu foto. Maks 1 MB — otomatis dikompres bila lebih besar.', required: true, accept: 'image/jpeg,image/png,image/webp', maxBytes: MAX_IDENTITY_UPLOAD_BYTES, compress: true, camera: 'user', cameraGuide: 'face' },
   { key: 'npwp_doc_path', title: 'NPWP (opsional)', hint: 'Kartu NPWP pribadi/badan usaha bila ada. Maks 5 MB.', required: false, accept: 'image/jpeg,image/png,image/webp,application/pdf' },
   { key: 'supporting_doc_path', title: 'Dokumen pendukung (opsional)', hint: 'Surat kuasa pemasaran, izin usaha, atau dokumen lain (PDF/JPG). Maks 5 MB.', required: false, accept: 'image/jpeg,image/png,image/webp,application/pdf' },
 ]
@@ -189,6 +194,7 @@ export default function VerifyPage() {
   const [signature, setSignature] = useState('')
   const [submitted, setSubmitted] = useState(false)
   const [uploads, setUploads] = useState<Record<string, { name: string; busy: boolean }>>({})
+  const [cameraSlot, setCameraSlot] = useState<DocSlot | null>(null)
   const [draftBusy, setDraftBusy] = useState(false)
   const [nextTarget, setNextTarget] = useState<string | null>(null)
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({})
@@ -937,6 +943,11 @@ export default function VerifyPage() {
                         onChange={(e) => handleUpload(slot, e.target.files?.[0] ?? null)}
                       />
                       <div className="mt-4 flex flex-wrap items-center gap-2">
+                        {slot.camera && (
+                          <button type="button" onClick={() => setCameraSlot(slot)} className="inline-flex items-center gap-2 rounded-full bg-[#0b3d2e] px-4 py-2 text-xs font-semibold text-white hover:bg-[#14553f]">
+                            <Camera className="size-3.5" /> {path ? 'Foto ulang' : 'Ambil foto'}
+                          </button>
+                        )}
                         <button type="button" onClick={() => fileInputs.current[slot.key]?.click()} className="inline-flex items-center gap-2 rounded-full border border-[#d8ccbb] px-4 py-2 text-xs font-semibold text-[#33433d] hover:border-[#c9a961]">
                           {upload?.busy ? <Loader2 className="size-3.5 animate-spin" /> : <Upload className="size-3.5" />} {path ? 'Ganti berkas' : 'Pilih berkas'}
                         </button>
@@ -1138,6 +1149,16 @@ export default function VerifyPage() {
           <FileText className="size-3.5" /> Butuh bantuan? Hubungi tim kemitraan Homy di mitra@homyproperty.id
         </p>
       </div>
+
+      <CameraCapture
+        open={Boolean(cameraSlot)}
+        title={cameraSlot ? `Ambil ${cameraSlot.title}` : 'Ambil foto'}
+        hint={cameraSlot?.cameraGuide === 'face' ? 'Posisikan wajah dan kartu identitas di dalam bingkai oval' : 'Posisikan seluruh kartu di dalam bingkai, hindari silau'}
+        guide={cameraSlot?.cameraGuide ?? 'card'}
+        initialFacing={cameraSlot?.camera ?? 'environment'}
+        onClose={() => setCameraSlot(null)}
+        onCapture={(file) => { if (cameraSlot) handleUpload(cameraSlot, file) }}
+      />
     </main>
   )
 }
