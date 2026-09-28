@@ -57,7 +57,7 @@ export default function PartnershipPage() {
             <a href="#institusi" className="inline-flex items-center gap-2 rounded-full border border-white/25 px-6 py-3 text-sm font-semibold text-white transition hover:bg-white/10">Kerjasama institusi</a>
           </div>
           <div className="mt-8 sm:mt-12 grid gap-4 border-t border-white/15 pt-8 sm:grid-cols-2 xl:grid-cols-4">
-            {[['Rp 0', 'Biaya bergabung'], ['1×24 jam', 'Verifikasi mitra'], ['0,5% / 2%', 'Komisi agen / pemilik'], ['3 hari kerja', 'Batas lapor transaksi']].map(([value, text]) => (
+            {[['Rp 0', 'Biaya bergabung'], ['1×24 jam', 'Verifikasi mitra'], ['0,5%', 'Komisi dari total transaksi'], ['3 hari kerja', 'Batas lapor transaksi']].map(([value, text]) => (
               <div key={text}><p className="font-serif text-2xl sm:text-3xl text-[#c9a961]">{value}</p><p className="mt-1 text-sm text-white/70">{text}</p></div>
             ))}
           </div>
