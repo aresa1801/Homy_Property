@@ -29,7 +29,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const rows = photos.map((photo, index) => ({
     property_id: id,
     storage_path: String(photo.storagePath),
-    media_type: photo.mediaType === 'video' ? 'video' : 'image',
+    media_type: (photo.mediaType === 'video' ? 'video' : 'image') as 'video' | 'image',
     sort_order: Number.isFinite(Number(photo.sortOrder)) ? Number(photo.sortOrder) : index,
   }))
 

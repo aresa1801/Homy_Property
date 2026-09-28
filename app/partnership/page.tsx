@@ -7,7 +7,7 @@ import { PARTNER_KIND_ORDER, PARTNER_KINDS, type PartnerKind } from '@/lib/partn
 
 export const metadata = { title: 'Open Partnership — Homy Property' }
 
-const KIND_ICON: Record<PartnerKind, LucideIcon> = { agent: Store, owner: Building2, agency: Network, institution: Handshake, notary: Scale }
+const KIND_ICON: Record<string, LucideIcon> = { agent: Store, owner: Building2, agency: Network, institution: Handshake, notary: Scale }
 
 const TYPES = PARTNER_KIND_ORDER.map((kind) => ({ key: kind, icon: KIND_ICON[kind], ...PARTNER_KINDS[kind] }))
 

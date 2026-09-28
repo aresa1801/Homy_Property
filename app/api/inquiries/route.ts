@@ -37,7 +37,7 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabase
     .from('inquiries')
-    .insert({ property_id: body.property_id ?? null, message, status: 'open', user_id: user.id })
+    .insert({ property_id: body.property_id ?? null, message, status: 'open', user_id: user.id } as unknown as never)
     .select('id,property_id,status,message,created_at')
     .single()
   if (error || !data) return NextResponse.json({ error: 'Unable to send inquiry' }, { status: 400 })

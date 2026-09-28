@@ -14,24 +14,60 @@ export type NotificationItem = {
   created_at: string
 }
 
-/** Daftar notifikasi pengguna + jumlah belum dibaca. */
+/** Cursor opaque: base64 dari `${created_at}|${id}`. */
+function encodeCursor(row: NotificationItem): string {
+  return Buffer.from(`${row.created_at}|${row.id}`, 'utf8').toString('base64')
+}
+
+function decodeCursor(raw: string | null): { createdAt: string; id: string } | null {
+  if (!raw) return null
+  try {
+    const text = Buffer.from(raw, 'base64').toString('utf8')
+    const sep = text.lastIndexOf('|')
+    if (sep < 1) return null
+    const createdAt = text.slice(0, sep)
+    const id = text.slice(sep + 1)
+    if (!createdAt || !id) return null
+    return { createdAt, id }
+  } catch {
+    return null
+  }
+}
+
+/** Daftar notifikasi pengguna + jumlah belum dibaca (cursor pagination). */
 export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ data: [], unread: 0, authenticated: false })
+  if (!user) return NextResponse.json({ data: [], items: [], unread: 0, nextCursor: null, authenticated: false })
 
   const url = new URL(request.url)
   const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? 20) || 20, 1), 50)
-  const { data, error } = await supabase
+  const cursor = decodeCursor(url.searchParams.get('cursor'))
+
+  let query = supabase
     .from('notifications')
     .select('id,kind,title,body,href,data,read_at,created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
-    .limit(limit)
+    .order('id', { ascending: false })
+    .limit(limit + 1)
+
+  if (cursor) {
+    query = query.or(
+      `created_at.lt."${cursor.createdAt}",and(created_at.eq."${cursor.createdAt}",id.lt."${cursor.id}")`,
+    )
+  }
+
+  const { data, error } = await query
   if (error) return NextResponse.json({ error: 'Unable to load notifications' }, { status: 500 })
 
+  const rows = (data ?? []) as NotificationItem[]
+  const page = rows.slice(0, limit)
+  const last = page[page.length - 1]
+  const nextCursor = rows.length > limit && last ? encodeCursor(last) : null
+
   const { count } = await supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).is('read_at', null)
-  return NextResponse.json({ data: (data ?? []) as NotificationItem[], unread: count ?? 0, authenticated: true })
+  return NextResponse.json({ data: page, items: page, nextCursor, unread: count ?? 0, authenticated: true })
 }
 
 /** Tandai dibaca: satu item, semua item, atau hapus semua yang sudah dibaca. */

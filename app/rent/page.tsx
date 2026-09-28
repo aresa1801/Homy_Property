@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useEffect, useMemo, useState } from 'react'
 import { SaveSearchButton } from '@/components/save-search-button'
 import { BadgeCheck, Building2, CalendarDays, Check, Image as ImageIcon, MapPin, Search, SlidersHorizontal, Sparkles } from 'lucide-react'
@@ -141,12 +142,12 @@ export default function RentPage() {
           {/* Dua kartu per baris (di HP maupun desktop) supaya daftar properti sewa lebih ringkas. */}
           <div className="grid grid-cols-2 gap-3 sm:gap-6">
             {shown.map((home) => {
-              const image = firstMediaUrl(home, supabaseUrl, 720)
+              const image = firstMediaUrl(home, supabaseUrl)
               return (
                 <article key={home.id} className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-[0_10px_35px_rgba(20,42,32,.07)]">
                   <div className="relative aspect-[1.25] overflow-hidden">
                     {image
-                      ? <img src={image} alt={home.title} loading="lazy" decoding="async" className="size-full object-cover transition duration-500 hover:scale-105" />
+                      ? <Image src={image} alt={home.title} fill sizes="(max-width: 640px) 50vw, 360px" className="object-cover transition duration-500 hover:scale-105" />
                       : <span className="grid size-full place-items-center bg-[#f2f0ea] text-[#a18a61]"><ImageIcon className="size-6" /></span>}
                     <div className="absolute left-2 top-2 rounded-full bg-[#0b3d2e] px-2 py-1 text-[10px] font-semibold text-[#f6e2a8] sm:left-4 sm:top-4 sm:px-3 sm:py-1.5 sm:text-xs">{home.price_period === 'yearly' ? 'Sewa Tahunan' : 'Sewa Bulanan'}</div>
                     <FavoriteButton propertyId={home.id} propertyTitle={home.title} className="absolute right-2 top-2 sm:right-4 sm:top-4" />

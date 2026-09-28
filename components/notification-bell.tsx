@@ -59,6 +59,8 @@ export function NotificationBell({ variant = 'plain' }: { variant?: BellVariant 
   const [loading, setLoading] = useState(true)
   const [items, setItems] = useState<NotificationItem[]>([])
   const [unread, setUnread] = useState(0)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [alerts, setAlerts] = useState<SavedAlert[]>([])
   const [busy, setBusy] = useState(false)
   const hostRef = useRef<HTMLDivElement | null>(null)
@@ -67,11 +69,27 @@ export function NotificationBell({ variant = 'plain' }: { variant?: BellVariant 
     try {
       const response = await fetch('/api/notifications?limit=20', { cache: 'no-store' })
       const payload = await response.json().catch(() => ({}))
-      if (payload?.authenticated === false) { setItems([]); setUnread(0); return }
+      if (payload?.authenticated === false) { setItems([]); setUnread(0); setNextCursor(null); return }
       setItems(Array.isArray(payload?.data) ? payload.data : [])
       setUnread(Number(payload?.unread ?? 0) || 0)
+      setNextCursor(typeof payload?.nextCursor === 'string' ? payload.nextCursor : null)
     } catch { /* diamkan */ } finally { setLoading(false) }
   }, [])
+
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return
+    setLoadingMore(true)
+    try {
+      const response = await fetch('/api/notifications?limit=20&cursor=' + encodeURIComponent(nextCursor), { cache: 'no-store' })
+      const payload = await response.json().catch(() => ({}))
+      const more = Array.isArray(payload?.data) ? (payload.data as NotificationItem[]) : []
+      setItems((rows) => {
+        const seen = new Set(rows.map((row) => row.id))
+        return [...rows, ...more.filter((row) => !seen.has(row.id))]
+      })
+      setNextCursor(typeof payload?.nextCursor === 'string' ? payload.nextCursor : null)
+    } catch { /* diamkan */ } finally { setLoadingMore(false) }
+  }, [nextCursor, loadingMore])
 
   const loadAlerts = useCallback(async () => {
     try {
@@ -191,6 +209,13 @@ export function NotificationBell({ variant = 'plain' }: { variant?: BellVariant 
                 </button>
               )
             })}
+            {nextCursor && !loading && (
+              <div className="p-3">
+                <button type="button" disabled={loadingMore} onClick={() => { void loadMore() }} className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#e5dccd] bg-white px-3 py-2 text-xs font-semibold text-[#0b3d2e] transition hover:border-[#c9a961] disabled:opacity-50">
+                  {loadingMore ? <><Loader2 className="size-3.5 animate-spin" /> Memuat…</> : 'Muat lebih banyak'}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="border-t border-[#eee7dc] bg-[#fbfaf7]">

@@ -34,6 +34,7 @@ export async function POST(request: Request) {
   if (gate.error) return gate.error
   const admin = serviceClient()
   if (!admin) return NextResponse.json({ error: 'Server not configured' }, { status: 500 })
+  const db = admin
   const actor = gate.user!
 
   let body: Record<string, unknown> = {}
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
   const note = typeof body.note === 'string' ? body.note.trim().slice(0, 500) : ''
 
   async function audit(action: string, entityType: string, entityId: string | null, metadata: Record<string, unknown>) {
-    try { await admin.from('audit_logs').insert({ actor_id: actor.id, action, entity_type: entityType, entity_id: entityId, metadata }) } catch { /* best effort */ }
+    try { await db.from('audit_logs').insert({ actor_id: actor.id, action, entity_type: entityType, entity_id: entityId, metadata }) } catch { /* best effort */ }
   }
 
   // ---------- Penagihan: verifikasi / tolak laporan transaksi mitra ----------

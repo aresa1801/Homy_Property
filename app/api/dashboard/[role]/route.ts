@@ -118,7 +118,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       property_city: propertyMap[String(row.property_id ?? '')]?.city ?? null,
       listing_type: propertyMap[String(row.property_id ?? '')]?.listing_type ?? null,
       buyer: people[String(row.user_id ?? '')] ?? null,
-    }))
+    })) as unknown as Array<Record<string, unknown>>
 
     const inquiriesEnriched = inquiries.map((i) => {
       const uid = String((i as { user_id?: string }).user_id ?? '')
@@ -303,7 +303,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       property_title: adminPropertyTitles[String(row.property_id ?? '')] ?? 'Properti',
       buyer: profileMap[String(row.user_id ?? '')] ?? null,
       owner: profileMap[String(row.owner_id ?? '')] ?? null,
-    }))
+    })) as unknown as Array<Record<string, unknown>>
 
     // Verifikasi mitra (KYC Agen/Pemilik) yang dikirim lewat /verify.
     const { data: verificationRows } = await admin
@@ -327,7 +327,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ rol
       ...row,
       signature_serial: serialMap[`${String(row.user_id)}:${String(row.requested_role)}`] || null,
       applicant: profileMap[String(row.user_id ?? '')] ?? null,
-    }))
+    })) as unknown as Array<Record<string, unknown>>
 
     const metrics = {
       totalListings: list.length,

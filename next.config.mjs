@@ -1,10 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   images: {
-    unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'brdkcmidmeqdmbgtyqym.supabase.co',
+        pathname: '/storage/v1/object/public/**',
+      },
+    ],
   },
   async headers() {
     return [

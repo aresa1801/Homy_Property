@@ -20,6 +20,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { AlertCircle, ArrowLeft, Bot, Image as ImageIcon, Loader2, MapPin, MessageSquare, RefreshCw, Search, Sparkles, User as UserIcon } from 'lucide-react'
 import { firstMediaUrl } from '@/lib/property-format'
 import { plainify } from '@/lib/plain-text'
@@ -183,7 +184,7 @@ export function MessagesInbox() {
         title: row.propertyTitle ?? 'Pertanyaan umum (tanpa properti)',
         location: [row.propertyDistrict, row.propertyCity].filter(Boolean).join(', ') || 'Tanpa lokasi',
         listingType: row.listingType,
-        image: row.propertyId ? firstMediaUrl({ property_media: row.propertyMedia ?? [] }, SUPABASE_URL, 240) : null,
+        image: row.propertyId ? firstMediaUrl({ property_media: row.propertyMedia ?? [] }, SUPABASE_URL) : null,
         lastAt: row.createdAt,
         rows: [row],
       })
@@ -298,7 +299,7 @@ export function MessagesInbox() {
                   >
                     <span className="relative size-12 shrink-0 overflow-hidden rounded-xl bg-[#f2f0ea]">
                       {thread.image
-                        ? <img src={thread.image} alt={thread.title} loading="lazy" decoding="async" className="size-full object-cover" />
+                        ? <Image src={thread.image} alt={thread.title} fill sizes="48px" className="object-cover" />
                         : <span className="grid size-full place-items-center text-[#a18a61]">{thread.propertyId ? <ImageIcon className="size-5" /> : <Sparkles className="size-5" />}</span>}
                     </span>
                     <span className="min-w-0 flex-1">

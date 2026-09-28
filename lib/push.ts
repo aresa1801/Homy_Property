@@ -157,7 +157,7 @@ export async function sendPushToUser(userId: string, payload: PushMessage): Prom
 }
 
 /** Kirim push untuk sekumpulan notifikasi (biasanya 1 user per baris). */
-export async function sendPushForNotifications(rows: PushMessage & { userId: string }[]): Promise<number> {
+export async function sendPushForNotifications(rows: (PushMessage & { userId: string })[]): Promise<number> {
   if (!configure() || !rows.length) return 0
   let sent = 0
   for (const row of rows.slice(0, 25)) {

@@ -347,7 +347,7 @@ export type DashboardPayload = {
   properties?: DashboardProperty[]
   inquiries?: DashboardInquiry[]
   visits?: DashboardVisit[]
-  transactions?: DashboardTransaction[]
+  transactions?: DashboardTransactionAdmin[]
   agreements?: DashboardAgreement[]
   users?: DashboardUser[]
   allProperties?: DashboardProperty[]

@@ -42,7 +42,7 @@ export default function PropertyDetailClient({ id }: { id: string }) {
       .then(({ data }) => {
         if (cancelled) return
         if (!data) { setNotFound(true); setLoading(false); return }
-        const record = data as PropertyRecord
+        const record = data as unknown as PropertyRecord
         setProperty(record)
         const urls = (record.property_media ?? [])
           .slice()

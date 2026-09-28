@@ -72,7 +72,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Gagal memuat rekomendasi properti.' }, { status: 502 })
   }
 
-  const rows = (data ?? []) as PropertyRow[]
+  const rows = (data ?? []) as unknown as PropertyRow[]
   const nearby: PropertyRow[] = []
   const others: PropertyRow[] = []
   for (const row of rows) {

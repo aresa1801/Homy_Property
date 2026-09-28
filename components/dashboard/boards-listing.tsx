@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { useMemo, useState } from 'react'
 import { AlertTriangle, ExternalLink, Image as ImageIcon, Pencil, RefreshCw, Search } from 'lucide-react'
 import { MetricCard } from '@/components/dashboard-shell'
@@ -85,13 +86,13 @@ export function ListingBoard({ data, loading, reload, type }: BoardProps & { typ
           {rows.map((item: DashboardProperty) => {
             const stages = (data.inquiries ?? []).filter((inquiry) => inquiry.property_id === item.id)
             const openStages = stages.filter((inquiry) => inquiry.status === 'open').length
-            const image = firstMediaUrl(item, process.env.NEXT_PUBLIC_SUPABASE_URL, 480)
+            const image = firstMediaUrl(item, process.env.NEXT_PUBLIC_SUPABASE_URL)
             return (
               <div key={item.id} className="rounded-xl border border-[#eee7dc] bg-white p-3 sm:p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch sm:gap-4">
                   <div className="relative aspect-[16/10] w-full shrink-0 overflow-hidden rounded-xl bg-[#f2f0ea] sm:aspect-[4/3] sm:w-56">
                     {image ? (
-                      <img src={image} alt={item.title ?? 'Foto properti'} loading="lazy" decoding="async" className="size-full object-cover" />
+                      <Image src={image} alt={item.title ?? 'Foto properti'} fill sizes="(max-width: 640px) 100vw, 224px" className="object-cover" />
                     ) : (
                       <div className="grid size-full place-items-center text-[#a18a61]"><ImageIcon className="size-6" /><span className="mt-1 text-xs font-semibold">Belum ada foto</span></div>
                     )}

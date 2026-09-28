@@ -118,7 +118,7 @@ export function PartnershipForm() {
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
 
-  const isOwner = form.kind === 'owner'
+  const isOwner = (form.kind as string) === 'owner'
   const isCorporate = form.kind === 'agency' || form.kind === 'institution' || form.kind === 'notary'
   const isNotary = form.kind === 'notary'
   const showBusiness = !isOwner

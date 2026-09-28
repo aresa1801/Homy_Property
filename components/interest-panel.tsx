@@ -8,6 +8,7 @@
  *                  dan melihat kesimpulan AI (akan membeli / membandingkan / cari opsi lain).
  */
 
+import Image from 'next/image'
 import { useEffect, useMemo, useState } from 'react'
 import useSWR from 'swr'
 import { BadgeCheck, Brain, Building2, CalendarClock, Coins, RefreshCw, Scale, Sparkles, Trash2, Wallet } from 'lucide-react'
@@ -324,13 +325,13 @@ export function InterestPanel({ mode = 'user', compact = false, presetPropertyId
 
       {rows.map((row) => {
         const stage = STAGE_LABEL[String(row.stage ?? 'interest')] ?? STAGE_LABEL.interest
-        const image = row.property ? firstMediaUrl(row.property as never, process.env.NEXT_PUBLIC_SUPABASE_URL, 480) : null
+        const image = row.property ? firstMediaUrl(row.property as never, process.env.NEXT_PUBLIC_SUPABASE_URL) : null
         const title = String(row.property?.title ?? 'Properti')
         return (
           <div key={row.id} className="rounded-2xl border border-[#e5dccd] bg-white p-4">
             <div className="flex gap-3">
               <a href={'/property/' + row.property_id} className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-[#f2f0ea] sm:size-24">
-                {image ? <img src={image} alt={title} loading="lazy" decoding="async" className="size-full object-cover" /> : <span className="grid size-full place-items-center text-[#a18a61]"><Building2 className="size-5" /></span>}
+                {image ? <Image src={image} alt={title} fill sizes="96px" className="object-cover" /> : <span className="grid size-full place-items-center text-[#a18a61]"><Building2 className="size-5" /></span>}
               </a>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">

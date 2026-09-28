@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import useSWR from 'swr'
 import { Image as ImageIcon, MapPin } from 'lucide-react'
 import { DashboardShell, SectionCard } from '@/components/dashboard-shell'
@@ -52,13 +53,13 @@ export function UserDashboardPage({ type }: { type: PageType }) {
       const property = (row.property ?? null) as Record<string, unknown> | null
       const id = String(row.property_id ?? property?.id ?? '')
       const title = String(property?.title ?? 'Properti')
-      const image = property ? firstMediaUrl(property as unknown as { property_media?: never[] }, process.env.NEXT_PUBLIC_SUPABASE_URL, 480) : null
+      const image = property ? firstMediaUrl(property as unknown as { property_media?: never[] }, process.env.NEXT_PUBLIC_SUPABASE_URL) : null
       const status = String(property?.status ?? '')
       return (
         <div key={id || index} className="flex gap-3 rounded-xl border border-[#eee5d8] bg-white p-3">
           <a href={`/property/${id}`} className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-[#f2f0ea] sm:size-24">
             {image
-              ? <img src={image} alt={title} loading="lazy" decoding="async" className="size-full object-cover" />
+              ? <Image src={image} alt={title} fill sizes="96px" className="object-cover" />
               : <span className="grid size-full place-items-center text-[#a18a61]"><ImageIcon className="size-5" /></span>}
           </a>
           <div className="min-w-0 flex-1">

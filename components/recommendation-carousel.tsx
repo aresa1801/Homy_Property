@@ -16,6 +16,7 @@
  *  - klik kartu langsung membuka halaman properti (detail) miliknya
  */
 
+import Image from 'next/image'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, Image as ImageIcon, MapPin } from 'lucide-react'
 import { FavoriteButton } from '@/components/favorite-button'
@@ -79,7 +80,7 @@ export function RecommendationCarousel() {
         location: propertyLocation(row),
         price: formatPriceWithPeriod(row.price, row.price_period),
         meta: propertyMeta(row),
-        image: firstMediaUrl(row, supabaseUrl, 640) ?? null,
+        image: firstMediaUrl(row, supabaseUrl) ?? null,
         tag: tagFor(row, position < nearbyCount),
         type: row.listing_type === 'rent' ? 'Sewa' : 'Jual',
       })))
@@ -236,7 +237,7 @@ export function RecommendationCarousel() {
               >
                 <a href={`/property/${property.id}`} className="relative block aspect-[1.3] overflow-hidden" aria-label={`Lihat detail ${property.title}`}>
                   {property.image
-                    ? <img src={property.image} alt={property.title} loading="lazy" decoding="async" className="size-full object-cover transition duration-500 group-hover:scale-105" />
+                    ? <Image src={property.image} alt={property.title} fill sizes="(max-width: 640px) 78vw, 32vw" className="object-cover transition duration-500 group-hover:scale-105" />
                     : <span className="grid size-full place-items-center bg-[#f2f0ea] text-[#a18a61]"><ImageIcon className="size-6" /></span>}
                   <span className="absolute left-2 top-2 rounded-full bg-[#0b3d2e] px-2 py-1 text-[10px] font-semibold text-[#f6e2a8] sm:left-4 sm:top-4 sm:px-3 sm:py-1.5 sm:text-xs">{property.tag}</span>
                 </a>
