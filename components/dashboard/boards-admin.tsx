@@ -59,7 +59,7 @@ export function UsersBoard({ data, loading, reload, type }: BoardProps & { type:
   const [roleFilter, setRoleFilter] = useState('all')
   const [busy, setBusy] = useState<string | null>(null)
   const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
-  const [invite, setInvite] = useState<{ name: string; link: string; email: string | null } | null>(null)
+  const [invite, setInvite] = useState<{ name: string; link: string; email: string | null; emailSent: boolean; emailError: string | null } | null>(null)
   const [copied, setCopied] = useState(false)
   const canManage = type === 'super-admin'
 
@@ -87,16 +87,25 @@ export function UsersBoard({ data, loading, reload, type }: BoardProps & { type:
     }
   }
 
-  // Tawarkan pengguna (belum Agent) menjadi Agen Properti → kirim undangan in-app + siapkan tautan onboarding
-  // yang langsung mengarahkan ke langkah Perjanjian Kerja Sama (/verify?role=agent).
+  // Tawarkan pengguna (belum Agent) menjadi Agen Properti → kirim email penawaran via Resend
+  // + notifikasi in-app, dan siapkan tautan onboarding (referral) yang mengarah ke Perjanjian Kerja Sama.
   async function inviteAgent(user: DashboardUser) {
     setBusy(user.id + 'invite')
     setMessage(null)
     setCopied(false)
     try {
-      const result = await adminAction({ kind: 'agent.invite', userId: user.id }) as { link?: string; email?: string | null }
-      setInvite({ name: user.full_name || 'Pengguna', link: result?.link || '/verify?role=agent', email: result?.email ?? user.email ?? null })
-      setMessage({ tone: 'ok', text: `Undangan menjadi Agen Properti dikirim ke ${user.full_name || user.email || 'pengguna'}. Tautan onboarding sudah disiapkan di bawah.` })
+      const result = await adminAction({ kind: 'agent.invite', userId: user.id }) as { link?: string; email?: string | null; emailSent?: boolean; emailError?: string | null }
+      const sent = Boolean(result?.emailSent)
+      setInvite({
+        name: user.full_name || 'Pengguna',
+        link: result?.link || '/verify?role=agent',
+        email: result?.email ?? user.email ?? null,
+        emailSent: sent,
+        emailError: sent ? null : (result?.emailError ?? 'email tidak terkirim'),
+      })
+      setMessage(sent
+        ? { tone: 'ok', text: `Email penawaran menjadi Agen Properti terkirim ke ${user.email || user.full_name || 'pengguna'}.` }
+        : { tone: 'err', text: `Undangan in-app dibuat, tapi email tidak terkirim${result?.emailError ? ` (${result.emailError})` : ''}. Bagikan tautan di bawah secara manual.` })
       reload()
     } catch (error) {
       setMessage({ tone: 'err', text: error instanceof Error ? error.message : 'Gagal mengirim undangan' })
@@ -121,10 +130,17 @@ export function UsersBoard({ data, loading, reload, type }: BoardProps & { type:
       {message && <Toast message={message} />}
       {invite && (
         <div className={ui.card}>
-          <h3 className="font-serif text-lg text-[#0b3d2e]">Tautan onboarding Agen — {invite.name}</h3>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-serif text-lg text-[#0b3d2e]">Undangan Agen — {invite.name}</h3>
+            {invite.emailSent
+              ? <span className={`${ui.badge} bg-[#e2eee7] text-[#0b3d2e]`}>Email penawaran terkirim ✓</span>
+              : <span className={`${ui.badge} bg-[#fbeeec] text-[#b45c50]`}>Email gagal terkirim</span>}
+          </div>
           <p className="mt-1 text-sm text-[#718078]">
-            Kirim tautan ini ke <strong>{invite.email || 'pengguna'}</strong>. Tautan langsung mengarah ke halaman verifikasi
-            pada langkah <strong>Perjanjian Kerja Sama</strong> — calon agen wajib menandatangani perjanjian dulu sebelum bisa diverifikasi.
+            {invite.emailSent
+              ? <>Email penawaran menjadi Agen Properti (kemudahan, prospek, &amp; info bonus referral) sudah dikirim ke <strong>{invite.email || 'pengguna'}</strong> lewat Resend.</>
+              : <>Email penawaran belum terkirim ke <strong>{invite.email || 'pengguna'}</strong>{invite.emailError ? ` — ${invite.emailError}` : ''}. Kirim tautan di bawah secara manual.</>}
+            {' '}Tautan langsung mengarah ke langkah <strong>Perjanjian Kerja Sama</strong>; calon agen wajib menandatangani perjanjian sebelum diverifikasi.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <input readOnly value={invite.link} className={ui.input + ' flex-1 min-w-[240px] font-mono text-xs'} onFocus={(event) => event.currentTarget.select()} />
@@ -135,7 +151,7 @@ export function UsersBoard({ data, loading, reload, type }: BoardProps & { type:
                 try { await navigator.clipboard.writeText(invite.link); setCopied(true) } catch { setCopied(false) }
               }}
             >
-              {copied ? 'Tersalin ✓' : 'Salin tautan'}
+              {copied ? 'Tersalin ✓' : invite.emailSent ? 'Salin tautan' : 'Salin tautan (cadangan)'}
             </button>
             <a href={invite.link} target="_blank" rel="noreferrer" className={ui.ghost}>Buka</a>
             <button type="button" className={ui.ghost} onClick={() => { setInvite(null); setCopied(false) }}>Tutup</button>

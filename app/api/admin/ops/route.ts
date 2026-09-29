@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server'
 import { createClient as createServerClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { notifyUser } from '@/lib/notifications'
-import { accrueReferralForTransaction } from '@/lib/referral'
-import { sendPartnerStatusEmail } from '@/lib/email'
+import { accrueReferralForTransaction, ensureParticipant } from '@/lib/referral'
+import { sendPartnerStatusEmail, sendAgentInviteEmail } from '@/lib/email'
 import { sanitizeAreas, NOTARY_REQUEST_STATUS_META } from '@/lib/notary'
 
 const ADMIN_ROLES = ['admin', 'super_admin']
@@ -279,8 +279,31 @@ export async function POST(request: Request) {
       const { data: authUser } = await admin.auth.admin.getUserById(userId)
       email = authUser?.user?.email ?? null
     } catch { /* email opsional */ }
-    // Link onboarding: langsung mengarahkan ke langkah Perjanjian Kerja Sama di halaman verifikasi.
-    const link = `${new URL(request.url).origin}/verify?role=agent`
+
+    // Nama pengundang (untuk personalisasi email).
+    let actorName: string | null = null
+    try {
+      const { data: actorProfile } = await admin.from('profiles').select('full_name').eq('id', actor.id).maybeSingle()
+      actorName = actorProfile?.full_name ?? null
+    } catch { /* opsional */ }
+
+    // Link onboarding: arahkan ke langkah Perjanjian Kerja Sama. Bila pengundang punya
+    // kode referral (agen), pakai tautan referral `/r/<KODE>` agar agen baru tercatat sebagai referral.
+    const origin = new URL(request.url).origin
+    let refCode: string | null = null
+    try {
+      const { participant } = await ensureParticipant(admin, actor.id, { fullName: actorName })
+      refCode = participant?.code ?? null
+    } catch { /* referral opsional */ }
+    const verifyPath = '/verify?role=agent'
+    const link = refCode ? `${origin}/r/${refCode}?to=${encodeURIComponent(verifyPath)}` : `${origin}${verifyPath}`
+
+    // Kirim email penawaran lewat Resend (dengan kemudahan, prospek, & info referral).
+    let mail: { ok: boolean; skipped?: boolean; reason?: string; subject?: string; status?: number; error?: string } = { ok: false, skipped: true, reason: 'missing recipient' }
+    if (email) {
+      mail = await sendAgentInviteEmail({ to: email, name: profile?.full_name ?? null, link, inviterName: actorName, referralCode: refCode })
+    }
+
     await notifyUser({
       userId,
       kind: 'partnership.invite',
@@ -289,8 +312,16 @@ export async function POST(request: Request) {
       href: '/verify?role=agent',
       data: { invited_by: actor.id },
     })
-    await audit('agent.invited', 'profile', userId, { name: profile?.full_name ?? null, email })
-    return NextResponse.json({ ok: true, link, email })
+    await audit('agent.invited', 'profile', userId, { name: profile?.full_name ?? null, email, referral_code: refCode, email_sent: mail.ok })
+    return NextResponse.json({
+      ok: true,
+      link,
+      email,
+      referralCode: refCode,
+      emailSent: mail.ok,
+      emailSkipped: Boolean(mail.skipped),
+      emailError: mail.ok ? null : (mail.reason ?? mail.error ?? (typeof mail.status === 'number' ? `provider_${mail.status}` : 'email_failed')),
+    })
   }
 
   // ---------- Peran & izin (super admin) ----------

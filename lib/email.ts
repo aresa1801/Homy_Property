@@ -667,3 +667,97 @@ export async function sendPartnerStatusEmail(input: PartnerMailInput) {
     return { ok: false, error: 'request failed', subject }
   }
 }
+
+/* --------------------------------------------------------------------------- */
+/* Undangan menjadi Agen Properti (ditawarkan admin dari dasbor Pengguna & Agen) */
+/* Kirim lewat Resend — email penawaran + tautan onboarding (referral).          */
+/* --------------------------------------------------------------------------- */
+
+export type AgentInviteMailInput = {
+  to: string
+  name?: string | null
+  /** Tautan onboarding — idealnya tautan referral `/r/<KODE>?to=/verify?role=agent`. */
+  link: string
+  inviterName?: string | null
+  referralCode?: string | null
+  appUrl?: string
+}
+
+export function agentInviteSubject() {
+  return 'Undangan jadi Agen Properti Homy Property 🏡'
+}
+
+function agentInviteHtml(input: AgentInviteMailInput) {
+  const base = (input.appUrl || appUrl()).replace(/\/$/, '')
+  const greeting = input.name ? `<p style="margin:0 0 12px;color:#65706c">Halo ${escapeHtml(input.name)},</p>` : ''
+  const inviter = input.inviterName ? `<p style="margin:0 0 14px;color:#33433d;line-height:1.7">Tim Homy Property mengundang Anda untuk bergabung menjadi <strong>Agen Properti</strong> di platform kami.</p>` : ''
+
+  const benefits: Array<[string, string]> = [
+    ['Gratis & mudah', 'Pendaftaran tanpa biaya, tanpa setoran. Cukup lengkapi data diri + tanda tangani Perjanjian Kerja Sama (online, ±5 menit).'],
+    ['Listing tak terbatas', 'Pasang listing jual & sewa sebanyak yang Anda mau, lengkap dengan foto dan halaman publik profesional.'],
+    ['Prospek pembeli aktif', 'Listing Anda tampil di pencarian Homy dan ditemukan calon pembeli/penyewa — plus prospek dari Homy AI.'],
+    ['Komisi transparan', 'Komisi hanya 0,5% per transaksi terverifikasi. Laporan & pencairan jelas lewat dashboard.'],
+    ['Program Bonus Referral', 'Ajak sesama agen lewat tautan referral Anda dan dapat bonus 0,1% (cap Rp 2.000.000) per transaksi yang diverifikasi.'],
+    ['Dukungan penuh', 'Kurasi listing, verifikasi, dan tim Homy yang siap membantu Anda dari pendaftaran sampai closing.'],
+  ]
+  const benefitList = benefits
+    .map(
+      ([title, body]) =>
+        `<li style="margin:0 0 12px;line-height:1.6"><strong style="color:#0b3d2e">${escapeHtml(title)}</strong><br/><span style="color:#33433d">${escapeHtml(body)}</span></li>`,
+    )
+    .join('')
+
+  const refBlock = input.referralCode
+    ? `<div style="margin:18px 0 0;padding:14px 16px;border-radius:12px;background:#f7f3ec;border:1px solid #e8dfd3">
+         <p style="margin:0 0 4px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#a18a61">Kode referral Anda</p>
+         <p style="margin:0;font-weight:700;color:#0b3d2e;letter-spacing:.06em">${escapeHtml(input.referralCode)}</p>
+         <p style="margin:6px 0 0;font-size:13px;color:#718078">Daftar lewat tautan ini agar Anda tercatat sebagai agen yang direferensikan.</p>
+       </div>`
+    : ''
+
+  return `<!doctype html><html><body style="margin:0;background:#f7f3ec;font-family:'Segoe UI',Helvetica,Arial,sans-serif">
+  <div style="max-width:560px;margin:0 auto;padding:32px 20px">
+    <div style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:#0b3d2e;margin-bottom:20px">Homy<span style="color:#c9a961">.</span></div>
+    <div style="background:#ffffff;border:1px solid #e8dfd3;border-radius:16px;padding:28px">
+      <p style="margin:0 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#c9a961">Undangan kemitraan</p>
+      <h1 style="margin:0 0 16px;font-family:Georgia,serif;font-size:26px;line-height:1.3;color:#0b3d2e">Jadi Agen Properti Homy Property</h1>
+      ${greeting}
+      ${inviter}
+      <p style="margin:0 0 14px;color:#33433d;line-height:1.7">Jual &amp; sewakan properti lebih cepat bersama Homy. Berikut kemudahan dan prospek yang Anda dapatkan:</p>
+      <ul style="margin:0;padding-left:20px;color:#33433d">${benefitList}</ul>
+      ${refBlock}
+      <a href="${escapeHtml(input.link)}" style="display:inline-block;margin-top:22px;background:#0b3d2e;color:#ffffff;text-decoration:none;padding:14px 24px;border-radius:10px;font-weight:700">Mulai jadi Agen — isi Perjanjian Kerja Sama</a>
+      <p style="margin:14px 0 0;font-size:13px;color:#718078;line-height:1.6">Tautan langsung mengarah ke langkah <strong>Perjanjian Kerja Sama</strong>. Setelah ditandatangani, lengkapi verifikasi (KTP/SIM + selfie) dan akun Agen Anda aktif.</p>
+    </div>
+    <p style="margin:20px 0 0;font-size:12px;line-height:1.6;color:#8a938f">Email penawaran dari Homy Property. Anda menerima ini karena Anda memiliki akun di Homy.<br/>Pencarian properti terpercaya — <a href="${base}" style="color:#0b3d2e">${base.replace(/^https?:\/\//, '')}</a></p>
+  </div></body></html>`
+}
+
+/** Kirim email penawaran menjadi Agen Properti. Tidak pernah melempar error — selalu return hasil. */
+export async function sendAgentInviteEmail(input: AgentInviteMailInput) {
+  const subject = agentInviteSubject()
+  if (!input.to) return { ok: false, skipped: true, reason: 'missing recipient', subject }
+  const apiKey = process.env.RESEND_API_KEY
+  const from = process.env.HOMY_EMAIL_FROM || 'Homy Property <notifikasi@homy.id>'
+  if (!apiKey) {
+    console.warn(`[homy-email] RESEND_API_KEY belum di-set — email undangan agen ke ${input.to} dilewati (${subject})`)
+    return { ok: false, skipped: true, reason: 'email provider not configured', subject }
+  }
+  try {
+    const response = await fetch(RESEND_ENDPOINT, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [input.to], subject, html: agentInviteHtml(input) }),
+    })
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '')
+      console.error('[homy-email] gagal kirim undangan agen:', response.status, detail.slice(0, 300))
+      return { ok: false, status: response.status, subject }
+    }
+    const payload = (await response.json().catch(() => ({}))) as { id?: string }
+    return { ok: true, id: payload.id, subject }
+  } catch (error) {
+    console.error('[homy-email] error undangan agen:', error instanceof Error ? error.message : error)
+    return { ok: false, error: 'request failed', subject }
+  }
+}
