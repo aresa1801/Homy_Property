@@ -83,8 +83,8 @@ export function HomyChat({ role }: { role: string }) {
         >
           {/* Header */}
           <div className="flex items-center gap-3 bg-[#0b3d2e] px-4 py-3">
-            <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full bg-white/95 ring-1 ring-[#c9a961]/40">
-              <img src="/logo-homy.png" alt="Homy Property" className="h-6 w-auto max-w-[26px] object-cover object-left" />
+            <span className="flex h-8 shrink-0 items-center rounded-lg bg-white/95 px-2 py-1 ring-1 ring-[#c9a961]/40">
+              <img src="/logo-homy.png" alt="Homy Property" className="h-5 w-auto" />
             </span>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-bold tracking-[.12em] text-[#f6e2a8]">{HOMY_CHAT_NAME}</p>
@@ -172,8 +172,8 @@ export function HomyChat({ role }: { role: string }) {
         aria-label={open ? `Tutup ${HOMY_CHAT_NAME}` : `Buka ${HOMY_CHAT_NAME}`}
         className="fixed bottom-5 right-5 z-[60] flex items-center gap-2.5 rounded-full bg-[#0b3d2e] py-2.5 pl-2.5 pr-4 text-[#f6e2a8] shadow-[0_14px_34px_rgba(11,61,46,.4)] ring-1 ring-[#c9a961]/50 transition hover:scale-[1.03] hover:bg-[#14553f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c9a961]"
       >
-        <span className="grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-white/95">
-          <img src="/logo-homy.png" alt="" className="h-6 w-auto max-w-[26px] object-cover object-left" />
+        <span className="flex h-9 shrink-0 items-center rounded-xl bg-white/95 px-2.5 py-1.5">
+          <img src="/logo-homy.png" alt="Homy Property" className="h-5 w-auto" />
         </span>
         <span className="text-sm font-bold tracking-[.14em]">HOMY CHAT</span>
       </button>
