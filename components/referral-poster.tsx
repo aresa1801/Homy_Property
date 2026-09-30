@@ -274,7 +274,7 @@ export function ReferralPosterDialog({ open, onClose, link, code, agentName }: R
   const caption = useMemo(
     () =>
       [
-        'Halo! Ada peluang jadi Agen Properti Homy 🏡',
+        '*Halo! Ada peluang jadi Agen Properti Homy*',
         'Listing gratis, prospek pembeli dibantu Homy AI, komisi transparan + bonus referral.',
         `Yuk daftar lewat link saya: ${link}`,
       ].join('\n'),
