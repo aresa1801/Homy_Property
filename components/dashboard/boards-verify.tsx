@@ -85,10 +85,10 @@ export function VerificationBoard({ data, loading, type }: BoardProps & { type: 
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
-        <MetricCard label="Status verifikasi" value={STATUS_META[status]?.label ?? 'Draf'} change={record?.submitted_at ? `Dikirim ${shortDateTime(record.submitted_at)}` : 'Belum dikirim'} icon="shield" />
-        <MetricCard label="Kelengkapan data" value={`${percent}%`} change={missing.length ? `${missing.length} data belum lengkap` : 'Semua data lengkap'} icon="chart" />
-        <MetricCard label="Perjanjian kerja sama" value={signedAt ? 'Ditandatangani' : 'Belum'} change={signedAt ? `Versi ${record?.agreement_version ?? AGREEMENT_VERSION}` : `Komisi ${COMMISSION_RATE}%`} icon="sparkles" />
-        <MetricCard label="Hari ketersediaan" value={String(availability.length)} change={availability.length ? 'Siap menerima jadwal' : 'Belum diatur'} icon="calendar" />
+        <MetricCard compact label="Status verifikasi" value={STATUS_META[status]?.label ?? 'Draf'} change={record?.submitted_at ? `Dikirim ${shortDateTime(record.submitted_at)}` : 'Belum dikirim'} icon="shield" />
+        <MetricCard compact label="Kelengkapan data" value={`${percent}%`} change={missing.length ? `${missing.length} data belum lengkap` : 'Semua data lengkap'} icon="chart" />
+        <MetricCard compact label="Perjanjian kerja sama" value={signedAt ? 'Ditandatangani' : 'Belum'} change={signedAt ? `Versi ${record?.agreement_version ?? AGREEMENT_VERSION}` : `Komisi ${COMMISSION_RATE}%`} icon="sparkles" />
+        <MetricCard compact label="Hari ketersediaan" value={String(availability.length)} change={availability.length ? 'Siap menerima jadwal' : 'Belum diatur'} icon="calendar" />
       </div>
 
       <div className={ui.card}>
