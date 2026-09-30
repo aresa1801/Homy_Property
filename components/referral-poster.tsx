@@ -1,7 +1,7 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Download, ImageDown, Share2, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Copy, Download, ImageDown, Send, Share2, X } from 'lucide-react'
 import qrcode from '@/lib/vendor/qrcode-gen'
 
 /**
@@ -271,12 +271,30 @@ export function ReferralPosterDialog({ open, onClose, link, code, agentName }: R
 
   const filename = `poster-referral-homy-${(code || 'agen').toLowerCase()}.png`
 
-  async function download() {
-    setBusy(true)
-    setNotice(null)
+  const caption = useMemo(
+    () =>
+      [
+        'Halo! Ada peluang jadi Agen Properti Homy 🏡',
+        'Listing gratis, prospek pembeli dibantu Homy AI, komisi transparan + bonus referral.',
+        `Yuk daftar lewat link saya: ${link}`,
+      ].join('\n'),
+    [link],
+  )
+
+  const [nativeShareSupported, setNativeShareSupported] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
     try {
-      const blob = await toBlob()
-      if (!blob) throw new Error('Gagal membuat gambar poster')
+      const probe = new File([new Blob(['x'], { type: 'image/png' })], 'probe.png', { type: 'image/png' })
+      setNativeShareSupported(typeof navigator.canShare === 'function' && navigator.canShare({ files: [probe] }))
+    } catch {
+      setNativeShareSupported(false)
+    }
+  }, [open])
+
+  const saveBlob = useCallback(
+    (blob: Blob) => {
       const url = URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
@@ -285,7 +303,79 @@ export function ReferralPosterDialog({ open, onClose, link, code, agentName }: R
       anchor.click()
       anchor.remove()
       setTimeout(() => URL.revokeObjectURL(url), 4000)
-      setNotice('Poster terunduh — siap dibagikan ke WhatsApp / Instagram.')
+    },
+    [filename],
+  )
+
+  const copyText = useCallback(async (value: string) => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value)
+        return true
+      }
+    } catch {
+      /* lanjut ke fallback */
+    }
+    try {
+      const area = document.createElement('textarea')
+      area.value = value
+      area.style.position = 'fixed'
+      area.style.top = '-1000px'
+      document.body.appendChild(area)
+      area.select()
+      document.execCommand('copy')
+      area.remove()
+      return true
+    } catch {
+      return false
+    }
+  }, [])
+
+  /** Salin gambar poster + caption sekaligus (bila browser mendukung ClipboardItem multi-tipe). */
+  const copyRich = useCallback(
+    async (blob: Blob) => {
+      type ClipboardItemCtor = new (items: Record<string, Blob>) => unknown
+      const Ctor = typeof window !== 'undefined' ? (window as unknown as { ClipboardItem?: ClipboardItemCtor }).ClipboardItem : undefined
+      try {
+        if (Ctor && navigator.clipboard?.write) {
+          await navigator.clipboard.write([
+            new Ctor({
+              'text/plain': new Blob([caption], { type: 'text/plain' }),
+              'image/png': blob,
+            }) as never,
+          ])
+          return true
+        }
+      } catch {
+        /* abaikan */
+      }
+      return false
+    },
+    [caption],
+  )
+
+  /** Buka tab kosong sinkron dari klik (agar tidak diblokir popup blocker), isi URL-nya setelah siap. */
+  const preOpen = useCallback(() => {
+    try {
+      return window.open('about:blank', '_blank')
+    } catch {
+      return null
+    }
+  }, [])
+
+  const goTo = useCallback((win: Window | null, url: string) => {
+    if (win && !win.closed) win.location.replace(url)
+    else window.open(url, '_blank', 'noopener,noreferrer')
+  }, [])
+
+  async function download() {
+    setBusy(true)
+    setNotice(null)
+    try {
+      const blob = await toBlob()
+      if (!blob) throw new Error('Gagal membuat gambar poster')
+      saveBlob(blob)
+      setNotice('Poster terunduh — siap ditempel ke WhatsApp / Instagram / grup.')
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Gagal mengunduh poster')
     } finally {
@@ -293,26 +383,93 @@ export function ReferralPosterDialog({ open, onClose, link, code, agentName }: R
     }
   }
 
+  /**
+   * Bagikan poster + tautan sekaligus.
+   * Bila perangkat mendukung Web Share Level 2 (HP), kirim gambar + caption
+   * dalam satu kali bagikan. Bila tidak (kebanyakan desktop), unduh poster,
+   * salin gambar + caption ke clipboard, lalu buka WhatsApp Web dengan caption
+   * terisi sehingga penerima tetap menerima tautan yang bisa diklik.
+   */
   async function share() {
+    const win = nativeShareSupported ? null : preOpen()
     setBusy(true)
     setNotice(null)
     try {
       const blob = await toBlob()
       if (!blob) throw new Error('Gagal membuat gambar poster')
       const file = new File([blob], filename, { type: 'image/png' })
-      const { canShare, share: doShare } = navigator
-      if (canShare && canShare({ files: [file] }) && doShare) {
-        await doShare({ files: [file], title: 'Homy Property', text: `Daftar jadi agen properti Homy: ${link}` })
-      } else {
-        await navigator.clipboard?.writeText(link).catch(() => undefined)
-        setNotice('Browser ini belum mendukung bagikan gambar — poster diunduh & tautan disalin.')
-        await download()
+
+      if (nativeShareSupported) {
+        try {
+          await navigator.share({ files: [file], title: 'Homy Property', text: caption })
+          setNotice('Poster + tautan referral terkirim. 🎉')
+          return
+        } catch (error) {
+          if (error instanceof DOMException && error.name === 'AbortError') return
+        }
       }
+
+      saveBlob(blob)
+      const rich = await copyRich(blob)
+      if (!rich) await copyText(caption)
+      goTo(win, `https://wa.me/?text=${encodeURIComponent(caption)}`)
+      setNotice(
+        rich
+          ? 'WhatsApp dibuka + poster & caption tersalin. Di kolom chat tekan Ctrl+V / tempel untuk melampirkan poster, lalu kirim.'
+          : 'WhatsApp dibuka + caption tersalin. Lampirkan poster yang sudah terunduh, lalu kirim.',
+      )
     } catch (error) {
       setNotice(error instanceof Error ? error.message : 'Gagal membagikan poster')
     } finally {
       setBusy(false)
     }
+  }
+
+  async function shareToWhatsApp() {
+    const win = preOpen()
+    setBusy(true)
+    setNotice(null)
+    try {
+      const blob = await toBlob()
+      if (blob) {
+        saveBlob(blob)
+        const rich = await copyRich(blob)
+        if (!rich) await copyText(caption)
+      }
+      goTo(win, `https://wa.me/?text=${encodeURIComponent(caption)}`)
+      setNotice('WhatsApp dibuka + poster terunduh & caption tersalin. Tempel / lampirkan poster lalu kirim.')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Gagal membuka WhatsApp')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function shareToTelegram() {
+    const win = preOpen()
+    setBusy(true)
+    setNotice(null)
+    try {
+      const blob = await toBlob()
+      if (blob) {
+        saveBlob(blob)
+        const rich = await copyRich(blob)
+        if (!rich) await copyText(caption)
+      }
+      const url = `https://t.me/share/url?url=${encodeURIComponent(link)}&text=${encodeURIComponent('Peluang jadi Agen Properti Homy — listing gratis, prospek dibantu Homy AI, komisi transparan.')}`
+      goTo(win, url)
+      setNotice('Telegram dibuka + poster terunduh & caption tersalin. Lampirkan poster ke penerima.')
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'Gagal membuka Telegram')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function copyCaption() {
+    setNotice(null)
+    const ok = await copyText(caption)
+    setNotice(ok ? 'Caption + tautan referral tersalin. Tinggal tempel di chat / postingan.' : `Gagal menyalin otomatis — tautan Anda: ${link}`)
   }
 
   if (!open) return null
@@ -339,12 +496,28 @@ export function ReferralPosterDialog({ open, onClose, link, code, agentName }: R
 
         {notice && <p className="mt-3 rounded-lg bg-[#edf2ed] px-3 py-2 text-xs text-[#0b3d2e]">{notice}</p>}
 
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-          <button type="button" disabled={busy || !ready} onClick={download} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#0b3d2e] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#14553f] disabled:opacity-60">
+        <p className="mt-3 text-[11px] leading-relaxed text-[#a18a61]">
+          Bagikan = poster + tautan referral sekaligus. Di HP poster & caption terkirim langsung; di desktop poster terunduh dan caption tersalin otomatis lalu WhatsApp dibuka.
+        </p>
+
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+          <button type="button" disabled={busy || !ready} onClick={download} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-[#d8ccbb] px-4 py-2.5 text-sm font-semibold text-[#33433d] hover:bg-[#f7f3ec] disabled:opacity-60">
             <Download className="size-4" /> Unduh PNG
           </button>
-          <button type="button" disabled={busy || !ready} onClick={share} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-[#d8ccbb] px-4 py-2.5 text-sm font-semibold text-[#33433d] hover:bg-[#f7f3ec] disabled:opacity-60">
-            <Share2 className="size-4" /> Bagikan
+          <button type="button" disabled={busy || !ready} onClick={share} className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[#0b3d2e] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#14553f] disabled:opacity-60">
+            <Share2 className="size-4" /> Bagikan poster + link
+          </button>
+        </div>
+
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          <button type="button" disabled={busy || !ready} onClick={shareToWhatsApp} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#d8ccbb] px-2 py-2 text-xs font-semibold text-[#33433d] hover:bg-[#f7f3ec] disabled:opacity-60">
+            <Send className="size-3.5" /> WhatsApp
+          </button>
+          <button type="button" disabled={busy || !ready} onClick={shareToTelegram} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#d8ccbb] px-2 py-2 text-xs font-semibold text-[#33433d] hover:bg-[#f7f3ec] disabled:opacity-60">
+            <Send className="size-3.5" /> Telegram
+          </button>
+          <button type="button" disabled={!ready} onClick={copyCaption} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[#d8ccbb] px-2 py-2 text-xs font-semibold text-[#33433d] hover:bg-[#f7f3ec] disabled:opacity-60">
+            <Copy className="size-3.5" /> Caption
           </button>
         </div>
       </div>
