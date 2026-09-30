@@ -22,6 +22,15 @@ export type PartnerKindMeta = {
 /** Urutan tampil di halaman publik. */
 export const PARTNER_KIND_ORDER: PartnerKind[] = ['agent', 'agency', 'institution', 'notary']
 
+/**
+ * Jalur kemitraan yang ditawarkan di halaman publik /partnership dan formulir publik.
+ * Jalur "agent" sengaja TIDAK dimasukkan: pendaftaran Agen Properti sudah terpusat
+ * di Dashboard User (menu Verifikasi Mitra), jadi halaman kemitraan publik hanya
+ * menangani agensi/broker, institusi korporat, dan mitra legal (notaris/PPAT).
+ * Tetap pakai `PARTNER_KIND_ORDER` untuk validasi/kompatibilitas data lama.
+ */
+export const PUBLIC_PARTNER_KIND_ORDER = ['agency', 'institution', 'notary'] as const satisfies readonly PartnerKind[]
+
 export const PARTNER_KINDS: Record<PartnerKind, PartnerKindMeta> = {
   agent: {
     label: 'Agen Properti (komisi 0,5%)',

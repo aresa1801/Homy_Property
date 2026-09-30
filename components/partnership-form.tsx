@@ -7,7 +7,7 @@ import {
   CONTACT_TIMES,
   ENTITY_TYPES,
   FOCUS_AREA_OPTIONS,
-  PARTNER_KIND_ORDER,
+  PUBLIC_PARTNER_KIND_ORDER,
   PARTNER_KINDS,
   SERVICE_OPTIONS,
   VOLUME_OPTIONS,
@@ -50,7 +50,7 @@ type FormState = {
 }
 
 const EMPTY: FormState = {
-  kind: 'agent',
+  kind: 'agency',
   full_name: '',
   position: '',
   email: '',
@@ -164,18 +164,24 @@ export function PartnershipForm() {
 
   return (
     <form id="daftar" onSubmit={submit} className="space-y-4 rounded-2xl bg-white p-4 shadow-[0_10px_35px_rgba(20,42,32,.06)] sm:p-6 md:p-8">
-      <div className="flex items-center gap-3">
-        <span className="grid size-11 place-items-center rounded-xl bg-[#c9a961] text-[#0b3d2e]"><Handshake /></span>
+      <div className="flex items-start gap-3">
+        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-[#c9a961] text-[#0b3d2e]"><Handshake /></span>
         <div>
           <h2 className="font-serif text-xl text-[#0b3d2e] sm:text-2xl">Ajukan kemitraan</h2>
-          <p className="text-sm text-[#718078]">Gratis, tanpa biaya pendaftaran. Isi data selengkap mungkin agar verifikasi lebih cepat.</p>
+          <p className="text-sm text-[#718078]">Untuk agensi/broker properti, institusi korporat (developer, bank, koperasi), dan kantor notaris/PPAT. Gratis, tanpa biaya pendaftaran — isi data selengkap mungkin agar verifikasi lebih cepat.</p>
         </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2 rounded-xl bg-[#f7f3ec] p-3 text-xs text-[#33433d]">
+        {['Legalitas usaha (NIB/akta/SK)', 'Wilayah kerja & cakupan cabang', 'Estimasi transaksi per bulan', 'Kebutuhan integrasi API/CSV (opsional)'].map((item) => (
+          <span key={item} className="rounded-full border border-[#e5dccd] bg-white px-3 py-1 font-semibold">{item}</span>
+        ))}
       </div>
 
       <Section title="Jenis kemitraan" note="Pilih salah satu; kolom di bawah menyesuaikan otomatis.">
         <label className={label}>Jenis kemitraan *
           <select required value={form.kind} onChange={(event) => set('kind', event.target.value as PartnerKind)} className={field}>
-            {PARTNER_KIND_ORDER.map((kind) => <option key={kind} value={kind}>{PARTNER_KINDS[kind].label}</option>)}
+            {PUBLIC_PARTNER_KIND_ORDER.map((kind) => <option key={kind} value={kind}>{PARTNER_KINDS[kind].label}</option>)}
           </select>
         </label>
       </Section>
@@ -198,7 +204,7 @@ export function PartnershipForm() {
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <label className={label}>{isNotary ? 'Nama kantor notaris/PPAT' : 'Nama perusahaan / agensi'} {isCorporate ? '*' : ''}
-              <input required={isCorporate} value={form.company} onChange={(event) => set('company', event.target.value)} className={field} placeholder={isNotary ? 'Kantor Notaris & PPAT ...' : 'PT / Agen properti'} />
+              <input required={isCorporate} value={form.company} onChange={(event) => set('company', event.target.value)} className={field} placeholder={isNotary ? 'Kantor Notaris & PPAT ...' : 'PT / Agensi properti'} />
             </label>
             <label className={label}>Bentuk badan / kantor
               <select value={form.entity_type} onChange={(event) => set('entity_type', event.target.value)} className={field}>
