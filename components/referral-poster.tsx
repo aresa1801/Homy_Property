@@ -149,14 +149,14 @@ function drawPoster(canvas: HTMLCanvasElement, logo: HTMLImageElement | null, in
 
   // Subheadline.
   ctx.fillStyle = 'rgba(255,255,255,.84)'
-  ctx.font = `400 31px ${SANS}`
+  ctx.font = `400 29px ${SANS}`
   const sub = wrapText(
     ctx,
-    'Listing gratis, prospek pembeli dibantu Homy AI, komisi penjualan transparan — plus bonus referral untuk tiap agen yang Anda ajak.',
+    'Listing gratis, prospek pembeli dibantu Homy AI, komisi penjualan transparan, plus bonus referral.',
     W - 176,
   )
-  const subTop = 430 + head.length * 88 + 22
-  sub.slice(0, 2).forEach((line, index) => ctx.fillText(line, 88, subTop + index * 42))
+  const subTop = 430 + head.length * 88 + 20
+  sub.slice(0, 3).forEach((line, index) => ctx.fillText(line, 88, subTop + index * 40))
 
   // Poin manfaat.
   const benefits = [
