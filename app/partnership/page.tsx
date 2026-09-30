@@ -57,6 +57,8 @@ const FAQ = [
   { q: 'Bagaimana jika listing saya ditolak moderator?', a: 'Catatan moderator tampil di dashboard Anda dan listing dapat diajukan ulang setelah diperbaiki. Kami hanya menolak listing yang tidak akurat, duplikat, atau melanggar ketentuan.' },
   { q: 'Apakah transaksi wajib dilaporkan?', a: 'Ya. Perjanjian kerja sama mewajibkan pelaporan setiap transaksi maksimal 3 hari kerja sebagai dasar perhitungan komisi dan kepatuhan platform.' },
   { q: 'Bisakah kemitraan dihentikan kapan saja?', a: 'Bisa, tanpa ikatan jangka waktu minimum. Mitra cukup menyelesaikan transaksi yang masih berjalan dan kewajiban pelaporan sebelum kerja sama ditutup.' },
+  { q: 'Bisakah mengajukan lebih dari satu jenis kemitraan?', a: 'Bisa. Misalnya agensi yang punya unit legal in-house dapat mengajukan jalur agensi sekaligus notaris/PPAT. Tim partnership memverifikasi tiap jalur dan menyiapkan perjanjian sesuai kebutuhan.' },
+  { q: 'Bagaimana memantau performa & status komisi?', a: 'Setiap mitra mendapat dashboard: listing, prospek, jadwal kunjungan, transaksi yang dilaporkan, hingga status verifikasi komisi per cabang — lengkap dengan riwayat audit.' },
 ]
 
 export default function PartnershipPage() {
@@ -181,7 +183,7 @@ export default function PartnershipPage() {
           <BcaPaymentCard subtitle="Bayar komisi Homy setelah properti berhasil terjual atau tersewa" />
           <div className="flex flex-1 flex-col rounded-2xl bg-white p-4 sm:p-6 shadow-[0_10px_30px_rgba(20,42,32,.05)] md:p-8">
             <h3 className="font-serif text-xl sm:text-2xl text-[#0b3d2e]">Pertanyaan umum</h3>
-            <div className="mt-5 flex flex-1 flex-col gap-4">
+            <div className="mt-5 flex flex-1 flex-col justify-between gap-4">
               {FAQ.map((item) => (
                 <div key={item.q} className="border-b border-[#f0e9df] pb-4 last:border-0 last:pb-0">
                   <p className="font-semibold text-[#20332c]">{item.q}</p>
