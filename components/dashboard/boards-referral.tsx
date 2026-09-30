@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { BadgeCheck, Copy, Gift, Link2, RefreshCw, Send, ShieldAlert, Sparkles, WalletCards } from 'lucide-react'
+import { BadgeCheck, Copy, Gift, ImageDown, Link2, RefreshCw, Send, ShieldAlert, Sparkles, WalletCards } from 'lucide-react'
 import { MetricCard } from '@/components/dashboard-shell'
+import { ReferralPosterDialog } from '@/components/referral-poster'
 import { rupiah, shortDate, shortDateTime, ui, type DashboardPayload, type DashboardReferral, type DashboardReferralLedger } from '@/lib/dashboard-client'
 
 type BoardProps = { data: DashboardPayload; loading: boolean; reload: () => void }
@@ -80,9 +81,11 @@ export function ReferralBoard({ data, loading, reload }: BoardProps) {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
   const [copied, setCopied] = useState(false)
+  const [posterOpen, setPosterOpen] = useState(false)
 
   const link = referral?.link ?? null
   const metrics = referral?.metrics ?? {}
+  const agentName = (data.agreements ?? [])[0]?.full_name ?? null
 
   async function activate() {
     setBusy(true); setMessage(null)
@@ -139,9 +142,12 @@ export function ReferralBoard({ data, loading, reload }: BoardProps) {
             <p className="mt-2 text-sm text-[#718078]">Kode: <b className="text-[#0b3d2e]">{referral.participant?.code}</b> • aktif sejak {shortDate(referral.participant?.terms_accepted_at ?? null)}</p>
             <div className="mt-4 flex flex-col gap-3 sm:flex-row">
               <input readOnly value={link ?? ''} className={ui.input} />
-              <button type="button" onClick={copy} className={ui.btn}><Copy className="size-4" />{copied ? 'Tersalin!' : 'Salin link'}</button>
+              <div className="flex gap-3">
+                <button type="button" onClick={copy} className={`${ui.btn} flex-1 justify-center py-2.5`}><Copy className="size-4" />{copied ? 'Tersalin!' : 'Salin link'}</button>
+                <button type="button" onClick={() => setPosterOpen(true)} className={`${ui.ghost} flex-1 justify-center py-2.5`}><ImageDown className="size-4" />Buat poster</button>
+              </div>
             </div>
-            <p className="mt-3 text-xs text-[#a18a61]">Bagikan link ini ke agen lain. Atribusi tersimpan 30 hari sejak link diklik — bonus dihitung hanya jika agen tersebut mendaftar sebagai Agen dan transaksinya diverifikasi Homy.</p>
+            <p className="mt-3 text-xs text-[#a18a61]">Bagikan link ini ke agen lain. Atribusi tersimpan 30 hari sejak link diklik — bonus dihitung hanya jika agen tersebut mendaftar sebagai Agen dan transaksinya diverifikasi Homy. Butuh bahan promosi? Klik <b>Buat poster</b> untuk poster siap-bagikan dengan QR referral Anda.</p>
           </div>
 
           <div className="grid gap-4 xl:grid-cols-2">
@@ -201,6 +207,16 @@ export function ReferralBoard({ data, loading, reload }: BoardProps) {
 
           <TermsCard terms={terms} />
         </>
+      )}
+
+      {link && (
+        <ReferralPosterDialog
+          open={posterOpen}
+          onClose={() => setPosterOpen(false)}
+          link={link}
+          code={referral?.participant?.code ?? null}
+          agentName={agentName}
+        />
       )}
     </div>
   )
