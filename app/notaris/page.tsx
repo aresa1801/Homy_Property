@@ -3,14 +3,18 @@ import { createClient } from '@supabase/supabase-js'
 import { BadgeCheck, Building2, ExternalLink, MapPin, MessageCircle, Phone, Scale, Search } from 'lucide-react'
 import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
+import { JsonLd } from '@/components/seo/json-ld'
 import { PROVINCES } from '@/lib/regions'
 import { areaLabel, notaryLabel } from '@/lib/notary'
+import { breadcrumbLd, pageMetadata } from '@/lib/seo'
 
-export const metadata: Metadata = {
-  title: 'Direktori Notaris & PPAT — Homy Property',
+export const metadata: Metadata = pageMetadata({
+  title: 'Direktori Notaris & PPAT',
   description:
     'Rekomendasi notaris & PPAT mitra Homy Property untuk pengurusan AJB, balik nama, dan legalitas transaksi properti. Berdasarkan kecamatan/kabupaten — opsional, tanpa biaya.',
-}
+  path: '/notaris',
+  keywords: ['notaris properti', 'PPAT', 'AJB', 'balik nama sertifikat', 'notaris mitra'],
+})
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -82,6 +86,12 @@ export default async function NotarisPage({ searchParams }: { searchParams: Prom
 
   return (
     <>
+      <JsonLd
+        data={breadcrumbLd([
+          { name: 'Beranda', path: '/' },
+          { name: 'Direktori Notaris & PPAT', path: '/notaris' },
+        ])}
+      />
       <SiteHeader />
       <main className="bg-[#fbf9f5]">
         <section className="bg-[#0b3d2e] py-10 text-white sm:py-14">

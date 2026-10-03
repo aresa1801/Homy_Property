@@ -22,11 +22,20 @@ const STATIC_ROUTES: StaticRoute[] = [
   { path: '/rent', priority: 0.9, freq: 'daily' },
   { path: '/list', priority: 0.9, freq: 'weekly' },
   { path: '/partnership', priority: 0.8, freq: 'weekly' },
+  { path: '/notaris', priority: 0.7, freq: 'weekly' },
   { path: '/ai-assistant', priority: 0.7, freq: 'weekly' },
   { path: '/contact', priority: 0.6, freq: 'monthly' },
   { path: '/privacy', priority: 0.3, freq: 'yearly' },
   { path: '/terms', priority: 0.3, freq: 'yearly' },
+  { path: '/referral/ketentuan', priority: 0.3, freq: 'monthly' },
 ]
+
+/** Gambar representatif per halaman (sitemap image extension). */
+const ROUTE_IMAGES: Record<string, string[]> = {
+  '/': [`${SITE_URL}/screenshots/homy-desktop.png`],
+  '/buy': [`${SITE_URL}/screenshots/homy-desktop.png`],
+  '/rent': [`${SITE_URL}/screenshots/homy-mobile.png`],
+}
 
 type ListingRow = {
   id: string
@@ -55,10 +64,13 @@ async function fetchPublishedListings(): Promise<ListingRow[]> {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const now = new Date()
   const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.map((r) => ({
-    url: `${SITE_URL}${r.path}`,
+    url: `${SITE_URL}${r.path === '/' ? '' : r.path}`,
+    lastModified: now,
     changeFrequency: r.freq,
     priority: r.priority,
+    images: ROUTE_IMAGES[r.path],
   }))
 
   const listings = await fetchPublishedListings()

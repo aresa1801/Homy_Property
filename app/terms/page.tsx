@@ -1,7 +1,15 @@
+import type { Metadata } from 'next'
 import { LegalPage, type LegalSection } from '@/components/legal-page'
 import { BcaPaymentCard } from '@/components/bca-payment-card'
+import { JsonLd } from '@/components/seo/json-ld'
+import { breadcrumbLd, pageMetadata } from '@/lib/seo'
 
-export const metadata = { title: 'Syarat & Ketentuan — Homy Property' }
+export const metadata: Metadata = pageMetadata({
+  title: 'Syarat & Ketentuan',
+  description:
+    'Syarat & ketentuan Homy Property: peran akun, kewajiban mitra dan agen, skema komisi, rekening resmi pembayaran, moderasi listing, dan larangan penggunaan.',
+  path: '/terms',
+})
 
 const sections: LegalSection[] = [
   { heading: 'Penerimaan Ketentuan', paragraphs: ['Dengan membuat akun, memasang listing, atau menggunakan layanan Homy Property, Anda menyetujui Syarat & Ketentuan ini beserta Kebijakan Privasi kami. Jika Anda tidak setuju, mohon tidak menggunakan layanan.'] },
@@ -16,13 +24,21 @@ const sections: LegalSection[] = [
 
 export default function TermsPage() {
   return (
-    <LegalPage
-      eyebrow="Ketentuan"
-      title="Syarat & Ketentuan"
-      intro="Aturan yang mengatur penggunaan platform Homy Property, termasuk peran akun, kewajiban mitra, komisi, dan kebijakan moderasi listing."
-      updated="15 September 2026"
-      sections={sections}
-      aside={<BcaPaymentCard subtitle="Rekening resmi untuk penagihan komisi properti yang terjual atau tersewa" />}
-    />
+    <>
+      <JsonLd
+        data={breadcrumbLd([
+          { name: 'Beranda', path: '/' },
+          { name: 'Syarat & Ketentuan', path: '/terms' },
+        ])}
+      />
+      <LegalPage
+        eyebrow="Ketentuan"
+        title="Syarat & Ketentuan"
+        intro="Aturan yang mengatur penggunaan platform Homy Property, termasuk peran akun, kewajiban mitra, komisi, dan kebijakan moderasi listing."
+        updated="15 September 2026"
+        sections={sections}
+        aside={<BcaPaymentCard subtitle="Rekening resmi untuk penagihan komisi properti yang terjual atau tersewa" />}
+      />
+    </>
   )
 }

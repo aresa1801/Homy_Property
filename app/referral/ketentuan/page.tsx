@@ -1,7 +1,15 @@
+import type { Metadata } from 'next'
 import { LegalPage, type LegalSection } from '@/components/legal-page'
 import { referralTerms } from '@/lib/referral'
+import { JsonLd } from '@/components/seo/json-ld'
+import { breadcrumbLd, pageMetadata } from '@/lib/seo'
 
-export const metadata = { title: 'Ketentuan Program Bonus Referral — Homy Property' }
+export const metadata: Metadata = pageMetadata({
+  title: 'Ketentuan Program Bonus Referral',
+  description:
+    'Ketentuan program bonus referral Homy Property: bonus 0,1% dari nilai transaksi untuk Agen yang mengajak Agen lain, maksimal Rp 2 juta per transaksi, dibayarkan setelah transaksi diverifikasi.',
+  path: '/referral/ketentuan',
+})
 
 const terms = referralTerms()
 
@@ -24,12 +32,20 @@ const sections: LegalSection[] = [
 
 export default function ReferralTermsPage() {
   return (
-    <LegalPage
-      eyebrow="Program Mitra"
-      title="Ketentuan Program Bonus Referral"
-      intro="Bonus 0,1% dari nilai transaksi untuk Agen yang mengajak Agen lain (agent to agent), maksimal Rp 2 juta per transaksi, dibayarkan setelah transaksi diverifikasi Homy dengan masa tahan 30 hari."
-      updated="27 September 2026"
-      sections={sections}
-    />
+    <>
+      <JsonLd
+        data={breadcrumbLd([
+          { name: 'Beranda', path: '/' },
+          { name: 'Program Referral', path: '/referral/ketentuan' },
+        ])}
+      />
+      <LegalPage
+        eyebrow="Program Mitra"
+        title="Ketentuan Program Bonus Referral"
+        intro="Bonus 0,1% dari nilai transaksi untuk Agen yang mengajak Agen lain (agent to agent), maksimal Rp 2 juta per transaksi, dibayarkan setelah transaksi diverifikasi Homy dengan masa tahan 30 hari."
+        updated="27 September 2026"
+        sections={sections}
+      />
+    </>
   )
 }

@@ -1,6 +1,14 @@
+import type { Metadata } from 'next'
 import { LegalPage, type LegalSection } from '@/components/legal-page'
+import { JsonLd } from '@/components/seo/json-ld'
+import { breadcrumbLd, pageMetadata } from '@/lib/seo'
 
-export const metadata = { title: 'Kebijakan Privasi — Homy Property' }
+export const metadata: Metadata = pageMetadata({
+  title: 'Kebijakan Privasi',
+  description:
+    'Kebijakan privasi Homy Property: data apa yang kami kumpulkan, bagaimana data digunakan, dasar hukum, berbagi dengan pihak ketiga, keamanan, dan hak Anda sebagai pengguna.',
+  path: '/privacy',
+})
 
 const sections: LegalSection[] = [
   { heading: 'Data yang Kami Kumpulkan', paragraphs: ['Kami mengumpulkan data yang Anda berikan langsung saat mendaftar, memasang listing, mengirim pertanyaan, atau menghubungi tim Homy — seperti nama, alamat email, nomor telepon, domisili, dan nomor identitas untuk verifikasi mitra.', 'Kami juga mencatat data teknis terbatas: alamat IP, jenis perangkat, dan halaman yang Anda buka, untuk keamanan serta peningkatan layanan. Foto dan dokumen properti yang Anda unggah disimpan pada penyimpanan objek terenkripsi.'] },
@@ -14,12 +22,20 @@ const sections: LegalSection[] = [
 
 export default function PrivacyPage() {
   return (
-    <LegalPage
-      eyebrow="Privasi"
+    <>
+      <JsonLd
+        data={breadcrumbLd([
+          { name: 'Beranda', path: '/' },
+          { name: 'Kebijakan Privasi', path: '/privacy' },
+        ])}
+      />
+      <LegalPage
+        eyebrow="Privasi"
       title="Kebijakan Privasi"
       intro="Kami menghargai kepercayaan Anda. Dokumen ini menjelaskan data apa yang kami kumpulkan, bagaimana data digunakan, dan hak yang Anda miliki sebagai pengguna Homy Property."
-      updated="15 September 2026"
-      sections={sections}
-    />
+        updated="15 September 2026"
+        sections={sections}
+      />
+    </>
   )
 }

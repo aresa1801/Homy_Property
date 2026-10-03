@@ -1,9 +1,18 @@
+import type { Metadata } from 'next'
 import { Clock, Mail, MapPin, MessageSquare, Phone, ShieldCheck } from 'lucide-react'
 import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 import { ContactForm } from '@/components/contact-form'
+import { JsonLd } from '@/components/seo/json-ld'
+import { breadcrumbLd, pageMetadata } from '@/lib/seo'
 
-export const metadata = { title: 'Kontak — Homy Property' }
+export const metadata: Metadata = pageMetadata({
+  title: 'Hubungi Kami',
+  description:
+    'Hubungi tim Homy Property lewat email, WhatsApp, atau telepon untuk pertanyaan tentang akun, listing, komisi, dan kerja sama institusi. Balasan maksimal 1×24 jam kerja.',
+  path: '/contact',
+  keywords: ['kontak homy property', 'dukungan properti', 'customer support properti'],
+})
 
 const channels = [
   { icon: Mail, title: 'Email dukungan', value: 'support@homyproperty.id', hint: 'Balasan maksimal 1×24 jam kerja', href: 'mailto:support@homyproperty.id' },
@@ -15,6 +24,12 @@ const channels = [
 export default function ContactPage() {
   return (
     <main className="min-h-screen bg-[#f7f3ec] text-[#1c1c1c]">
+      <JsonLd
+        data={breadcrumbLd([
+          { name: 'Beranda', path: '/' },
+          { name: 'Kontak', path: '/contact' },
+        ])}
+      />
       <SiteHeader />
       <section className="mx-auto max-w-7xl px-5 pb-8 pt-12 lg:px-8">
         <p className="text-sm font-semibold uppercase tracking-[.18em] text-[#c09b54]">Kontak</p>

@@ -4,11 +4,27 @@ import { LanguageProvider } from '@/components/language-provider'
 import './globals.css'
 
 const SITE_URL = (process.env.HOMY_APP_URL || 'https://homyproperty.id').replace(/\/$/, '')
+const OG_IMAGE = `${SITE_URL}/screenshots/homy-desktop.png`
+const SITE_DESCRIPTION =
+  'Marketplace properti Indonesia: cari dan pasang rumah dijual, disewakan, apartemen, ruko, dan tanah. Dilengkapi asisten AI, kalkulator KPR, dan direktori notaris & PPAT.'
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
-  title: 'Homy Property — Temukan hunian terbaik',
-  description: 'Temukan properti pilihan di Indonesia yang sesuai dengan gaya hidup Anda.',
+  title: {
+    default: 'Homy Property — Temukan hunian terbaik',
+    template: '%s | Homy Property',
+  },
+  description: SITE_DESCRIPTION,
+  keywords: [
+    'properti Indonesia',
+    'jual rumah',
+    'sewa rumah',
+    'apartemen dijual',
+    'tanah dijual',
+    'ruko',
+    'agen properti',
+    'marketplace properti',
+  ],
   applicationName: 'Homy Property',
   generator: 'v0.app',
   alternates: { canonical: '/' },
@@ -18,7 +34,14 @@ export const metadata: Metadata = {
     locale: 'id_ID',
     url: SITE_URL,
     title: 'Homy Property — Temukan hunian terbaik',
-    description: 'Temukan properti pilihan di Indonesia yang sesuai dengan gaya hidup Anda.',
+    description: SITE_DESCRIPTION,
+    images: [{ url: OG_IMAGE, width: 1920, height: 1080, alt: 'Homy Property' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Homy Property — Temukan hunian terbaik',
+    description: SITE_DESCRIPTION,
+    images: [OG_IMAGE],
   },
   manifest: '/manifest.webmanifest',
   icons: {
@@ -80,17 +103,43 @@ export default function RootLayout({
     '@graph': [
       {
         '@type': 'Organization',
+        '@id': `${SITE_URL}/#organization`,
         name: 'Homy Property',
         url: SITE_URL,
-        logo: `${SITE_URL}/logo-homy.png`,
+        logo: {
+          '@type': 'ImageObject',
+          url: `${SITE_URL}/logo-homy.png`,
+          width: 541,
+          height: 160,
+        },
+        image: OG_IMAGE,
         description:
           'Marketplace properti Indonesia: cari rumah dijual, disewakan, dan kerja sama agen properti.',
+        areaServed: { '@type': 'Country', name: 'Indonesia' },
+        contactPoint: [
+          {
+            '@type': 'ContactPoint',
+            contactType: 'customer support',
+            email: 'support@homyproperty.id',
+            availableLanguage: ['id', 'en'],
+          },
+        ],
       },
       {
         '@type': 'WebSite',
+        '@id': `${SITE_URL}/#website`,
         name: 'Homy Property',
         url: SITE_URL,
         inLanguage: 'id-ID',
+        publisher: { '@id': `${SITE_URL}/#organization` },
+        potentialAction: {
+          '@type': 'SearchAction',
+          target: {
+            '@type': 'EntryPoint',
+            urlTemplate: `${SITE_URL}/buy?q={search_term_string}`,
+          },
+          'query-input': 'required name=search_term_string',
+        },
       },
     ],
   }

@@ -3,9 +3,18 @@ import { SiteFooter } from '@/components/site-footer'
 import { SiteHeader } from '@/components/site-header'
 import { BcaPaymentCard } from '@/components/bca-payment-card'
 import { PartnershipForm } from '@/components/partnership-form'
+import { JsonLd } from '@/components/seo/json-ld'
+import { breadcrumbLd, faqLd, pageMetadata } from '@/lib/seo'
 import { PUBLIC_PARTNER_KIND_ORDER, PARTNER_KINDS } from '@/lib/partnership'
+import type { Metadata } from 'next'
 
-export const metadata = { title: 'Open Partnership — Homy Property' }
+export const metadata: Metadata = pageMetadata({
+  title: 'Open Partnership — Agensi, Institusi & Notaris',
+  description:
+    'Bergabung sebagai mitra Homy Property: agensi/broker properti, institusi korporat, hingga notaris/PPAT. Biaya bergabung Rp 0, verifikasi 1×24 jam, dashboard listing, prospek, dan komisi.',
+  path: '/partnership',
+  keywords: ['kemitraan agen properti', 'partner properti', 'kerja sama notaris PPAT', 'agensi properti Indonesia'],
+})
 
 type PublicPartnerKind = (typeof PUBLIC_PARTNER_KIND_ORDER)[number]
 
@@ -64,6 +73,13 @@ const FAQ = [
 export default function PartnershipPage() {
   return (
     <main className="min-h-screen bg-[#f7f3ec] text-[#1c1c1c]">
+      <JsonLd
+        data={breadcrumbLd([
+          { name: 'Beranda', path: '/' },
+          { name: 'Open Partnership', path: '/partnership' },
+        ])}
+      />
+      <JsonLd data={faqLd(FAQ)} />
       <SiteHeader />
       <section className="relative bg-[#0b3d2e] py-10 sm:py-16 text-white md:py-20">
         <div className="mx-auto max-w-7xl px-5 lg:px-8">

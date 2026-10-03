@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation'
 import { hideDetailAddress } from '@/lib/property-format'
 import PropertyDetailClient from './property-detail-client'
 import { NotaryRecommendCard } from '@/components/notary-recommend'
+import { JsonLd } from '@/components/seo/json-ld'
+import { breadcrumbLd } from '@/lib/seo'
 
 const SITE_URL = (process.env.HOMY_APP_URL || 'https://homyproperty.id').replace(/\/$/, '')
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -94,12 +96,12 @@ export async function generateMetadata({
 
   if (!listing) {
     return {
-      title: 'Properti tidak ditemukan — Homy Property',
+      title: 'Properti tidak ditemukan',
       robots: { index: false, follow: true },
     }
   }
 
-  const title = `${listing.title || 'Properti'} — ${locationLabel(listing)} | Homy Property`
+  const title = `${listing.title || 'Properti'} — ${locationLabel(listing)}`
   const description =
     cleanText(listing.ai_summary) ||
     cleanText(listing.description) ||
@@ -187,6 +189,15 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      ) : null}
+      {listing ? (
+        <JsonLd
+          data={breadcrumbLd([
+            { name: 'Beranda', path: '/' },
+            { name: listing.listing_type === 'rent' ? 'Sewa' : 'Beli', path: listing.listing_type === 'rent' ? '/rent' : '/buy' },
+            { name: listing.title || 'Properti', path: `/property/${listing.id}` },
+          ])}
         />
       ) : null}
       <PropertyDetailClient id={id} />
