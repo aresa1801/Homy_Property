@@ -1120,6 +1120,8 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
 
   const { data: run } = await admin.from('ai_runs').insert({ trigger, status: 'running', actor_id: actorId }).select('id').maybeSingle()
   const runId = run?.id ? String(run.id) : null
+  // Bersihkan sisa siklus yang terputus (mis. fungsi dibunuh setelah 60s).
+  await admin.from('ai_runs').update({ status: 'error', summary: 'Siklus terputus (melewati batas waktu).', finished_at: nowIso() }).eq('status', 'running').lt('started_at', new Date(Date.now() - 5 * 60 * 1000).toISOString())
   const employees: CycleResult['employees'] = []
   let itemsCreated = 0
 
@@ -1135,7 +1137,8 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
     const plan = SCOPE_PLAN[scope] ?? SCOPE_PLAN.core
     for (const slug of plan) {
       const elapsed = Date.now() - t0
-      const skip = elapsed > 45000
+      // Sisakan margin agar total < 60s (Vercel Hobby). Jika terlalu jauh, langkah AI dilewati.
+      const skip = elapsed > 28000
       try {
         if (slug === 'analyst') {
           if (skip) { employees.push({ slug, work: 0, note: 'dilewati (batas waktu)' }); continue }
@@ -1163,7 +1166,7 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
           employees.push({ slug, work: l.taskCount })
           itemsCreated += l.taskCount
         } else if (slug === 'coo') {
-          const r = await runCOO(snapshot, analysis, sales, runId, Date.now() - t0 < 50000)
+          const r = await runCOO(snapshot, analysis, sales, runId, Date.now() - t0 < 32000)
           briefing = r.briefing
           escalateCreated = r.escalateCreated
           employees.push({ slug, work: 1 + r.briefing.escalate.length })
