@@ -7,6 +7,7 @@ import { AgreementBoard, AvailabilityBoard, BillingBoard, CalendarBoard, ListLau
 import { AiBoard, AiConversationsBoard } from '@/components/dashboard/boards-ai'
 import { AiMonitorBoard, AuditBoard, FlagsBoard, ModerationBoard, PartnerSanctionsBoard, PartnershipBoard, PlatformBillingBoard, ReportsBoard, RolesBoard, SettingsBoard, UsersBoard } from '@/components/dashboard/boards-admin'
 import { AiAdminBoard } from '@/components/dashboard/boards-ai-admin'
+import { WorkforceBoard } from '@/components/dashboard/boards-workforce'
 import { VerificationBoard, VerificationReviewBoard } from '@/components/dashboard/boards-verify'
 import { ReferralAdminBoard, ReferralBoard } from '@/components/dashboard/boards-referral'
 import { OwnerAgreementBoard } from '@/components/dashboard/boards-owner-agreement'
@@ -41,6 +42,7 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
     verifications: { eyebrow: 'Kemitraan', title: 'Verifikasi Agen', description: 'Tinjau calon Agen Properti di satu tempat: pengajuan kemitraan (halaman Open Partnership) + verifikasi data diri, alamat domisili, dokumen identitas (KTP/SIM), ketersediaan waktu, dan Perjanjian Kerja Sama yang sudah ditandatangani. Verifikasi, hubungi, setujui, atau tolak — keputusan otomatis mengirim email balasan. Calon agen wajib menandatangani Perjanjian Kerja Sama sebelum disetujui. Notaris/institusi/agensi ditangani Super Admin.' },
     sanctions: { eyebrow: 'Disiplin', title: 'Sanksi & Teguran Agen', description: 'Jatuhkan hukuman berjenjang kepada Agen Properti yang melanggar: Teguran, Peringatan, Suspend, hingga Blokir. Dipakai untuk pelanggaran etika, komisi yang tidak dibayar, atau pelanggaran aturan perjanjian kerja sama.' },
     'ai-admin': { eyebrow: 'Kecerdasan Buatan', title: 'Homy AI Admin', description: 'Asisten AI yang bertindak sebagai admin: mengetahui seluruh database Homy, bisa menjawab pertanyaan operasional dari data nyata, berinteraksi dengan pengguna (kirim notifikasi, balas pertanyaan), serta menyusun analisa untuk Agen Properti.' },
+    workforce: { eyebrow: 'Kecerdasan Buatan', title: 'Kantor AI (AI Workforce)', description: 'Homy dijalankan seperti perusahaan kecil: sedikit karyawan AI berkualitas tinggi + 1 mesin koordinasi (COO). Karyawan membaca data nyata, menyiapkan laporan, draf balasan prospek, dan tindak lanjut. Setiap tindakan yang keluar menunggu persetujuan Anda.' },
     referral: { eyebrow: 'Pertumbuhan', title: 'Program Referral', description: 'Pantau program bonus referral agent → agent: peserta, klik link, agen yang bergabung, tinjauan indikasi fraud, buku komisi, batch pembayaran, dan pengaturan tarif/cap/masa tahan.' },
   },
   'super-admin': {
@@ -53,6 +55,7 @@ const SECTIONS: Record<SectionRole, Record<string, SectionMeta>> = {
     partnership: { eyebrow: 'Kemitraan', title: 'Verifikasi & Mitra', description: 'Gabungan Verifikasi Mitra & Partnership khusus non-Agen: pengajuan notaris/PPAT, institusi korporat, agensi/broker, dan pesan kontak — verifikasi, hubungi, setujui, atau tolak, plus pengajuan pendampingan notaris. Notaris yang disetujui otomatis tayang di direktori /notaris. Verifikasi Agen Properti ditangani Dashboard Admin.' },
     sanctions: { eyebrow: 'Disiplin', title: 'Sanksi & Teguran Mitra', description: 'Jatuhkan hukuman berjenjang kepada Agen & Mitra yang melanggar: Teguran, Peringatan, Suspend, hingga Blokir. Dipakai untuk pelanggaran etika, komisi yang tidak dibayar, atau pelanggaran aturan perjanjian kerja sama.' },
     'ai-admin': { eyebrow: 'Kecerdasan Buatan', title: 'Homy AI Admin', description: 'Asisten AI yang bertindak sebagai admin: mengetahui seluruh database Homy, bisa menjawab pertanyaan operasional dari data nyata, berinteraksi dengan pengguna (kirim notifikasi, balas pertanyaan), serta menyusun analisa untuk Agen dan Mitra lainnya.' },
+    workforce: { eyebrow: 'Kecerdasan Buatan', title: 'Kantor AI (AI Workforce)', description: 'Homy dijalankan seperti perusahaan kecil: sedikit karyawan AI berkualitas tinggi + 1 mesin koordinasi (COO). Karyawan membaca data nyata, menyiapkan laporan, draf balasan prospek, dan tindak lanjut. Setiap tindakan yang keluar menunggu persetujuan Anda.' },
     referral: { eyebrow: 'Pertumbuhan', title: 'Program Referral', description: 'Pantau program bonus referral agent → agent: peserta, klik link, agen yang bergabung, tinjauan indikasi fraud, buku komisi, batch pembayaran, dan pengaturan tarif/cap/masa tahan.' },
   },
 }
@@ -121,6 +124,7 @@ export function DashboardSection({ role, section }: { role: SectionRole; section
       }
       if (section === 'sanctions') return <PartnerSanctionsBoard data={data} loading={loading} reload={reload} type={type} />
       if (section === 'ai-admin') return <AiAdminBoard data={data} loading={loading} reload={reload} type={type} />
+      if (section === 'workforce') return <WorkforceBoard data={data} loading={loading} reload={reload} type={type} />
       if (section === 'referral') return <ReferralAdminBoard data={data} loading={loading} reload={reload} />
       return null
     }
