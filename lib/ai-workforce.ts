@@ -730,9 +730,14 @@ async function runCOO(snapshot: Snapshot, analyst: AnalystReport | null, sales: 
   })
 
   let escalateCreated = 0
+  // Batasi jumlah eskalasi aktif agar antrean Boss tidak menumpuk (judul dari AI bisa bervariasi).
+  const admin = sb()
+  const { data: escRows } = await admin.from('ai_work_items').select('id,payload').eq('kind', 'task').in('status', ['open', 'awaiting_approval', 'escalated'])
+  const activeEsc = (escRows ?? []).filter((r) => String(((r.payload ?? {}) as Json).type ?? '') === 'escalation').length
   for (const e of briefing.escalate) {
     if (!e.title) continue
-    if (await anyActiveItem(['task'], (r) => String(r.payload.escalation_key ?? '') === e.title)) continue
+    if (activeEsc + escalateCreated >= 3) break
+    if (await anyActiveItem(['task'], (r) => String(r.payload.escalation_key ?? '').toLowerCase() === e.title.toLowerCase())) continue
     await insertItem({
       employee_slug: 'coo',
       kind: 'task',
