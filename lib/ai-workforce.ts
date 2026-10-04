@@ -293,6 +293,25 @@ const hoursSince = (iso: unknown): number => {
   return Math.max(0, Math.round((Date.now() - t) / 36e5))
 }
 
+/** Panggilan AI dalam mode JSON dengan percobaan ulang tahan gangguan.
+ *  Model kadang mengembalikan isi kosong secara transien — coba lagi sebelum menyerah. */
+async function aiJsonRetry<T>(
+  messages: { role: 'system' | 'user' | 'assistant'; content: string }[],
+  options: { temperature?: number; maxTokens?: number; timeoutMs?: number } = {},
+  tries = 3,
+): Promise<T> {
+  let last: unknown = null
+  for (let i = 0; i < tries; i += 1) {
+    try {
+      return await aiJson<T>(messages, { timeoutMs: 25000, ...options })
+    } catch (error) {
+      last = error
+      if (i < tries - 1) await new Promise((r) => setTimeout(r, 600 * (i + 1)))
+    }
+  }
+  throw last instanceof Error ? last : new AiError('AI gagal setelah beberapa percobaan', 502)
+}
+
 export async function gatherSnapshot(): Promise<Snapshot> {
   const admin = sb()
   const [profilesRes, rolesRes, propsRes, mediaRes, inqRes, visitsRes, trxRes, sanRes, convRes] = await Promise.all([
@@ -480,7 +499,7 @@ type AnalystReport = {
 }
 
 async function runAnalyst(snapshot: Snapshot, runId: string | null): Promise<{ analysis: AnalystReport; alertCount: number }> {
-  const result = await aiJson<AnalystReport>(
+  const result = await aiJsonRetry<AnalystReport>(
     [
       { role: 'system', content: 'Kamu "Rani", Analyst & Compliance sebuah platform properti (Homy). Tugasmu menyusun laporan operasional harian yang jujur, padat, dan actionable. Gunakan HANYA data yang diberikan. Bahasa Indonesia.' },
       { role: 'user', content: `DATA OPERASIONAL (JSON): ${JSON.stringify(snapshot).slice(0, 12000)}\n\nHasilkan JSON dengan kunci: report_title (judul singkat), summary (2-3 kalimat), metrics (objek angka penting, maks 6, kunci memakai istilah manusia), insights (array maks 4 temuan), risks (array maks 3 risiko/anomali, utamakan yang dari daftar anomalies), recommendations (array maks 4 saran konkret). Padat, jangan bertele-tele.` },
@@ -543,7 +562,7 @@ async function runSales(snapshot: Snapshot, runId: string | null): Promise<{ dra
   const targets = snapshot.openInquiries.filter((i) => !pendingIds.has(i.id)).slice(0, 5)
   if (!targets.length) return { draftCount: 0, hotCount: 0 }
 
-  const result = await aiJson<{ drafts: Draft[] }>(
+  const result = await aiJsonRetry<{ drafts: Draft[] }>(
     [
       { role: 'system', content: 'Kamu "Dita", Sales & Customer Success platform properti Homy. Tulis draf balasan yang ramah, profesional, jelas, dan mendorong langkah berikutnya (mis. tawarkan jadwal viewing). Jangan menjanjikan diskon/harga khusus. Bahasa Indonesia santun. Maks 3 kalimat per balasan.' },
       { role: 'user', content: `PROSPEK TERBUKA (JSON): ${JSON.stringify(targets).slice(0, 6000)}\n\nUntuk SETIAP prospek, hasilkan JSON: { "drafts": [ { "inquiry_id": "...", "reply": "...", "intent": "tanya_harga|jadwal_viewing|umum|nego", "urgency": "low|normal|high" } ] }. Balas untuk semua inquiry_id yang diberikan.` },
@@ -603,17 +622,28 @@ async function runSales(snapshot: Snapshot, runId: string | null): Promise<{ dra
 type Briefing = { briefing: string; priorities: string[]; escalate: { title: string; why: string }[] }
 
 async function runCOO(snapshot: Snapshot, analyst: AnalystReport | null, sales: { draftCount: number; hotCount: number }, runId: string | null): Promise<Briefing> {
-  const result = await aiJson<Briefing>(
-    [
-      { role: 'system', content: 'Kamu "Ayana", Chief Operating Officer platform properti Homy. Kamu memimpin tim kecil karyawan AI kelas dunia. Susun briefing pagi untuk pemilik (Boss) yang ringkas, tajam, dan berorientasi keputusan. Bahasa Indonesia, tanpa basa-basi, tanpa markdown.' },
-      { role: 'user', content: `KONDISI PLATFORM (JSON): ${JSON.stringify(snapshot.totals).slice(0, 3000)}\nANOMALI: ${JSON.stringify(snapshot.anomalies).slice(0, 2000)}\nLAPORAN ANALIS: ${JSON.stringify(analyst ?? {}).slice(0, 3000)}\nDRAF PENJUALAN menunggu persetujuan: ${sales.draftCount} (prioritas tinggi: ${sales.hotCount})\n\nHasilkan JSON: { "briefing": "maks 150 kata", "priorities": ["maks 4 prioritas hari ini"], "escalate": [ { "title": "...", "why": "..." } ] } untuk hal yang benar-benar butuh keputusan Boss (uang/kebijakan/risiko). Bila tidak ada, escalate = [].` },
-    ],
-    { temperature: 0.4, maxTokens: 1500 },
-  )
-  const briefing: Briefing = {
-    briefing: String(result.briefing ?? '').slice(0, 2000),
-    priorities: Array.isArray(result.priorities) ? result.priorities.map(String).slice(0, 6) : [],
-    escalate: Array.isArray(result.escalate) ? result.escalate.slice(0, 5).map((e) => ({ title: String(e?.title ?? ''), why: String(e?.why ?? '') })) : [],
+  let briefing: Briefing
+  try {
+    const result = await aiJsonRetry<Briefing>(
+      [
+        { role: 'system', content: 'Kamu "Ayana", Chief Operating Officer platform properti Homy. Kamu memimpin tim kecil karyawan AI kelas dunia. Susun briefing pagi untuk pemilik (Boss) yang ringkas, tajam, dan berorientasi keputusan. Bahasa Indonesia, tanpa basa-basi, tanpa markdown.' },
+        { role: 'user', content: `KONDISI PLATFORM (JSON): ${JSON.stringify(snapshot.totals).slice(0, 3000)}\nANOMALI: ${JSON.stringify(snapshot.anomalies).slice(0, 2000)}\nLAPORAN ANALIS: ${JSON.stringify(analyst ?? {}).slice(0, 2500)}\nDRAF PENJUALAN menunggu persetujuan: ${sales.draftCount} (prioritas tinggi: ${sales.hotCount})\n\nHasilkan JSON: { "briefing": "maks 150 kata", "priorities": ["maks 4 prioritas hari ini"], "escalate": [ { "title": "...", "why": "..." } ] } untuk hal yang benar-benar butuh keputusan Boss (uang/kebijakan/risiko). Bila tidak ada, escalate = [].` },
+      ],
+      { temperature: 0.4, maxTokens: 1500 },
+    )
+    briefing = {
+      briefing: String(result.briefing ?? '').slice(0, 2000),
+      priorities: Array.isArray(result.priorities) ? result.priorities.map(String).slice(0, 6) : [],
+      escalate: Array.isArray(result.escalate) ? result.escalate.slice(0, 5).map((e) => ({ title: String(e?.title ?? ''), why: String(e?.why ?? '') })) : [],
+    }
+  } catch {
+    // AI COO tidak tersedia → tetap terbitkan briefing ringkas dari data, jangan gagalkan siklus.
+    const [a, b] = [analyst?.report_title ? `Laporan "${analyst.report_title}" siap.` : 'Laporan operasional siap.', sales.draftCount ? `${sales.draftCount} draf balasan prospek menunggu persetujuan Anda.` : 'Tidak ada draf balasan baru.']
+    briefing = {
+      briefing: `Siklus harian selesai. ${a} ${b} ${snapshot.anomalies.length ? `${snapshot.anomalies.length} anomali terdeteksi.` : 'Tidak ada anomali baru.'}`,
+      priorities: [],
+      escalate: [],
+    }
   }
 
   await insertItem({
