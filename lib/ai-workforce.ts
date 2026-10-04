@@ -763,7 +763,7 @@ export async function decideWorkItem(actorId: string, id: string, decision: Deci
       if (!reply) return { ok: false, error: 'Draf balasan kosong' }
       const { data: inquiry } = await admin.from('inquiries').select('id,property_id,user_id,agent_id,status').eq('id', String(item.target_id)).maybeSingle()
       if (!inquiry) return { ok: false, error: 'Prospek tidak ditemukan' }
-      const { error } = await admin.from('inquiries').update({ reply_message: reply.slice(0, 2000), replied_at: nowIso(), status: 'replied', updated_at: nowIso() }).eq('id', String(item.target_id))
+      const { error } = await admin.from('inquiries').update({ reply_message: reply.slice(0, 2000), replied_at: nowIso(), status: 'contacted', updated_at: nowIso() }).eq('id', String(item.target_id))
       if (error) return { ok: false, error: error.message }
       if (inquiry.user_id) {
         await admin.from('notifications').insert({
