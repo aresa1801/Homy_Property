@@ -344,7 +344,7 @@ function QueueCard({ item, employee, busy, onDecide }: { item: Item; employee?: 
       {canDecide ? (
         <div className="mt-3 flex justify-end gap-2">
           <button type="button" disabled={busy} onClick={() => onDecide(item.id, 'reject')} className={ui.ghost}><X className="size-4" /> Tolak</button>
-          <button type="button" disabled={busy} onClick={() => onDecide(item.id, 'approve')} className={ui.btn}>{busy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Setujui & kirim</button>
+          <button type="button" disabled={busy} onClick={() => onDecide(item.id, 'approve')} className={ui.btn}>{busy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} {item.kind === 'reply_draft' ? 'Setujui & kirim' : 'Setujui'}</button>
         </div>
       ) : (
         <div className="mt-2"><span className={`${ui.badge} ${STATUS_META[item.status]?.cls ?? ''}`}>{STATUS_META[item.status]?.label ?? item.status}</span></div>

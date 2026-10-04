@@ -576,6 +576,8 @@ async function runSales(snapshot: Snapshot, runId: string | null): Promise<{ dra
   for (const d of result.drafts ?? []) {
     const target = valid.get(String(d.inquiry_id))
     if (!target) continue
+    const reply = String(d.reply ?? '').trim()
+    if (!reply) continue // model kadang mengembalikan draf kosong — lewati, jangan buat item mati.
     const urgency = ['low', 'normal', 'high', 'urgent'].includes(String(d.urgency)) ? String(d.urgency) : 'normal'
     await insertItem({
       employee_slug: 'sales',
@@ -587,7 +589,7 @@ async function runSales(snapshot: Snapshot, runId: string | null): Promise<{ dra
       requires_approval: true,
       target_type: 'inquiry',
       target_id: target.id,
-      payload: { reply: String(d.reply ?? ''), intent: d.intent ?? null, buyer_message: target.message, ageHours: target.ageHours } as Json,
+      payload: { reply, intent: d.intent ?? null, buyer_message: target.message, ageHours: target.ageHours } as Json,
       run_id: runId,
     })
     draftCount += 1
