@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { AiError } from '@/lib/ai'
-import { decideWorkItem, listWorkforce, runCycle, setEmployeeStatus, ensureWorkforce } from '@/lib/ai-workforce'
+import { decideWorkItem, listWorkforce, runCycle, setEmployeeStatus, ensureWorkforce, createTarget, updateTarget } from '@/lib/ai-workforce'
 import { createClient } from '@/lib/supabase/server'
 import { clientKey, rateLimit } from '@/lib/rate-limit'
 
@@ -37,10 +37,15 @@ export async function GET() {
 }
 
 type Body =
-  | { action: 'run' }
+  | { action: 'run'; scope?: 'core' | 'content' | 'extended' | 'all' }
   | { action: 'seed' }
   | { action: 'decide'; id: string; decision: 'approve' | 'reject'; note?: string }
   | { action: 'toggle'; slug: string; status: 'active' | 'paused' | 'planned' }
+  | {
+      action: 'target'; op: 'create' | 'update' | 'archive'
+      id?: string; period?: string; title?: string; metric?: string; target_value?: number
+      unit?: string; owner_slug?: string; current_value?: number; status?: string; notes?: string
+    }
 
 export async function POST(request: Request) {
   const guard = await requireAdmin()
@@ -77,8 +82,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, status: result.status, ...payload })
     }
 
+    if (body.action === 'target') {
+      if (body.op === 'create') {
+        if (!body.title) return NextResponse.json({ error: 'title wajib' }, { status: 400 })
+        const t = await createTarget({
+          period: body.period, title: body.title, metric: body.metric, target_value: body.target_value,
+          unit: body.unit, owner_slug: body.owner_slug, notes: body.notes, source: 'boss', created_by: actor.id,
+        })
+        if (!t) return NextResponse.json({ error: 'Gagal membuat target' }, { status: 400 })
+        return NextResponse.json({ ok: true, ...(await listWorkforce()) })
+      }
+      if (body.op === 'update' || body.op === 'archive') {
+        if (!body.id) return NextResponse.json({ error: 'id wajib' }, { status: 400 })
+        const ok = await updateTarget(body.id, {
+          current_value: body.current_value, target_value: body.target_value,
+          status: body.op === 'archive' ? 'archived' : body.status, notes: body.notes, title: body.title,
+        })
+        if (!ok) return NextResponse.json({ error: 'Gagal memperbarui target' }, { status: 400 })
+        return NextResponse.json({ ok: true, ...(await listWorkforce()) })
+      }
+      return NextResponse.json({ error: 'op tidak dikenal' }, { status: 400 })
+    }
+
     // default: jalankan siklus
-    const result = await runCycle(actor.id, 'manual')
+    const result = await runCycle(actor.id, 'manual', body.scope ?? 'core')
     const payload = await listWorkforce()
     return NextResponse.json({ ok: true, cycle: result, ...payload })
   } catch (error) {

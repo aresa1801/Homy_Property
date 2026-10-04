@@ -16,7 +16,7 @@
  *
  * Hanya dipakai admin/super_admin (dijaga di route API).
  */
-import { aiConfigured, aiJson, aiModel, AiError } from '@/lib/ai'
+import { aiConfigured, aiJson, aiModel, aiToolChat, AiError, type AiMessage, type AiToolDef } from '@/lib/ai'
 import { serviceClient } from '@/lib/visits'
 
 type Json = Record<string, unknown>
@@ -35,7 +35,7 @@ function sb() {
 
 export type Autonomy = 'draft' | 'approve' | 'auto'
 export type EmployeeStatus = 'active' | 'planned' | 'paused'
-export type WorkItemKind = 'briefing' | 'report' | 'alert' | 'reply_draft' | 'task' | 'follow_up'
+export type WorkItemKind = 'briefing' | 'report' | 'alert' | 'reply_draft' | 'task' | 'follow_up' | 'content_draft' | 'growth_plan' | 'listing_task'
 export type WorkItemStatus = 'open' | 'awaiting_approval' | 'approved' | 'rejected' | 'done' | 'escalated'
 
 export type EmployeeSeed = {
@@ -154,7 +154,7 @@ export const WORKFORCE_ROSTER: EmployeeSeed[] = [
     emoji: '📈',
     mission: 'Mengisi pipeline calon penjual & pembeli dari prospek masuk dan data CRM, serta menjaga mesin pertumbuhan tetap hidup.',
     autonomy: 'approve',
-    status: 'planned',
+    status: 'active',
     sortOrder: 4,
     jobCard: {
       responsibilities: [
@@ -163,7 +163,7 @@ export const WORKFORCE_ROSTER: EmployeeSeed[] = [
         'Menjaga data CRM Prospek tetap bersih dan terkualifikasi.',
       ],
       standards: ['Setiap prospek punya tahap & tindak lanjut berikutnya.', 'Aktivitas patuh aturan platform & kanal resmi.'],
-      guardrails: ['Tidak menghubungi pihak eksternal tanpa approval.', 'Tidak memakai kanal pribadi untuk brand.'],
+      guardrails: ['Tidak menghubungi pihak eksternal tanpa approval.', 'Tidak memakai kanal pribadi untuk brand.', 'Semua yang menyangkut uang (promo, harga, anggaran kampanye) wajib persetujuan Boss.'],
       escalates: ['Kanal akuisisi baru', 'Anggaran kampanye'],
     },
     kpis: ['Pipeline aktif naik', 'Kualitas lead'],
@@ -174,17 +174,17 @@ export const WORKFORCE_ROSTER: EmployeeSeed[] = [
     roleTitle: 'Content & Marketing',
     department: 'Pemasaran',
     emoji: '✍️',
-    mission: 'Memproduksi konten berkualitas (highlight listing, edukasi properti) dan menjadwalkan tayang untuk menarik minat.',
+    mission: 'Memproduksi konten berkualitas (highlight listing, edukasi properti) untuk dua kanal resmi: Instagram & Threads, dan menyiapkan draf siap unggah.',
     autonomy: 'approve',
-    status: 'planned',
+    status: 'active',
     sortOrder: 5,
     jobCard: {
-      responsibilities: ['Menulis konten untuk highlight listing & edukasi.', 'Menyusun jadwal tayang konten.'],
-      standards: ['Konten akurat, menarik, dan sesuai brand Homy.'],
-      guardrails: ['Tidak menayangkan konten atas nama brand tanpa approval.'],
-      escalates: ['Kanal publikasi & identitas brand'],
+      responsibilities: ['Menulis caption Instagram & post Threads untuk highlight listing / edukasi properti.', 'Menyiapkan hashtag, CTA, dan ide visual.', 'Menjaga konsistensi nada & jadwal tayang (Senin–Jumat).'],
+      standards: ['Konten akurat, menarik, sesuai brand Homy, tanpa klaim harga/diskon.', 'Setiap draf punya kanal, hook, isi, hashtag, dan CTA.', 'Bahasa Indonesia yang hangat dan jelas.'],
+      guardrails: ['Tidak menayangkan konten atas nama brand tanpa approval Boss.', 'Semua yang menyangkut uang (promo, harga, anggaran iklan) wajib persetujuan Boss.'],
+      escalates: ['Kanal publikasi & identitas brand', 'Konten berbayar/promo'],
     },
-    kpis: ['Konten siap tayang', 'Konsistensi jadwal'],
+    kpis: ['Konten siap tayang harian', 'Konsistensi jadwal'],
   },
   {
     slug: 'listing',
@@ -194,7 +194,7 @@ export const WORKFORCE_ROSTER: EmployeeSeed[] = [
     emoji: '🏠',
     mission: 'Membantu onboarding penjual, melengkapi data listing, dan QC sebelum tayang agar setiap listing siap jual.',
     autonomy: 'approve',
-    status: 'planned',
+    status: 'active',
     sortOrder: 6,
     jobCard: {
       responsibilities: ['Membantu seller melengkapi data listing.', 'QC listing sebelum publikasi.'],
@@ -237,9 +237,7 @@ export async function ensureWorkforce(): Promise<{ employees: EmployeeRow[]; see
   const have = new Set((existing ?? []).map((r) => String(r.slug)))
   let seeded = 0
   for (const seed of WORKFORCE_ROSTER) {
-    if (have.has(seed.slug)) continue
-    const { error } = await admin.from('ai_employees').insert({
-      slug: seed.slug,
+    const desc: Json = {
       name: seed.name,
       role_title: seed.roleTitle,
       department: seed.department,
@@ -247,10 +245,14 @@ export async function ensureWorkforce(): Promise<{ employees: EmployeeRow[]; see
       mission: seed.mission,
       job_card: seed.jobCard as unknown as Json,
       kpis: seed.kpis,
-      autonomy: seed.autonomy,
-      status: seed.status,
       sort_order: seed.sortOrder,
-    })
+    }
+    if (have.has(seed.slug)) {
+      // Sinkronkan deskripsi job card terbaru tanpa menimpa status/autonomy yang diatur manusia.
+      await admin.from('ai_employees').update({ ...desc, updated_at: nowIso() }).eq('slug', seed.slug)
+      continue
+    }
+    const { error } = await admin.from('ai_employees').insert({ slug: seed.slug, ...desc, autonomy: seed.autonomy, status: seed.status })
     if (!error) seeded += 1
   }
   const { data } = await admin.from('ai_employees').select('*').order('sort_order', { ascending: true })
@@ -284,6 +286,7 @@ type Snapshot = {
   openInquiries: { id: string; property_title: string; message: string; ageHours: number; source: string }[]
   staleVisits: { id: string; property_title: string; ageHours: number }[]
   cityBreakdown: { city: string; count: number }[]
+  publishedListings: { id: string; title: string; city: string; price: number }[]
   recentAiQuestions: string[]
 }
 
@@ -430,6 +433,7 @@ export async function gatherSnapshot(): Promise<Snapshot> {
     })),
     staleVisits,
     cityBreakdown,
+    publishedListings: published.slice(0, 6).map((p) => ({ id: String(p.id), title: String(p.title ?? 'Listing'), city: String(p.city ?? ''), price: Number(p.price) || 0 })),
     recentAiQuestions,
   }
 }
@@ -709,6 +713,337 @@ async function runCOO(snapshot: Snapshot, analyst: AnalystReport | null, sales: 
 }
 
 /* ------------------------------------------------------------------ */
+/* Karyawan: Growth, Content, Listing (Fase 2)                         */
+/* ------------------------------------------------------------------ */
+
+type GrowthPlan = {
+  summary: string
+  bets: { title: string; rationale: string; channel?: string; expected_impact?: string; needs_budget?: boolean }[]
+  crm_actions: string[]
+}
+
+async function runGrowth(snapshot: Snapshot, runId: string | null): Promise<{ planCount: number }> {
+  const result = await aiJsonRetry<GrowthPlan>(
+    [
+      { role: 'system', content: 'Kamu "Bima", Growth & Lead Generation platform properti Homy. Fokus: mengisi pipeline penjual & pembeli dari prospek yang ada dan data CRM. Bahasa Indonesia, praktis, tanpa basa-basi. Jangan mengarang angka.' },
+      { role: 'user', content: `KONDISI PLATFORM (JSON): ${JSON.stringify({ totals: snapshot.totals, cityBreakdown: snapshot.cityBreakdown, prospek: snapshot.openInquiries.map((i) => ({ judul: i.property_title, umur_jam: i.ageHours })), kunjungan_mangkrak: snapshot.staleVisits }).slice(0, 8000)}\n\nHasilkan JSON: { "summary": "2-3 kalimat kondisi pipeline & peluang", "bets": [ { "title": "...", "rationale": "...", "channel": "instagram|threads|whatsapp|web|agen", "expected_impact": "...", "needs_budget": true|false } ], "crm_actions": ["langkah taktis menjaga pipeline"] }. Maks 3 bets dan maks 4 crm_actions. Tandai needs_budget=true untuk apa pun yang butuh biaya/anggaran.` },
+    ],
+    { temperature: 0.4, maxTokens: 1600 },
+  )
+  const bets = Array.isArray(result.bets) ? result.bets.slice(0, 3) : []
+  await insertItem({
+    employee_slug: 'growth', kind: 'growth_plan',
+    title: 'Rencana pertumbuhan',
+    summary: String(result.summary ?? 'Rencana pertumbuhan disiapkan.').slice(0, 1000),
+    status: 'awaiting_approval', priority: 'normal', requires_approval: true,
+    payload: { bets, crm_actions: Array.isArray(result.crm_actions) ? result.crm_actions.slice(0, 4) : [] } as Json,
+    run_id: runId,
+  })
+  if (bets.some((b) => b?.needs_budget)) {
+    await insertItem({
+      employee_slug: 'growth', kind: 'task',
+      title: 'Perlu keputusan Boss: usulan anggaran kampanye',
+      summary: bets.filter((b) => b?.needs_budget).map((b) => String(b.title ?? '')).join('; ').slice(0, 500),
+      status: 'awaiting_approval', priority: 'high', requires_approval: true,
+      payload: { type: 'budget' } as Json, run_id: runId,
+    })
+    return { planCount: 2 }
+  }
+  return { planCount: 1 }
+}
+
+type ContentPost = { channel?: string; hook?: string; body?: string; hashtags?: string[]; cta?: string; image_idea?: string }
+
+async function runContent(snapshot: Snapshot, runId: string | null): Promise<{ draftCount: number }> {
+  const result = await aiJsonRetry<{ posts: ContentPost[] }>(
+    [
+      { role: 'system', content: 'Kamu "Sari", Content & Marketing Homy (platform properti Indonesia). Kamu menulis konten untuk dua kanal resmi: Instagram dan Threads. Nada hangat, jelas, membantu, tidak lebay, tanpa klaim harga/diskon. Bahasa Indonesia.' },
+      { role: 'user', content: `DATA (JSON): ${JSON.stringify({ listing: snapshot.publishedListings, kota: snapshot.cityBreakdown, total_tayang: snapshot.totals.listing_tayang }).slice(0, 5000)}\n\nBuat 2 konten: 1 untuk "instagram" (caption + 8-12 hashtag + CTA) dan 1 untuk "threads" (post singkat < 400 karakter + 2-3 hashtag). Angkat satu listing tayang atau tips properti. Hasilkan JSON: { "posts": [ { "channel": "instagram|threads", "hook": "...", "body": "...", "hashtags": ["#..."], "cta": "...", "image_idea": "..." } ] }.` },
+    ],
+    { temperature: 0.7, maxTokens: 1600 },
+  )
+  const posts = Array.isArray(result.posts) ? result.posts.slice(0, 2) : []
+  let draftCount = 0
+  for (const p of posts) {
+    const body = String(p?.body ?? '').trim()
+    if (!body) continue
+    const channel = String(p?.channel ?? 'instagram').toLowerCase() === 'threads' ? 'threads' : 'instagram'
+    const hashtags = Array.isArray(p?.hashtags) ? p.hashtags.map((h) => String(h)).slice(0, 12) : []
+    await insertItem({
+      employee_slug: 'content', kind: 'content_draft',
+      title: `${channel === 'threads' ? 'Threads' : 'Instagram'}: ${String(p?.hook ?? body).slice(0, 60)}`,
+      summary: body.slice(0, 800),
+      status: 'awaiting_approval', priority: 'normal', requires_approval: true,
+      payload: { channel, hook: p?.hook ?? null, body, hashtags, cta: p?.cta ?? null, image_idea: p?.image_idea ?? null } as Json,
+      run_id: runId,
+    })
+    draftCount += 1
+  }
+  return { draftCount }
+}
+
+/** Listing Operations bersifat deterministik: QC dari anomali data (tanpa panggilan AI). */
+async function runListing(snapshot: Snapshot, runId: string | null): Promise<{ taskCount: number }> {
+  const admin = sb()
+  const { data: open } = await admin.from('ai_work_items').select('payload').eq('kind', 'listing_task').in('status', ['open'])
+  const openTypes = new Set((open ?? []).map((o) => String(((o.payload ?? {}) as Json).type ?? '')))
+  let taskCount = 0
+  const noPhoto = snapshot.anomalies.find((a) => a.kind === 'listing_no_photo')
+  if (noPhoto && !openTypes.has('no_photo')) {
+    await insertItem({
+      employee_slug: 'listing', kind: 'listing_task',
+      title: noPhoto.title,
+      summary: `${noPhoto.detail}. Lengkapi foto agar listing layak tampil & siap jual.`,
+      status: 'open', priority: 'high', payload: { type: 'no_photo' } as Json, run_id: runId,
+    })
+    taskCount += 1
+  }
+  const dup = snapshot.anomalies.find((a) => a.kind === 'duplicate_title')
+  if (dup && !openTypes.has('duplicate_title')) {
+    await insertItem({
+      employee_slug: 'listing', kind: 'listing_task',
+      title: dup.title,
+      summary: `${dup.detail}. Bedakan judul/deskripsi agar tidak membingungkan pencari.`,
+      status: 'open', priority: 'normal', payload: { type: 'duplicate_title' } as Json, run_id: runId,
+    })
+    taskCount += 1
+  }
+  return { taskCount }
+}
+
+/* ------------------------------------------------------------------ */
+/* Target & kinerja                                                   */
+/* ------------------------------------------------------------------ */
+
+export type TargetPeriod = 'daily' | 'weekly' | 'monthly'
+export type TargetRow = {
+  id: string; period: TargetPeriod; title: string; metric: string | null
+  target_value: number; current_value: number; unit: string | null
+  owner_slug: string | null; status: string; source: string; notes: string | null
+  start_date: string | null; end_date: string | null; created_at: string; updated_at: string
+}
+
+export async function listTargets(): Promise<TargetRow[]> {
+  const admin = sb()
+  const { data } = await admin.from('ai_targets').select('*').order('created_at', { ascending: false }).limit(100)
+  return (data ?? []) as unknown as TargetRow[]
+}
+
+export async function createTarget(input: {
+  period?: string; title: string; metric?: string; target_value?: number; unit?: string
+  owner_slug?: string; notes?: string; source?: string; created_by?: string | null
+  start_date?: string | null; end_date?: string | null
+}): Promise<TargetRow | null> {
+  const admin = sb()
+  const period = ['daily', 'weekly', 'monthly'].includes(String(input.period)) ? String(input.period) : 'weekly'
+  const { data, error } = await admin.from('ai_targets').insert({
+    period,
+    title: String(input.title).slice(0, 180),
+    metric: input.metric ? String(input.metric).slice(0, 120) : null,
+    target_value: Number(input.target_value) || 0,
+    unit: input.unit ? String(input.unit).slice(0, 40) : null,
+    owner_slug: input.owner_slug ? String(input.owner_slug) : null,
+    notes: input.notes ? String(input.notes).slice(0, 1000) : null,
+    source: input.source === 'coo' ? 'coo' : 'boss',
+    start_date: input.start_date ?? null,
+    end_date: input.end_date ?? null,
+    created_by: input.created_by ?? null,
+  }).select('*').maybeSingle()
+  if (error) return null
+  return (data ?? null) as unknown as TargetRow | null
+}
+
+export async function updateTarget(id: string, patch: { current_value?: number; target_value?: number; status?: string; notes?: string; title?: string }): Promise<boolean> {
+  const admin = sb()
+  const p: Record<string, unknown> = { updated_at: nowIso() }
+  if (patch.current_value !== undefined) p.current_value = Number(patch.current_value) || 0
+  if (patch.target_value !== undefined) p.target_value = Number(patch.target_value) || 0
+  if (patch.status && ['active', 'achieved', 'missed', 'archived'].includes(patch.status)) p.status = patch.status
+  if (patch.notes !== undefined) p.notes = String(patch.notes).slice(0, 1000)
+  if (patch.title !== undefined) p.title = String(patch.title).slice(0, 180)
+  const { error } = await admin.from('ai_targets').update(p).eq('id', id)
+  return !error
+}
+
+/* ------------------------------------------------------------------ */
+/* Chat dengan COO                                                    */
+/* ------------------------------------------------------------------ */
+
+export type ChatMessageRow = { id: string; role: 'user' | 'assistant'; content: string; created_at: string }
+
+export async function listChat(limit = 40): Promise<ChatMessageRow[]> {
+  const admin = sb()
+  const { data } = await admin.from('ai_chat_messages').select('id,role,content,created_at').order('created_at', { ascending: false }).limit(limit)
+  return ((data ?? []) as unknown as ChatMessageRow[]).reverse()
+}
+
+const COO_SYSTEM = `Kamu "Ayana", Chief Operating Officer Homy (platform properti Indonesia). Kamu berbicara langsung dengan Boss (pemilik) lewat chat.
+Gaya: ringkas, tegas, praktis, tanpa basa-basi, tanpa markdown tebal. Bahasa Indonesia.
+Tugas: (1) menjawab pertanyaan Boss tentang kondisi operasional & tim, (2) membantu Boss menetapkan target harian/mingguan/bulanan, (3) me-review pekerjaan tim AI, (4) mengangkat hal yang butuh keputusan Boss.
+Aturan: semua yang menyangkut UANG (promo, harga, komisi, anggaran) wajib persetujuan Boss — usulkan, jangan putuskan sendiri. Jangan pernah mengirim pesan ke pihak luar tanpa persetujuan. Bila Boss meminta target, pakai tool create_target. Bila Boss menugaskan kerja, pakai create_task. Setelah aksi, konfirmasi singkat apa yang kamu lakukan.`
+
+const COO_TOOLS: AiToolDef[] = [
+  {
+    type: 'function',
+    function: {
+      name: 'create_target',
+      description: 'Buat target baru (harian/mingguan/bulanan) untuk tim.',
+      parameters: {
+        type: 'object',
+        properties: {
+          period: { type: 'string', enum: ['daily', 'weekly', 'monthly'] },
+          title: { type: 'string' },
+          metric: { type: 'string' },
+          target_value: { type: 'number' },
+          unit: { type: 'string' },
+          owner_slug: { type: 'string', description: 'slug karyawan penanggung jawab' },
+        },
+        required: ['period', 'title'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_target',
+      description: 'Perbarui nilai capaian atau status sebuah target.',
+      parameters: {
+        type: 'object',
+        properties: {
+          id: { type: 'string' },
+          current_value: { type: 'number' },
+          status: { type: 'string', enum: ['active', 'achieved', 'missed', 'archived'] },
+          notes: { type: 'string' },
+        },
+        required: ['id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'create_task',
+      description: 'Tugaskan pekerjaan ke karyawan AI tertentu (masuk antrean kerja).',
+      parameters: {
+        type: 'object',
+        properties: {
+          employee_slug: { type: 'string', enum: ['analyst', 'sales', 'growth', 'content', 'listing', 'coo'] },
+          title: { type: 'string' },
+          detail: { type: 'string' },
+          priority: { type: 'string', enum: ['low', 'normal', 'high', 'urgent'] },
+        },
+        required: ['employee_slug', 'title'],
+      },
+    },
+  },
+]
+
+function safeJson(s: string): Json {
+  try { const v = JSON.parse(s || '{}'); return v && typeof v === 'object' ? (v as Json) : {} } catch { return {} }
+}
+
+async function cooTool(name: string, args: Json, actorId: string): Promise<Json> {
+  try {
+    if (name === 'create_target') {
+      const t = await createTarget({
+        period: String(args.period ?? 'weekly'),
+        title: String(args.title ?? 'Target').slice(0, 180),
+        metric: args.metric ? String(args.metric) : undefined,
+        target_value: Number(args.target_value) || 0,
+        unit: args.unit ? String(args.unit) : undefined,
+        owner_slug: args.owner_slug ? String(args.owner_slug) : undefined,
+        source: 'coo', created_by: actorId,
+      })
+      return t ? { ok: true, id: t.id, title: t.title, period: t.period } : { ok: false, error: 'gagal menyimpan target' }
+    }
+    if (name === 'update_target') {
+      const ok = await updateTarget(String(args.id ?? ''), {
+        current_value: args.current_value as number | undefined,
+        status: args.status as string | undefined,
+        notes: args.notes as string | undefined,
+      })
+      return { ok }
+    }
+    if (name === 'create_task') {
+      const slug = ['analyst', 'sales', 'growth', 'content', 'listing', 'coo'].includes(String(args.employee_slug)) ? String(args.employee_slug) : 'coo'
+      const pr = ['low', 'normal', 'high', 'urgent'].includes(String(args.priority)) ? String(args.priority) : 'normal'
+      const id = await insertItem({
+        employee_slug: slug, kind: 'task',
+        title: String(args.title ?? 'Tugas dari COO').slice(0, 180),
+        summary: args.detail ? String(args.detail).slice(0, 800) : null,
+        status: 'open', priority: pr as 'low' | 'normal' | 'high' | 'urgent',
+        requires_approval: false, payload: { from: 'coo_chat', requested_by: actorId } as Json,
+      })
+      return { ok: !!id, item_id: id, assigned_to: slug }
+    }
+    return { ok: false, error: 'tool tidak dikenal' }
+  } catch (e) {
+    return { ok: false, error: errMsg(e) }
+  }
+}
+
+function describeAction(name: string, result: Json): string {
+  if (name === 'create_target') return result.ok ? `Target dibuat: ${String(result.title ?? '')} (${String(result.period ?? '')})` : 'Gagal membuat target'
+  if (name === 'update_target') return result.ok ? 'Target diperbarui' : 'Gagal memperbarui target'
+  if (name === 'create_task') return result.ok ? `Tugas dibuat untuk ${String(result.assigned_to ?? 'tim')}` : 'Gagal membuat tugas'
+  return name
+}
+
+export async function cooChat(actorId: string, message: string): Promise<{ reply: string; actions: string[]; targets: TargetRow[] }> {
+  if (!aiConfigured()) throw new AiError('Fitur AI belum diaktifkan (kunci AI belum diatur).', 503)
+  const admin = sb()
+  const text = message.trim().slice(0, 2000)
+  if (!text) throw new AiError('Pesan kosong.', 400)
+
+  await admin.from('ai_chat_messages').insert({ role: 'user', content: text, actor_id: actorId })
+
+  const [snapshot, targets, emps, itemsRes, runsRes] = await Promise.all([
+    gatherSnapshot(),
+    listTargets(),
+    ensureWorkforce(),
+    admin.from('ai_work_items').select('employee_slug,kind,title,status,priority,created_at').order('created_at', { ascending: false }).limit(20),
+    admin.from('ai_runs').select('summary,status,started_at,items_created').order('started_at', { ascending: false }).limit(3),
+  ])
+  const history = (await listChat(12)).slice(-10)
+
+  const context = {
+    waktu: nowIso(),
+    platform: snapshot.totals,
+    anomali: snapshot.anomalies.map((a) => a.title),
+    prospek_terbuka: snapshot.openInquiries.length,
+    karyawan: emps.employees.map((e) => ({ slug: e.slug, nama: e.name, peran: e.role_title, status: e.status })),
+    target_aktif: targets.filter((t) => t.status === 'active').map((t) => ({ id: t.id, period: t.period, title: t.title, metric: t.metric, progress: `${t.current_value}/${t.target_value}${t.unit ? ' ' + t.unit : ''}`, owner: t.owner_slug })),
+    kerja_terbaru: (itemsRes.data ?? []).map((i) => `${i.employee_slug}: ${i.title} [${i.status}]`),
+    siklus_terakhir: (runsRes.data ?? []).map((r) => `${r.status}: ${String(r.summary ?? '').slice(0, 120)}`),
+  }
+
+  const messages: AiMessage[] = [
+    { role: 'system', content: `${COO_SYSTEM}\n\nKONTEKS SAAT INI (JSON): ${JSON.stringify(context).slice(0, 7000)}` },
+    ...history.map((m) => ({ role: m.role, content: m.content }) as AiMessage),
+  ]
+  if (!messages.length || messages[messages.length - 1].content !== text) messages.push({ role: 'user', content: text })
+
+  const actions: string[] = []
+  let reply = ''
+  for (let round = 0; round < 4; round += 1) {
+    const { message: msg } = await aiToolChat(messages, COO_TOOLS, { temperature: 0.3, maxTokens: 1200, timeoutMs: 40000 })
+    const calls = msg.tool_calls ?? []
+    if (!calls.length) { reply = String(msg.content ?? '').trim(); break }
+    messages.push({ role: 'assistant', content: msg.content ?? '' })
+    for (const call of calls) {
+      const result = await cooTool(call.function.name, safeJson(call.function.arguments), actorId)
+      actions.push(describeAction(call.function.name, result))
+      messages.push({ role: 'user', content: `HASIL TOOL ${call.function.name}: ${JSON.stringify(result).slice(0, 4000)}` })
+    }
+  }
+  if (!reply) reply = 'Baik, saya catat. Ada lagi yang ingin Anda putuskan?'
+
+  await admin.from('ai_chat_messages').insert({ role: 'assistant', content: reply.slice(0, 6000), actor_id: actorId, meta: { actions } })
+  await audit(actorId, 'workforce.coo.chat', 'ai_chat', null, { actions })
+  return { reply, actions, targets: await listTargets() }
+}
+
+/* ------------------------------------------------------------------ */
 /* Siklus orkestrasi                                                   */
 /* ------------------------------------------------------------------ */
 
@@ -721,7 +1056,15 @@ export type CycleResult = {
   error?: string
 }
 
-export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron' | 'event' = 'manual'): Promise<CycleResult> {
+export type CycleScope = 'core' | 'content' | 'extended' | 'all'
+const SCOPE_PLAN: Record<CycleScope, string[]> = {
+  core: ['analyst', 'sales', 'coo'],
+  content: ['content'],
+  extended: ['growth', 'listing'],
+  all: ['analyst', 'sales', 'growth', 'content', 'listing', 'coo'],
+}
+
+export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron' | 'event' = 'manual', scope: CycleScope = 'core'): Promise<CycleResult> {
   if (!aiConfigured()) throw new AiError('Fitur AI belum diaktifkan (kunci AI belum diatur).', 503)
   const admin = sb()
   await ensureWorkforce()
@@ -734,51 +1077,65 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
   try {
     const t0 = Date.now()
     const snapshot = await gatherSnapshot()
-
-    // Analyst — inti laporan; kegagalan dicatat tapi tidak menghentikan siklus.
     let analysis: AnalystReport | null = null
-    try {
-      const analyst = await runAnalyst(snapshot, runId)
-      analysis = analyst.analysis
-      employees.push({ slug: 'analyst', work: 1 + analyst.alertCount, note: `${analyst.alertCount} anomali` })
-      itemsCreated += 1 + analyst.alertCount
-    } catch (e) {
-      employees.push({ slug: 'analyst', work: 0, note: `gagal: ${errMsg(e)}` })
-    }
-
-    // Sales — draf balasan (approve-first). Dilewati bila waktu hampir habis.
     let sales = { draftCount: 0, hotCount: 0 }
-    if (Date.now() - t0 < 40000) {
-      try {
-        sales = await runSales(snapshot, runId)
-        employees.push({ slug: 'sales', work: sales.draftCount, note: `${sales.draftCount} draf menunggu persetujuan` })
-        itemsCreated += sales.draftCount
-      } catch (e) {
-        employees.push({ slug: 'sales', work: 0, note: `gagal: ${errMsg(e)}` })
-      }
-    } else {
-      employees.push({ slug: 'sales', work: 0, note: 'dilewati (batas waktu)' })
-    }
+    let briefing: Briefing | null = null
 
-    // COO — briefing + eskalasi. Fallback dari data bila AI meleset / waktu sempit.
-    const briefing = await runCOO(snapshot, analysis, sales, runId, Date.now() - t0 < 50000)
-    employees.push({ slug: 'coo', work: 1 + briefing.escalate.length })
-    itemsCreated += 1 + briefing.escalate.length
+    // Rencana kerja sesuai cakupan (Fase 1 inti; Fase 2 konten/pertumbuhan/listing).
+    const plan = SCOPE_PLAN[scope] ?? SCOPE_PLAN.core
+    for (const slug of plan) {
+      const elapsed = Date.now() - t0
+      const skip = elapsed > 45000
+      try {
+        if (slug === 'analyst') {
+          if (skip) { employees.push({ slug, work: 0, note: 'dilewati (batas waktu)' }); continue }
+          const a = await runAnalyst(snapshot, runId)
+          analysis = a.analysis
+          employees.push({ slug, work: 1 + a.alertCount, note: `${a.alertCount} anomali` })
+          itemsCreated += 1 + a.alertCount
+        } else if (slug === 'sales') {
+          if (skip) { employees.push({ slug, work: 0, note: 'dilewati (batas waktu)' }); continue }
+          sales = await runSales(snapshot, runId)
+          employees.push({ slug, work: sales.draftCount, note: `${sales.draftCount} draf menunggu persetujuan` })
+          itemsCreated += sales.draftCount
+        } else if (slug === 'growth') {
+          if (skip) { employees.push({ slug, work: 0, note: 'dilewati (batas waktu)' }); continue }
+          const g = await runGrowth(snapshot, runId)
+          employees.push({ slug, work: g.planCount })
+          itemsCreated += g.planCount
+        } else if (slug === 'content') {
+          if (skip) { employees.push({ slug, work: 0, note: 'dilewati (batas waktu)' }); continue }
+          const c = await runContent(snapshot, runId)
+          employees.push({ slug, work: c.draftCount, note: `${c.draftCount} konten siap unggah` })
+          itemsCreated += c.draftCount
+        } else if (slug === 'listing') {
+          const l = await runListing(snapshot, runId)
+          employees.push({ slug, work: l.taskCount })
+          itemsCreated += l.taskCount
+        } else if (slug === 'coo') {
+          briefing = await runCOO(snapshot, analysis, sales, runId, Date.now() - t0 < 50000)
+          employees.push({ slug, work: 1 + briefing.escalate.length })
+          itemsCreated += 1 + briefing.escalate.length
+        }
+      } catch (e) {
+        employees.push({ slug, work: 0, note: `gagal: ${errMsg(e)}` })
+      }
+    }
 
     const failed = employees.filter((e) => /^(gagal|dilewati)/.test(String(e.note ?? ''))).length
-    const summary = (failed ? `[${failed} langkah terganggu] ` : '') + (briefing.briefing || `Siklus selesai: ${itemsCreated} item kerja dibuat.`)
+    const summary = (failed ? `[${failed} langkah terganggu] ` : '') + (briefing?.briefing || `Siklus ${scope} selesai: ${itemsCreated} item kerja dibuat.`)
     await admin.from('ai_runs').update({
       status: itemsCreated > 0 ? 'ok' : 'error', summary: summary.slice(0, 800), items_created: itemsCreated, employees, finished_at: nowIso(),
     }).eq('id', runId ?? '00000000-0000-0000-0000-000000000000')
 
     // Beri tahu admin bila ada yang menunggu keputusan.
-    const awaiting = sales.draftCount + briefing.escalate.length
+    const awaiting = sales.draftCount + (briefing?.escalate.length ?? 0)
     if (awaiting > 0) {
-      await notifyAdmins('AI Workforce: item menunggu keputusan', `${awaiting} item menunggu persetujuan Anda (${sales.draftCount} balasan prospek, ${briefing.escalate.length} eskalasi). Buka AI Workforce untuk meninjau.`)
+      await notifyAdmins('AI Workforce: item menunggu keputusan', `${awaiting} item menunggu persetujuan Anda (${sales.draftCount} balasan prospek, ${briefing?.escalate.length ?? 0} eskalasi). Buka AI Workforce untuk meninjau.`)
     }
 
-    await audit(actorId, 'workforce.cycle', 'ai_run', runId, { trigger, itemsCreated, employees, failed })
-    return { runId, ok: itemsCreated > 0, employees, itemsCreated, briefing }
+    await audit(actorId, 'workforce.cycle', 'ai_run', runId, { trigger, scope, itemsCreated, employees, failed })
+    return { runId, ok: itemsCreated > 0, employees, itemsCreated, briefing: briefing ?? undefined }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Siklus gagal'
     await admin.from('ai_runs').update({ status: 'error', summary: message.slice(0, 800), finished_at: nowIso(), employees, items_created: itemsCreated }).eq('id', runId ?? '00000000-0000-0000-0000-000000000000')
@@ -846,9 +1203,10 @@ export async function decideWorkItem(actorId: string, id: string, decision: Deci
 export async function listWorkforce() {
   const admin = sb()
   const { employees } = await ensureWorkforce()
-  const [itemsRes, runsRes] = await Promise.all([
+  const [itemsRes, runsRes, targets] = await Promise.all([
     admin.from('ai_work_items').select('*').order('created_at', { ascending: false }).limit(80),
     admin.from('ai_runs').select('*').order('started_at', { ascending: false }).limit(12),
+    listTargets(),
   ])
   const items = (itemsRes.data ?? []) as unknown as Json[]
   const runs = (runsRes.data ?? []) as unknown as Json[]
@@ -867,5 +1225,5 @@ export async function listWorkforce() {
     lastRunAt: runs[0]?.finished_at ?? runs[0]?.started_at ?? null,
   }
 
-  return { configured: aiConfigured(), model: aiModel(), employees, items, runs, stats }
+  return { configured: aiConfigured(), model: aiModel(), employees, items, runs, targets, stats }
 }

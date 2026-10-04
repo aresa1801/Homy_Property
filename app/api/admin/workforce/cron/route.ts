@@ -30,8 +30,11 @@ async function handle(request: Request) {
     return NextResponse.json({ error: 'Fitur AI belum diaktifkan.' }, { status: 503 })
   }
   try {
-    const result = await runCycle(null, 'cron')
-    return NextResponse.json({ ok: true, cycle: result })
+    const url = new URL(request.url)
+    const raw = url.searchParams.get('scope') ?? 'core'
+    const scope = (['core', 'content', 'extended', 'all'] as const).find((s) => s === raw) ?? 'core'
+    const result = await runCycle(null, 'cron', scope)
+    return NextResponse.json({ ok: true, scope, cycle: result })
   } catch (error) {
     console.error('[homy-workforce:cron]', error instanceof Error ? error.message : error)
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Siklus gagal' }, { status: 502 })
