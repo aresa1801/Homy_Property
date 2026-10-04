@@ -554,6 +554,30 @@ async function runAnalyst(snapshot: Snapshot, runId: string | null): Promise<{ a
 
 type Draft = { inquiry_id: string; reply: string; intent?: string; urgency?: string }
 
+function errMsg(e: unknown): string { return e instanceof Error ? e.message : 'kesalahan' }
+
+/** Normalisasi keluaran AI yang bisa berupa array, {drafts:[...]}, {replies:[...]}, atau map {id: teks}. */
+function normalizeDrafts(raw: unknown): Draft[] {
+  const out: Draft[] = []
+  const push = (x: unknown, fallbackId?: string) => {
+    if (typeof x === 'string') { if (fallbackId && x.trim()) out.push({ inquiry_id: fallbackId, reply: x.trim() }); return }
+    if (!x || typeof x !== 'object') return
+    const o = x as Record<string, unknown>
+    const reply = String(o.reply ?? o.message ?? o.text ?? '').trim()
+    const id = String(o.inquiry_id ?? o.id ?? fallbackId ?? '')
+    if (!id || !reply) return
+    out.push({ inquiry_id: id, reply, intent: o.intent ? String(o.intent) : undefined, urgency: o.urgency ? String(o.urgency) : undefined })
+  }
+  if (Array.isArray(raw)) raw.forEach((x) => push(x))
+  else if (raw && typeof raw === 'object') {
+    const o = raw as Record<string, unknown>
+    const listKey = ['drafts', 'replies', 'items', 'data'].find((k) => Array.isArray(o[k]))
+    if (listKey) (o[listKey] as unknown[]).forEach((x) => push(x))
+    else for (const [k, v] of Object.entries(o)) push(v, k)
+  }
+  return out
+}
+
 async function runSales(snapshot: Snapshot, runId: string | null): Promise<{ draftCount: number; hotCount: number }> {
   const admin = sb()
   // Lewati prospek yang sudah punya draf menunggu keputusan.
@@ -562,18 +586,19 @@ async function runSales(snapshot: Snapshot, runId: string | null): Promise<{ dra
   const targets = snapshot.openInquiries.filter((i) => !pendingIds.has(i.id)).slice(0, 5)
   if (!targets.length) return { draftCount: 0, hotCount: 0 }
 
-  const result = await aiJsonRetry<{ drafts: Draft[] }>(
+  const result = await aiJsonRetry<unknown>(
     [
       { role: 'system', content: 'Kamu "Dita", Sales & Customer Success platform properti Homy. Tulis draf balasan yang ramah, profesional, jelas, dan mendorong langkah berikutnya (mis. tawarkan jadwal viewing). Jangan menjanjikan diskon/harga khusus. Bahasa Indonesia santun. Maks 3 kalimat per balasan.' },
-      { role: 'user', content: `PROSPEK TERBUKA (JSON): ${JSON.stringify(targets).slice(0, 6000)}\n\nUntuk SETIAP prospek, hasilkan JSON: { "drafts": [ { "inquiry_id": "...", "reply": "...", "intent": "tanya_harga|jadwal_viewing|umum|nego", "urgency": "low|normal|high" } ] }. Balas untuk semua inquiry_id yang diberikan.` },
+      { role: 'user', content: `PROSPEK TERBUKA (JSON): ${JSON.stringify(targets).slice(0, 6000)}\n\nBalas HANYA dengan JSON valid berbentuk objek: { "drafts": [ { "inquiry_id": "<id dari data>", "reply": "<teks balasan>", "intent": "tanya_harga|jadwal_viewing|umum|nego", "urgency": "low|normal|high" } ] }. Sertakan SEMUA inquiry_id yang diberikan, tanpa teks lain di luar JSON.` },
     ],
     { temperature: 0.5, maxTokens: 2000 },
   )
+  const drafts = normalizeDrafts(result)
 
   const valid = new Map(targets.map((t) => [t.id, t]))
   let draftCount = 0
   let hotCount = 0
-  for (const d of result.drafts ?? []) {
+  for (const d of drafts) {
     const target = valid.get(String(d.inquiry_id))
     if (!target) continue
     const reply = String(d.reply ?? '').trim()
@@ -623,29 +648,35 @@ async function runSales(snapshot: Snapshot, runId: string | null): Promise<{ dra
 
 type Briefing = { briefing: string; priorities: string[]; escalate: { title: string; why: string }[] }
 
-async function runCOO(snapshot: Snapshot, analyst: AnalystReport | null, sales: { draftCount: number; hotCount: number }, runId: string | null): Promise<Briefing> {
+function cooFallback(snapshot: Snapshot, analyst: AnalystReport | null, sales: { draftCount: number; hotCount: number }): Briefing {
+  const a = analyst?.report_title ? `Laporan "${analyst.report_title}" siap.` : 'Laporan operasional siap.'
+  const b = sales.draftCount ? `${sales.draftCount} draf balasan prospek menunggu persetujuan Anda.` : 'Tidak ada draf balasan baru.'
+  const c = snapshot.anomalies.length ? `${snapshot.anomalies.length} anomali terdeteksi.` : 'Tidak ada anomali baru.'
+  return { briefing: `Siklus harian selesai. ${a} ${b} ${c}`, priorities: [], escalate: [] }
+}
+
+async function runCOO(snapshot: Snapshot, analyst: AnalystReport | null, sales: { draftCount: number; hotCount: number }, runId: string | null, useAi = true): Promise<Briefing> {
   let briefing: Briefing
-  try {
-    const result = await aiJsonRetry<Briefing>(
-      [
-        { role: 'system', content: 'Kamu "Ayana", Chief Operating Officer platform properti Homy. Kamu memimpin tim kecil karyawan AI kelas dunia. Susun briefing pagi untuk pemilik (Boss) yang ringkas, tajam, dan berorientasi keputusan. Bahasa Indonesia, tanpa basa-basi, tanpa markdown.' },
-        { role: 'user', content: `KONDISI PLATFORM (JSON): ${JSON.stringify(snapshot.totals).slice(0, 3000)}\nANOMALI: ${JSON.stringify(snapshot.anomalies).slice(0, 2000)}\nLAPORAN ANALIS: ${JSON.stringify(analyst ?? {}).slice(0, 2500)}\nDRAF PENJUALAN menunggu persetujuan: ${sales.draftCount} (prioritas tinggi: ${sales.hotCount})\n\nHasilkan JSON: { "briefing": "maks 150 kata", "priorities": ["maks 4 prioritas hari ini"], "escalate": [ { "title": "...", "why": "..." } ] } untuk hal yang benar-benar butuh keputusan Boss (uang/kebijakan/risiko). Bila tidak ada, escalate = [].` },
-      ],
-      { temperature: 0.4, maxTokens: 1500 },
-    )
-    briefing = {
-      briefing: String(result.briefing ?? '').slice(0, 2000),
-      priorities: Array.isArray(result.priorities) ? result.priorities.map(String).slice(0, 6) : [],
-      escalate: Array.isArray(result.escalate) ? result.escalate.slice(0, 5).map((e) => ({ title: String(e?.title ?? ''), why: String(e?.why ?? '') })) : [],
+  if (useAi) {
+    try {
+      const result = await aiJsonRetry<Briefing>(
+        [
+          { role: 'system', content: 'Kamu "Ayana", Chief Operating Officer platform properti Homy. Kamu memimpin tim kecil karyawan AI kelas dunia. Susun briefing pagi untuk pemilik (Boss) yang ringkas, tajam, dan berorientasi keputusan. Bahasa Indonesia, tanpa basa-basi, tanpa markdown.' },
+          { role: 'user', content: `KONDISI PLATFORM (JSON): ${JSON.stringify(snapshot.totals).slice(0, 3000)}\nANOMALI: ${JSON.stringify(snapshot.anomalies).slice(0, 2000)}\nLAPORAN ANALIS: ${JSON.stringify(analyst ?? {}).slice(0, 2500)}\nDRAF PENJUALAN menunggu persetujuan: ${sales.draftCount} (prioritas tinggi: ${sales.hotCount})\n\nHasilkan JSON: { "briefing": "maks 150 kata", "priorities": ["maks 4 prioritas hari ini"], "escalate": [ { "title": "...", "why": "..." } ] } untuk hal yang benar-benar butuh keputusan Boss (uang/kebijakan/risiko). Bila tidak ada, escalate = [].` },
+        ],
+        { temperature: 0.4, maxTokens: 1500 },
+      )
+      briefing = {
+        briefing: String(result.briefing ?? '').slice(0, 2000),
+        priorities: Array.isArray(result.priorities) ? result.priorities.map(String).slice(0, 6) : [],
+        escalate: Array.isArray(result.escalate) ? result.escalate.slice(0, 5).map((e) => ({ title: String(e?.title ?? ''), why: String(e?.why ?? '') })) : [],
+      }
+    } catch {
+      // AI COO tidak tersedia → tetap terbitkan briefing ringkas dari data, jangan gagalkan siklus.
+      briefing = cooFallback(snapshot, analyst, sales)
     }
-  } catch {
-    // AI COO tidak tersedia → tetap terbitkan briefing ringkas dari data, jangan gagalkan siklus.
-    const [a, b] = [analyst?.report_title ? `Laporan "${analyst.report_title}" siap.` : 'Laporan operasional siap.', sales.draftCount ? `${sales.draftCount} draf balasan prospek menunggu persetujuan Anda.` : 'Tidak ada draf balasan baru.']
-    briefing = {
-      briefing: `Siklus harian selesai. ${a} ${b} ${snapshot.anomalies.length ? `${snapshot.anomalies.length} anomali terdeteksi.` : 'Tidak ada anomali baru.'}`,
-      priorities: [],
-      escalate: [],
-    }
+  } else {
+    briefing = cooFallback(snapshot, analyst, sales)
   }
 
   await insertItem({
@@ -701,23 +732,43 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
   let itemsCreated = 0
 
   try {
+    const t0 = Date.now()
     const snapshot = await gatherSnapshot()
 
-    const analyst = await runAnalyst(snapshot, runId)
-    employees.push({ slug: 'analyst', work: 1 + analyst.alertCount, note: `${analyst.alertCount} anomali` })
-    itemsCreated += 1 + analyst.alertCount
+    // Analyst — inti laporan; kegagalan dicatat tapi tidak menghentikan siklus.
+    let analysis: AnalystReport | null = null
+    try {
+      const analyst = await runAnalyst(snapshot, runId)
+      analysis = analyst.analysis
+      employees.push({ slug: 'analyst', work: 1 + analyst.alertCount, note: `${analyst.alertCount} anomali` })
+      itemsCreated += 1 + analyst.alertCount
+    } catch (e) {
+      employees.push({ slug: 'analyst', work: 0, note: `gagal: ${errMsg(e)}` })
+    }
 
-    const sales = await runSales(snapshot, runId)
-    employees.push({ slug: 'sales', work: sales.draftCount, note: `${sales.draftCount} draf menunggu persetujuan` })
-    itemsCreated += sales.draftCount
+    // Sales — draf balasan (approve-first). Dilewati bila waktu hampir habis.
+    let sales = { draftCount: 0, hotCount: 0 }
+    if (Date.now() - t0 < 40000) {
+      try {
+        sales = await runSales(snapshot, runId)
+        employees.push({ slug: 'sales', work: sales.draftCount, note: `${sales.draftCount} draf menunggu persetujuan` })
+        itemsCreated += sales.draftCount
+      } catch (e) {
+        employees.push({ slug: 'sales', work: 0, note: `gagal: ${errMsg(e)}` })
+      }
+    } else {
+      employees.push({ slug: 'sales', work: 0, note: 'dilewati (batas waktu)' })
+    }
 
-    const briefing = await runCOO(snapshot, analyst.analysis, sales, runId)
+    // COO — briefing + eskalasi. Fallback dari data bila AI meleset / waktu sempit.
+    const briefing = await runCOO(snapshot, analysis, sales, runId, Date.now() - t0 < 50000)
     employees.push({ slug: 'coo', work: 1 + briefing.escalate.length })
     itemsCreated += 1 + briefing.escalate.length
 
-    const summary = briefing.briefing || `Siklus selesai: ${itemsCreated} item kerja dibuat.`
+    const failed = employees.filter((e) => /^(gagal|dilewati)/.test(String(e.note ?? ''))).length
+    const summary = (failed ? `[${failed} langkah terganggu] ` : '') + (briefing.briefing || `Siklus selesai: ${itemsCreated} item kerja dibuat.`)
     await admin.from('ai_runs').update({
-      status: 'ok', summary, items_created: itemsCreated, employees, finished_at: nowIso(),
+      status: itemsCreated > 0 ? 'ok' : 'error', summary: summary.slice(0, 800), items_created: itemsCreated, employees, finished_at: nowIso(),
     }).eq('id', runId ?? '00000000-0000-0000-0000-000000000000')
 
     // Beri tahu admin bila ada yang menunggu keputusan.
@@ -726,8 +777,8 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
       await notifyAdmins('AI Workforce: item menunggu keputusan', `${awaiting} item menunggu persetujuan Anda (${sales.draftCount} balasan prospek, ${briefing.escalate.length} eskalasi). Buka AI Workforce untuk meninjau.`)
     }
 
-    await audit(actorId, 'workforce.cycle', 'ai_run', runId, { trigger, itemsCreated, employees })
-    return { runId, ok: true, employees, itemsCreated, briefing }
+    await audit(actorId, 'workforce.cycle', 'ai_run', runId, { trigger, itemsCreated, employees, failed })
+    return { runId, ok: itemsCreated > 0, employees, itemsCreated, briefing }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Siklus gagal'
     await admin.from('ai_runs').update({ status: 'error', summary: message.slice(0, 800), finished_at: nowIso(), employees, items_created: itemsCreated }).eq('id', runId ?? '00000000-0000-0000-0000-000000000000')
