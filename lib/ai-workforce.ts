@@ -474,6 +474,39 @@ async function insertItem(item: NewItem): Promise<string | null> {
   return data?.id ? String(data.id) : null
 }
 
+/**
+ * Cegah item berulang tiap siklus. Mengembalikan true bila sudah ada item sejenis
+ * yang belum final (open/awaiting_approval/escalated/approved). Item `rejected`
+ * tidak dihitung agar anomali yang ditolak bisa muncul lagi bila masih relevan.
+ */
+async function anyActiveItem(
+  kinds: WorkItemKind[],
+  predicate: (row: { kind: string; target_id: string | null; payload: Json }) => boolean,
+): Promise<boolean> {
+  const admin = sb()
+  const { data } = await admin
+    .from('ai_work_items')
+    .select('kind,target_id,payload')
+    .in('kind', kinds)
+    .in('status', ['open', 'awaiting_approval', 'escalated', 'approved'])
+    .order('created_at', { ascending: false })
+    .limit(80)
+  return (data ?? []).some((r) => predicate({ kind: String(r.kind), target_id: r.target_id ? String(r.target_id) : null, payload: (r.payload ?? {}) as Json }))
+}
+
+/** Awal hari (WIB) sebagai ISO — untuk dedupe satu batch per hari. */
+function wibDayStartIso(): string {
+  const wib = new Date(Date.now() + WIB_OFFSET_MS)
+  return new Date(Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()) - WIB_OFFSET_MS).toISOString()
+}
+
+/** Item jenis tertentu yang sudah dibuat sejak `sinceIso` (semua status). */
+async function itemsSince(kinds: WorkItemKind[], sinceIso: string): Promise<Json[]> {
+  const admin = sb()
+  const { data } = await admin.from('ai_work_items').select('payload').in('kind', kinds).gte('created_at', sinceIso).limit(60)
+  return (data ?? []).map((r) => (r.payload ?? {}) as Json)
+}
+
 /** Kirim notifikasi ringkas ke seluruh admin/super_admin (lonceng + push). */
 async function notifyAdmins(title: string, body: string, href = '/dashboard/admin/workforce'): Promise<number> {
   const admin = sb()
@@ -531,9 +564,10 @@ async function runAnalyst(snapshot: Snapshot, runId: string | null): Promise<{ a
     run_id: runId,
   })
 
-  // Anomali rule-based → item 'alert'.
+  // Anomali rule-based → item 'alert' (didedupe per jenis anomali).
   let alertCount = 0
   for (const a of snapshot.anomalies) {
+    if (await anyActiveItem(['alert'], (r) => String(r.payload.kind ?? '') === a.kind)) continue
     const id = await insertItem({
       employee_slug: 'analyst',
       kind: 'alert',
@@ -625,8 +659,9 @@ async function runSales(snapshot: Snapshot, runId: string | null): Promise<{ dra
     if (urgency === 'high' || urgency === 'urgent') hotCount += 1
   }
 
-  // Kunjungan mangkrak → item tugas tindak lanjut (butuh approval sebelum menghubungi).
+  // Kunjungan mangkrak → item tugas tindak lanjut (didedupe per kunjungan).
   for (const v of snapshot.staleVisits.slice(0, 3)) {
+    if (await anyActiveItem(['follow_up'], (r) => r.target_id === v.id)) continue
     await insertItem({
       employee_slug: 'sales',
       kind: 'follow_up',
@@ -637,7 +672,7 @@ async function runSales(snapshot: Snapshot, runId: string | null): Promise<{ dra
       requires_approval: true,
       target_type: 'visit',
       target_id: v.id,
-      payload: { ageHours: v.ageHours } as Json,
+      payload: { visit_id: v.id, ageHours: v.ageHours } as Json,
       run_id: runId,
     })
     draftCount += 1
@@ -659,7 +694,7 @@ function cooFallback(snapshot: Snapshot, analyst: AnalystReport | null, sales: {
   return { briefing: `Siklus harian selesai. ${a} ${b} ${c}`, priorities: [], escalate: [] }
 }
 
-async function runCOO(snapshot: Snapshot, analyst: AnalystReport | null, sales: { draftCount: number; hotCount: number }, runId: string | null, useAi = true): Promise<Briefing> {
+async function runCOO(snapshot: Snapshot, analyst: AnalystReport | null, sales: { draftCount: number; hotCount: number }, runId: string | null, useAi = true): Promise<{ briefing: Briefing; escalateCreated: number }> {
   let briefing: Briefing
   if (useAi) {
     try {
@@ -694,8 +729,10 @@ async function runCOO(snapshot: Snapshot, analyst: AnalystReport | null, sales: 
     run_id: runId,
   })
 
+  let escalateCreated = 0
   for (const e of briefing.escalate) {
     if (!e.title) continue
+    if (await anyActiveItem(['task'], (r) => String(r.payload.escalation_key ?? '') === e.title)) continue
     await insertItem({
       employee_slug: 'coo',
       kind: 'task',
@@ -704,12 +741,13 @@ async function runCOO(snapshot: Snapshot, analyst: AnalystReport | null, sales: 
       status: 'awaiting_approval',
       priority: 'high',
       requires_approval: true,
-      payload: { type: 'escalation', why: e.why } as Json,
+      payload: { type: 'escalation', escalation_key: e.title, why: e.why } as Json,
       run_id: runId,
     })
+    escalateCreated += 1
   }
 
-  return briefing
+  return { briefing, escalateCreated }
 }
 
 /* ------------------------------------------------------------------ */
@@ -723,6 +761,9 @@ type GrowthPlan = {
 }
 
 async function runGrowth(snapshot: Snapshot, runId: string | null): Promise<{ planCount: number }> {
+  // Satu rencana pertumbuhan per hari (cegah spam bila siklus dijalankan berkali-kali).
+  const today = await itemsSince(['growth_plan'], wibDayStartIso())
+  if (today.length) return { planCount: 0 }
   const result = await aiJsonRetry<GrowthPlan>(
     [
       { role: 'system', content: 'Kamu "Bima", Growth & Lead Generation platform properti Homy. Fokus: mengisi pipeline penjual & pembeli dari prospek yang ada dan data CRM. Bahasa Indonesia, praktis, tanpa basa-basi. Jangan mengarang angka.' },
@@ -740,14 +781,17 @@ async function runGrowth(snapshot: Snapshot, runId: string | null): Promise<{ pl
     run_id: runId,
   })
   if (bets.some((b) => b?.needs_budget)) {
-    await insertItem({
-      employee_slug: 'growth', kind: 'task',
-      title: 'Perlu keputusan Boss: usulan anggaran kampanye',
-      summary: bets.filter((b) => b?.needs_budget).map((b) => String(b.title ?? '')).join('; ').slice(0, 500),
-      status: 'awaiting_approval', priority: 'high', requires_approval: true,
-      payload: { type: 'budget' } as Json, run_id: runId,
-    })
-    return { planCount: 2 }
+    if (!(await anyActiveItem(['task'], (r) => String(r.payload.type ?? '') === 'budget'))) {
+      await insertItem({
+        employee_slug: 'growth', kind: 'task',
+        title: 'Perlu keputusan Boss: usulan anggaran kampanye',
+        summary: bets.filter((b) => b?.needs_budget).map((b) => String(b.title ?? '')).join('; ').slice(0, 500),
+        status: 'awaiting_approval', priority: 'high', requires_approval: true,
+        payload: { type: 'budget' } as Json, run_id: runId,
+      })
+      return { planCount: 2 }
+    }
+    return { planCount: 1 }
   }
   return { planCount: 1 }
 }
@@ -763,11 +807,14 @@ async function runContent(snapshot: Snapshot, runId: string | null): Promise<{ d
     { temperature: 0.7, maxTokens: 1600 },
   )
   const posts = Array.isArray(result.posts) ? result.posts.slice(0, 2) : []
+  const usedChannels = new Set((await itemsSince(['content_draft'], wibDayStartIso())).map((p) => String(p.channel ?? '')))
   let draftCount = 0
   for (const p of posts) {
     const body = String(p?.body ?? '').trim()
     if (!body) continue
     const channel = String(p?.channel ?? 'instagram').toLowerCase() === 'threads' ? 'threads' : 'instagram'
+    if (usedChannels.has(channel)) continue // sudah ada draf kanal ini hari ini
+    usedChannels.add(channel)
     const hashtags = Array.isArray(p?.hashtags) ? p.hashtags.map((h) => String(h)).slice(0, 12) : []
     await insertItem({
       employee_slug: 'content', kind: 'content_draft',
@@ -782,29 +829,26 @@ async function runContent(snapshot: Snapshot, runId: string | null): Promise<{ d
   return { draftCount }
 }
 
-/** Listing Operations bersifat deterministik: QC dari anomali data (tanpa panggilan AI). */
+/** Listing Operations bersifat deterministik: QC dari anomali data (tanpa panggilan AI). Didedupe per jenis anomali. */
 async function runListing(snapshot: Snapshot, runId: string | null): Promise<{ taskCount: number }> {
-  const admin = sb()
-  const { data: open } = await admin.from('ai_work_items').select('payload').eq('kind', 'listing_task').in('status', ['open'])
-  const openTypes = new Set((open ?? []).map((o) => String(((o.payload ?? {}) as Json).type ?? '')))
   let taskCount = 0
   const noPhoto = snapshot.anomalies.find((a) => a.kind === 'listing_no_photo')
-  if (noPhoto && !openTypes.has('no_photo')) {
+  if (noPhoto && !(await anyActiveItem(['listing_task'], (r) => String(r.payload.type ?? '') === 'no_photo'))) {
     await insertItem({
       employee_slug: 'listing', kind: 'listing_task',
       title: noPhoto.title,
       summary: `${noPhoto.detail}. Lengkapi foto agar listing layak tampil & siap jual.`,
-      status: 'open', priority: 'high', payload: { type: 'no_photo' } as Json, run_id: runId,
+      status: 'open', priority: 'high', requires_approval: true, payload: { type: 'no_photo' } as Json, run_id: runId,
     })
     taskCount += 1
   }
   const dup = snapshot.anomalies.find((a) => a.kind === 'duplicate_title')
-  if (dup && !openTypes.has('duplicate_title')) {
+  if (dup && !(await anyActiveItem(['listing_task'], (r) => String(r.payload.type ?? '') === 'duplicate_title'))) {
     await insertItem({
       employee_slug: 'listing', kind: 'listing_task',
       title: dup.title,
       summary: `${dup.detail}. Bedakan judul/deskripsi agar tidak membingungkan pencari.`,
-      status: 'open', priority: 'normal', payload: { type: 'duplicate_title' } as Json, run_id: runId,
+      status: 'open', priority: 'normal', requires_approval: true, payload: { type: 'duplicate_title' } as Json, run_id: runId,
     })
     taskCount += 1
   }
@@ -1080,6 +1124,7 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
     let analysis: AnalystReport | null = null
     let sales = { draftCount: 0, hotCount: 0 }
     let briefing: Briefing | null = null
+    let escalateCreated = 0
 
     // Rencana kerja sesuai cakupan (Fase 1 inti; Fase 2 konten/pertumbuhan/listing).
     const plan = SCOPE_PLAN[scope] ?? SCOPE_PLAN.core
@@ -1113,9 +1158,11 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
           employees.push({ slug, work: l.taskCount })
           itemsCreated += l.taskCount
         } else if (slug === 'coo') {
-          briefing = await runCOO(snapshot, analysis, sales, runId, Date.now() - t0 < 50000)
-          employees.push({ slug, work: 1 + briefing.escalate.length })
-          itemsCreated += 1 + briefing.escalate.length
+          const r = await runCOO(snapshot, analysis, sales, runId, Date.now() - t0 < 50000)
+          briefing = r.briefing
+          escalateCreated = r.escalateCreated
+          employees.push({ slug, work: 1 + r.briefing.escalate.length })
+          itemsCreated += 1 + r.escalateCreated
         }
       } catch (e) {
         employees.push({ slug, work: 0, note: `gagal: ${errMsg(e)}` })
@@ -1128,10 +1175,10 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
       status: itemsCreated > 0 ? 'ok' : 'error', summary: summary.slice(0, 800), items_created: itemsCreated, employees, finished_at: nowIso(),
     }).eq('id', runId ?? '00000000-0000-0000-0000-000000000000')
 
-    // Beri tahu admin bila ada yang menunggu keputusan.
-    const awaiting = sales.draftCount + (briefing?.escalate.length ?? 0)
+    // Beri tahu admin hanya bila ada item BARU yang menunggu keputusan.
+    const awaiting = sales.draftCount + escalateCreated
     if (awaiting > 0) {
-      await notifyAdmins('AI Workforce: item menunggu keputusan', `${awaiting} item menunggu persetujuan Anda (${sales.draftCount} balasan prospek, ${briefing?.escalate.length ?? 0} eskalasi). Buka AI Workforce untuk meninjau.`)
+      await notifyAdmins('AI Workforce: item menunggu keputusan', `${awaiting} item baru menunggu persetujuan Anda (${sales.draftCount} balasan/aksi penjualan, ${escalateCreated} eskalasi). Buka AI Workforce untuk meninjau.`)
     }
 
     await audit(actorId, 'workforce.cycle', 'ai_run', runId, { trigger, scope, itemsCreated, employees, failed })
@@ -1154,8 +1201,8 @@ export async function decideWorkItem(actorId: string, id: string, decision: Deci
   const admin = sb()
   const { data: item } = await admin.from('ai_work_items').select('*').eq('id', id).maybeSingle()
   if (!item) return { ok: false, error: 'Item kerja tidak ditemukan' }
-  if (['done', 'approved', 'rejected'].includes(String(item.status)) && !item.requires_approval) {
-    return { ok: false, error: 'Item ini sudah final' }
+  if (['done', 'approved', 'rejected'].includes(String(item.status))) {
+    return { ok: false, error: 'Item ini sudah final — tidak bisa diproses lagi.' }
   }
   const patch: Record<string, unknown> = { decided_by: actorId, decided_at: nowIso(), decision_note: note?.slice(0, 500) ?? null, updated_at: nowIso() }
 
