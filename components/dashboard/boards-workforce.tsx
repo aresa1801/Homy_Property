@@ -92,7 +92,9 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<'office' | 'reports' | 'jobs' | 'chat' | 'targets'>('office')
+  const [tab, setTab] = useState<'office' | 'reports' | 'jobs' | 'chat' | 'targets' | 'social'>('office')
+  const [social, setSocial] = useState<SocialStatus | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setError(null)
@@ -108,7 +110,26 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
     }
   }, [])
 
-  useEffect(() => { void load() }, [load])
+  const loadSocial = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/meta/status', { cache: 'no-store' })
+      const p = await res.json().catch(() => ({}))
+      if (res.ok) setSocial(p as SocialStatus)
+    } catch { /* abaikan */ }
+  }, [])
+
+  useEffect(() => { void load(); void loadSocial() }, [load, loadSocial])
+
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search)
+    const meta = sp.get('meta')
+    if (!meta) return
+    if (meta === 'ok') { setNotice(sp.get('msg') || 'Koneksi sosial berhasil disimpan.'); setTab('social') }
+    else { setError(sp.get('msg') || 'Koneksi sosial gagal.'); setTab('social') }
+    const u = new URL(window.location.href)
+    u.searchParams.delete('meta'); u.searchParams.delete('msg')
+    window.history.replaceState({}, '', u.toString())
+  }, [])
 
   const run = useCallback(async (scope: 'core' | 'content' | 'extended' = 'core') => {
     setBusy(`run:${scope}`); setError(null)
@@ -143,6 +164,30 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Terjadi kesalahan')
     } finally { setBusy(null) }
+  }, [load])
+
+  const disconnect = useCallback(async (channel: string) => {
+    setBusy(`dc:${channel}`); setError(null)
+    try {
+      const res = await fetch('/api/admin/meta/status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'disconnect', channel }) })
+      const p = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(p?.error ?? 'Gagal memutuskan koneksi.')
+      setSocial((s) => (s ? { ...s, connections: Array.isArray(p.connections) ? p.connections : [] } : s))
+      setNotice('Koneksi diputuskan.')
+    } catch (e) { setError(e instanceof Error ? e.message : 'Terjadi kesalahan') }
+    finally { setBusy(null) }
+  }, [])
+
+  const publish = useCallback(async (id: string) => {
+    setBusy(`pub:${id}`); setError(null); setNotice(null)
+    try {
+      const res = await fetch('/api/admin/meta/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ itemId: id }) })
+      const p = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(p?.error ?? 'Gagal menerbitkan.')
+      setNotice(`Terkirim ke ${str(p.channel)} ✅ (id ${str(p.externalId)})`)
+      await load()
+    } catch (e) { setError(e instanceof Error ? e.message : 'Terjadi kesalahan') }
+    finally { setBusy(null) }
   }, [load])
 
   const employees = data?.employees ?? []
@@ -187,10 +232,12 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
       </div>
 
       {error && <p className="rounded-lg bg-[#fbeeec] px-3 py-2 text-sm text-[#b45c50]">{error}</p>}
+      {notice && <p className="rounded-lg bg-[#e7f2ea] px-3 py-2 text-sm text-[#2f7a52]">{notice}</p>}
 
       {/* Tabs */}
       <div className="flex flex-wrap gap-2">
         <TabButton active={tab === 'chat'} onClick={() => setTab('chat')} icon={MessageSquare}>Chat dengan COO</TabButton>
+        <TabButton active={tab === 'social'} onClick={() => setTab('social')} icon={AtSign}>Koneksi Sosial</TabButton>
         <TabButton active={tab === 'office'} onClick={() => setTab('office')} icon={Building2}>Kantor & Antrean</TabButton>
         <TabButton active={tab === 'targets'} onClick={() => setTab('targets')} icon={Target}>Target & Kinerja</TabButton>
         <TabButton active={tab === 'reports'} onClick={() => setTab('reports')} icon={FileText}>Laporan & Briefing</TabButton>
@@ -245,6 +292,8 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
       )}
 
       {tab === 'chat' && <ChatPanel />}
+
+      {tab === 'social' && <SocialPanel status={social} items={items} busy={busy} onReload={loadSocial} onDisconnect={disconnect} onPublish={publish} />}
 
       {tab === 'targets' && <TargetsPanel targets={data?.targets ?? []} employees={employees} onChange={() => void load()} />}
 
@@ -619,6 +668,111 @@ function TargetCard({ t, busy, onUpdate }: { t: Target; busy: boolean; onUpdate:
         {!done && <button type="button" disabled={busy} onClick={() => onUpdate({ status: 'achieved' })} className={ui.btn}>{busy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Tandai tercapai</button>}
         <button type="button" disabled={busy} onClick={() => onUpdate({ status: 'archived' })} className={ui.ghost}>Arsip</button>
       </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/* Koneksi Sosial — hubungkan Instagram / Threads & terbitkan konten    */
+/* ------------------------------------------------------------------ */
+
+type Connection = {
+  channel: 'instagram' | 'threads'; accountId: string | null; username: string | null
+  pageId: string | null; pageName: string | null; status: string; expiresAt: string | null
+  scopes: string | null; connectedAt: string | null; lastError: string | null
+}
+type SocialStatus = { configured: { instagram: boolean; threads: boolean }; redirectUri: string; connections: Connection[] }
+
+const CHANNEL_META: Record<'instagram' | 'threads', { label: string; emoji: string }> = {
+  instagram: { label: 'Instagram', emoji: '📸' },
+  threads: { label: 'Threads', emoji: '🧵' },
+}
+
+function SocialPanel({ status, items, busy, onReload, onDisconnect, onPublish }: {
+  status: SocialStatus | null; items: Item[]; busy: string | null
+  onReload: () => void; onDisconnect: (channel: string) => void; onPublish: (id: string) => void
+}) {
+  const drafts = items.filter((i) => i.kind === 'content_draft')
+  const conn = (ch: 'instagram' | 'threads') => status?.connections.find((c) => c.channel === ch)
+  return (
+    <div className="space-y-4">
+      <div className={ui.card}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="max-w-2xl">
+            <p className="flex items-center gap-2 text-sm font-semibold text-[#0b3d2e]"><AtSign className="size-4" /> Koneksi Sosial</p>
+            <p className="mt-1 text-sm text-[#718078]">Hubungkan akun <strong>Instagram Business</strong> &amp; <strong>Threads</strong> sekali di sini. Setelah terhubung, draf konten yang sudah Boss <strong>setujui</strong> bisa langsung diterbitkan — tetap approve-first, tidak ada post otomatis.</p>
+          </div>
+          <button type="button" onClick={onReload} className={ui.ghost}><RefreshCw className="size-4" /> Muat ulang</button>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          {(['instagram', 'threads'] as const).map((ch) => {
+            const c = conn(ch)
+            const isConfigured = status?.configured?.[ch]
+            const connected = !!c && c.status === 'connected'
+            return (
+              <div key={ch} className="rounded-xl border border-[#eee7dc] p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-[#0b3d2e]">{CHANNEL_META[ch].emoji} {CHANNEL_META[ch].label}</p>
+                  <span className={`${ui.badge} ${connected ? 'bg-[#e7f2ea] text-[#2f7a52]' : c?.status === 'error' ? 'bg-[#fbeeec] text-[#b45c50]' : 'bg-[#f2ecdf] text-[#9b762a]'}`}>{connected ? 'Terhubung' : c?.status === 'error' ? 'Error' : 'Belum'}</span>
+                </div>
+                {connected ? (
+                  <div className="mt-2 text-xs text-[#718078]">
+                    <p>Akun: <span className="font-semibold text-[#0b3d2e]">@{c?.username || c?.accountId}</span></p>
+                    {c?.pageName ? <p>Halaman: {c.pageName}</p> : null}
+                    <p>Sejak: {when(c?.connectedAt)}</p>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-[#8a9a92]">{isConfigured ? 'Belum terhubung.' : 'Kredensial app belum diset di server.'}</p>
+                )}
+                {c?.lastError ? <p className="mt-1 text-xs text-[#b45c50]">{c.lastError}</p> : null}
+                <div className="mt-3 flex gap-2">
+                  <a href={`/api/admin/meta/connect?channel=${ch}`} className={ui.btn}>{connected ? 'Hubungkan ulang' : 'Hubungkan'}</a>
+                  {c ? <button type="button" disabled={busy === `dc:${ch}`} onClick={() => onDisconnect(ch)} className={ui.ghost}>{busy === `dc:${ch}` ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />} Putuskan</button> : null}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <p className="mt-3 text-[11px] text-[#8a9a92]">Redirect URI (daftarkan di Meta app): <span className="rounded bg-[#f7f3ec] px-1.5 py-0.5 text-[#5c5133]">{status?.redirectUri ?? '—'}</span></p>
+      </div>
+
+      <div className="space-y-3">
+        <p className={ui.eyebrow}>Draf konten &amp; publikasi ({drafts.length})</p>
+        {!drafts.length ? <div className={ui.card}><p className="text-sm text-[#718078]">Belum ada draf konten. Jalankan siklus “Konten”.</p></div> : drafts.map((i) => {
+          const ch = String((i.payload as Record<string, unknown>).channel || 'instagram') === 'threads' ? 'threads' : 'instagram'
+          return <PublishCard key={i.id} item={i} busy={busy === `pub:${i.id}`} connected={!!conn(ch)} onPublish={onPublish} />
+        })}
+      </div>
+    </div>
+  )
+}
+
+function PublishCard({ item, busy, connected, onPublish }: { item: Item; busy: boolean; connected: boolean; onPublish: (id: string) => void }) {
+  const p = item.payload as Record<string, unknown>
+  const pub = p.published as Record<string, unknown> | undefined
+  const body = str(p.body)
+  const hashtags = arr(p.hashtags)
+  return (
+    <div className={ui.card}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-[#0b3d2e]">{item.title}</p>
+          <p className="text-xs text-[#8a9a92]">{str(p.channel)} · {item.status === 'approved' ? 'disetujui' : item.status === 'awaiting_approval' ? 'menunggu keputusan' : item.status}</p>
+        </div>
+        {pub?.external_id ? <span className={`${ui.badge} bg-[#e7f2ea] text-[#2f7a52]`}>Terbit</span> : <span className={ui.badge}>{str(p.channel)}</span>}
+      </div>
+      {p.hook ? <p className="mt-2 text-sm font-semibold text-[#33433d]">{str(p.hook)}</p> : null}
+      {body ? <p className="mt-1 whitespace-pre-wrap text-sm text-[#5c5133]">{body}</p> : null}
+      {hashtags.length ? <p className="mt-1 text-xs text-[#8a9a92]">{hashtags.join(' ')}</p> : null}
+      {pub?.external_id ? (
+        <p className="mt-2 text-xs text-[#2f7a52]">Terkirim {when(str(pub.posted_at))} · id {str(pub.external_id)}</p>
+      ) : (
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <p className="text-xs text-[#8a9a92]">{item.status === 'approved' ? (connected ? 'Siap diterbitkan.' : 'Kanal belum terhubung.') : 'Setujui dulu di tab “Kantor & Antrean”.'}</p>
+          <button type="button" disabled={busy || item.status !== 'approved' || !connected} onClick={() => onPublish(item.id)} className={ui.btn}>{busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Terbitkan</button>
+        </div>
+      )}
+      {p.publish_error ? <p className="mt-2 text-xs text-[#b45c50]">Gagal: {str(p.publish_error)}</p> : null}
     </div>
   )
 }

@@ -18,6 +18,7 @@
  */
 import { aiConfigured, aiJson, aiModel, aiToolChat, AiError, type AiMessage, type AiToolDef } from '@/lib/ai'
 import { serviceClient } from '@/lib/visits'
+import { publishInstagram, publishThreads, siteUrl } from '@/lib/meta'
 
 type Json = Record<string, unknown>
 const nowIso = () => new Date().toISOString()
@@ -1248,6 +1249,50 @@ export async function decideWorkItem(actorId: string, id: string, decision: Deci
     return { ok: true, status: 'approved' }
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : 'Gagal memproses' }
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Publikasi konten ke Instagram / Threads (approve-first)             */
+/* ------------------------------------------------------------------ */
+
+export async function publishContentItem(actorId: string, id: string): Promise<{ ok: boolean; error?: string; externalId?: string; channel?: string }> {
+  const admin = sb()
+  const { data: item } = await admin.from('ai_work_items').select('*').eq('id', id).maybeSingle()
+  if (!item) return { ok: false, error: 'Item kerja tidak ditemukan.' }
+  if (String(item.kind) !== 'content_draft') return { ok: false, error: 'Hanya draf konten yang bisa diterbitkan.' }
+
+  const payload = (item.payload ?? {}) as Json
+  const published = payload.published as Json | undefined
+  if (published?.external_id) return { ok: false, error: 'Item ini sudah diterbitkan.' }
+
+  const channel = String(payload.channel ?? 'instagram').toLowerCase() === 'threads' ? 'threads' : 'instagram'
+  const hook = String(payload.hook ?? '').trim()
+  const body = String(payload.body ?? '').trim()
+  const cta = payload.cta ? String(payload.cta).trim() : ''
+  const hashtags = Array.isArray(payload.hashtags) ? (payload.hashtags as unknown[]).map(String).filter(Boolean) : []
+  const text = [hook, body, cta, hashtags.join(' ')].filter(Boolean).join('\n\n').slice(0, 2000)
+  if (!text) return { ok: false, error: 'Draf konten kosong.' }
+
+  try {
+    let externalId = ''
+    if (channel === 'instagram') {
+      const imageUrl = `${siteUrl()}/api/og/content/${id}`
+      const r = await publishInstagram(imageUrl, text)
+      externalId = r.id
+    } else {
+      const r = await publishThreads(text)
+      externalId = r.id
+    }
+    const meta = { channel, external_id: externalId, posted_at: nowIso(), posted_by: actorId }
+    await admin.from('ai_work_items').update({ payload: { ...payload, published: meta }, status: 'approved', updated_at: nowIso() }).eq('id', id)
+    await audit(actorId, 'workforce.publish', 'ai_work_item', id, { channel, external_id: externalId })
+    return { ok: true, externalId, channel }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Gagal menerbitkan.'
+    await admin.from('ai_work_items').update({ payload: { ...payload, publish_error: msg }, updated_at: nowIso() }).eq('id', id)
+    await audit(actorId, 'workforce.publish.fail', 'ai_work_item', id, { channel, error: msg.slice(0, 300) })
+    return { ok: false, error: msg }
   }
 }
 
