@@ -39,7 +39,7 @@ function sb() {
 
 export type Autonomy = 'draft' | 'approve' | 'auto'
 export type EmployeeStatus = 'active' | 'planned' | 'paused'
-export type WorkItemKind = 'briefing' | 'report' | 'alert' | 'reply_draft' | 'task' | 'follow_up' | 'content_draft' | 'growth_plan' | 'marketing_plan' | 'listing_task'
+export type WorkItemKind = 'briefing' | 'report' | 'alert' | 'reply_draft' | 'task' | 'follow_up' | 'content_draft' | 'growth_plan' | 'marketing_plan' | 'design_asset' | 'listing_task'
 export type WorkItemStatus = 'open' | 'awaiting_approval' | 'approved' | 'rejected' | 'done' | 'escalated'
 
 export type EmployeeSeed = {
@@ -182,6 +182,28 @@ export const WORKFORCE_ROSTER: EmployeeSeed[] = [
     kpis: ['Pendaftar baru (buyer & agen) per minggu', 'Arahan kampanye siap harian', 'Konten brand tayang tepat jadwal'],
   },
   {
+    slug: 'design',
+    name: 'Vino',
+    roleTitle: 'Visual & Desain Grafis',
+    department: 'Kreatif',
+    emoji: '🎨',
+    mission: 'Membuat aset visual Homy — poster, kartu konten, dan ilustrasi — untuk melengkapi konten Instagram, Threads, dan Facebook. Bekerja sama erat dengan Marketing (arahan brand) dan Social Media Manager (konten) agar setiap unggahan punya visual yang kuat.',
+    autonomy: 'approve',
+    status: 'active',
+    sortOrder: 5,
+    jobCard: {
+      responsibilities: [
+        'Membuat brief & aset poster untuk tiap konten (Instagram, Threads, Facebook).',
+        'Menyiapkan ilustrasi/gambar pendukung sesuai arahan Marketing dan konten SMM.',
+        'Menjaga konsistensi identitas visual brand Homy (warna, tipografi, gaya).',
+      ],
+      standards: ['Aset sesuai ukuran kanal (IG/Threads 1080×1080, Facebook 1200×630).', 'Headline ringkas, mudah dibaca, selaras pesan kampanye.', 'Visual bersih, modern, tanpa klaim harga/diskon.'],
+      guardrails: ['Tidak memakai aset berhak cipta tanpa izin.', 'Tidak menayangkan aset atas nama brand tanpa approval Boss.', 'Semua yang menyangkut biaya (stok berbayar, cetak) wajib persetujuan Boss.'],
+      escalates: ['Aset berbayar/berlisensi', 'Perubahan identitas visual brand'],
+    },
+    kpis: ['Aset siap pakai per konten', 'Konsistensi visual brand'],
+  },
+  {
     slug: 'growth',
     name: 'Bima',
     roleTitle: 'Growth & Lead Generation',
@@ -190,7 +212,7 @@ export const WORKFORCE_ROSTER: EmployeeSeed[] = [
     mission: 'Mengisi pipeline calon penjual & pembeli dari prospek masuk dan data CRM, serta menjaga mesin pertumbuhan tetap hidup.',
     autonomy: 'approve',
     status: 'active',
-    sortOrder: 5,
+    sortOrder: 6,
     jobCard: {
       responsibilities: [
         'Mengubah prospek pasif menjadi pipeline aktif.',
@@ -212,7 +234,7 @@ export const WORKFORCE_ROSTER: EmployeeSeed[] = [
     mission: 'Mengatur seluruh konten sosial Homy di tiga kanal resmi — Instagram, Threads, dan Facebook Page. Menggabungkan highlight listing dari tim Sales dengan arahan brand & rekrutmen dari tim Marketing menjadi draf siap unggah.',
     autonomy: 'approve',
     status: 'active',
-    sortOrder: 6,
+    sortOrder: 7,
     jobCard: {
       responsibilities: ['Menulis caption Instagram, post Threads, dan post Facebook Page untuk highlight listing / edukasi properti / rekrutmen agen.', 'Menyiapkan hashtag, CTA, dan ide visual per kanal.', 'Menjaga konsistensi nada & jadwal tayang (Senin–Jumat).'],
       standards: ['Konten akurat, menarik, sesuai brand Homy, tanpa klaim harga/diskon.', 'Setiap draf punya kanal, hook, isi, hashtag, dan CTA.', 'Bahasa Indonesia yang hangat dan jelas.'],
@@ -230,7 +252,7 @@ export const WORKFORCE_ROSTER: EmployeeSeed[] = [
     mission: 'Membantu onboarding penjual, melengkapi data listing, dan QC sebelum tayang agar setiap listing siap jual.',
     autonomy: 'approve',
     status: 'active',
-    sortOrder: 7,
+    sortOrder: 8,
     jobCard: {
       responsibilities: ['Membantu seller melengkapi data listing.', 'QC listing sebelum publikasi.'],
       standards: ['Setiap listing punya foto, harga, lokasi, dan deskripsi layak tayang.'],
@@ -967,6 +989,79 @@ async function runContent(snapshot: Snapshot, runId: string | null): Promise<{ d
   return { draftCount }
 }
 
+type DesignSpec = { headline?: string; subheadline?: string; cta?: string; palette?: string[]; layout?: string; illustration?: string; notes?: string }
+
+const DESIGN_FORMAT: Record<string, { label: string; w: number; h: number }> = {
+  instagram: { label: '1080×1080 (feed Instagram)', w: 1080, h: 1080 },
+  threads: { label: '1080×1080 (kartu Threads)', w: 1080, h: 1080 },
+  facebook: { label: '1200×630 (Halaman Facebook)', w: 1200, h: 630 },
+}
+
+/** Visual & Desain Grafis: ubah draf konten SMM menjadi aset visual (poster/ilustrasi). Didedupe per draf konten. */
+async function runDesign(snapshot: Snapshot, runId: string | null): Promise<{ assetCount: number }> {
+  void snapshot
+  const admin = sb()
+  const since = wibDayStartIso()
+  const { data: drafts } = await admin
+    .from('ai_work_items')
+    .select('id,title,payload')
+    .eq('kind', 'content_draft')
+    .gte('created_at', since)
+    .order('created_at', { ascending: true })
+    .limit(6)
+  const { data: existing } = await admin
+    .from('ai_work_items')
+    .select('payload')
+    .eq('kind', 'design_asset')
+    .gte('created_at', since)
+    .limit(40)
+  const done = new Set((existing ?? []).map((r) => String(((r.payload ?? {}) as Json).content_item_id ?? '')))
+  let assetCount = 0
+  for (const d of drafts ?? []) {
+    const draftId = String(d.id)
+    if (done.has(draftId)) continue
+    if (assetCount >= 3) break
+    const p = (d.payload ?? {}) as Json
+    const rawCh = String(p.channel ?? 'instagram').toLowerCase()
+    const channel = (CONTENT_CHANNELS as readonly string[]).includes(rawCh) ? rawCh : 'instagram'
+    const headline = String(p.hook ?? d.title ?? 'Homy Property').slice(0, 90)
+    const body = String(p.body ?? '').slice(0, 400)
+    const cta = String(p.cta ?? 'Kunjungi homyproperty.id').slice(0, 80)
+    let spec: DesignSpec = {}
+    try {
+      const r = await aiJsonRetry<DesignSpec>(
+        [
+          { role: 'system', content: 'Kamu "Vino", Visual & Desain Grafis Homy (platform properti Indonesia). Kamu membuat brief poster & ilustrasi konten yang selaras dengan arahan Marketing (Maya) dan konten Social Media Manager (Sari). Gaya: bersih, modern, hangat, terpercaya. Bahasa Indonesia.' },
+          { role: 'user', content: `KANAL: ${channel}\nJUDUL/HOOK: ${headline}\nISI: ${body}\nCTA: ${cta}\n\nBuat brief visual. Hasilkan JSON: { "headline": "teks utama poster (maks 8 kata)", "subheadline": "penjelas singkat", "cta": "ajakan", "palette": ["#hex", "#hex", "#hex"], "layout": "tata letak ringkas", "illustration": "ide ilustrasi/gambar", "notes": "catatan produksi" }.` },
+        ],
+        { temperature: 0.6, maxTokens: 800 },
+      )
+      spec = r ?? {}
+    } catch { spec = {} }
+    const fmt = DESIGN_FORMAT[channel] ?? DESIGN_FORMAT.instagram
+    await insertItem({
+      employee_slug: 'design', kind: 'design_asset',
+      title: `Aset ${CHANNEL_LABEL[channel] ?? channel}: ${String(spec.headline ?? headline).slice(0, 60)}`,
+      summary: String(spec.illustration ?? spec.layout ?? 'Aset visual siap diproduksi.').slice(0, 800),
+      status: 'awaiting_approval', priority: 'normal', requires_approval: true,
+      payload: {
+        content_item_id: draftId, channel, format: fmt.label, w: fmt.w, h: fmt.h,
+        headline: String(spec.headline ?? headline).slice(0, 120),
+        subheadline: String(spec.subheadline ?? body).slice(0, 200),
+        cta: String(spec.cta ?? cta).slice(0, 80),
+        palette: Array.isArray(spec.palette) ? spec.palette.map(String).slice(0, 5) : ['#0b3d2e', '#e8d9b5', '#f6f3ea'],
+        layout: spec.layout ? String(spec.layout).slice(0, 300) : null,
+        illustration: spec.illustration ? String(spec.illustration).slice(0, 300) : null,
+        notes: spec.notes ? String(spec.notes).slice(0, 300) : null,
+        preview_url: `${siteUrl()}/api/og/content/${draftId}`,
+      } as Json,
+      run_id: runId,
+    })
+    assetCount += 1
+  }
+  return { assetCount }
+}
+
 /** Listing Operations bersifat deterministik: QC dari anomali data (tanpa panggilan AI). Didedupe per jenis anomali. */
 async function runListing(snapshot: Snapshot, runId: string | null): Promise<{ taskCount: number }> {
   let taskCount = 0
@@ -1109,7 +1204,7 @@ const COO_TOOLS: AiToolDef[] = [
       parameters: {
         type: 'object',
         properties: {
-          employee_slug: { type: 'string', enum: ['analyst', 'sales', 'growth', 'content', 'listing', 'coo'] },
+          employee_slug: { type: 'string', enum: ['analyst', 'sales', 'growth', 'marketing', 'content', 'design', 'listing', 'coo'] },
           title: { type: 'string' },
           detail: { type: 'string' },
           priority: { type: 'string', enum: ['low', 'normal', 'high', 'urgent'] },
@@ -1147,7 +1242,7 @@ async function cooTool(name: string, args: Json, actorId: string): Promise<Json>
       return { ok }
     }
     if (name === 'create_task') {
-      const slug = ['analyst', 'sales', 'growth', 'content', 'listing', 'coo'].includes(String(args.employee_slug)) ? String(args.employee_slug) : 'coo'
+      const slug = ['analyst', 'sales', 'growth', 'marketing', 'content', 'design', 'listing', 'coo'].includes(String(args.employee_slug)) ? String(args.employee_slug) : 'coo'
       const pr = ['low', 'normal', 'high', 'urgent'].includes(String(args.priority)) ? String(args.priority) : 'normal'
       const id = await insertItem({
         employee_slug: slug, kind: 'task',
@@ -1238,12 +1333,13 @@ export type CycleResult = {
   error?: string
 }
 
-export type CycleScope = 'core' | 'content' | 'extended' | 'all'
+export type CycleScope = 'core' | 'content' | 'extended' | 'design' | 'all'
 const SCOPE_PLAN: Record<CycleScope, string[]> = {
   core: ['analyst', 'sales', 'coo'],
   content: ['marketing', 'content'],
+  design: ['design'],
   extended: ['growth', 'listing'],
-  all: ['analyst', 'sales', 'growth', 'marketing', 'content', 'listing', 'coo'],
+  all: ['analyst', 'sales', 'growth', 'marketing', 'content', 'design', 'listing', 'coo'],
 }
 
 export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron' | 'event' = 'manual', scope: CycleScope = 'core'): Promise<CycleResult> {
@@ -1299,6 +1395,11 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
           const c = await runContent(snapshot, runId)
           employees.push({ slug, work: c.draftCount, note: `${c.draftCount} konten siap unggah` })
           itemsCreated += c.draftCount
+        } else if (slug === 'design') {
+          if (skip) { employees.push({ slug, work: 0, note: 'dilewati (batas waktu)' }); continue }
+          const dz = await runDesign(snapshot, runId)
+          employees.push({ slug, work: dz.assetCount, note: dz.assetCount ? `${dz.assetCount} aset visual siap` : 'sudah ada hari ini' })
+          itemsCreated += dz.assetCount
         } else if (slug === 'listing') {
           const l = await runListing(snapshot, runId)
           employees.push({ slug, work: l.taskCount })

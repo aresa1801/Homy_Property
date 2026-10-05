@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle, AtSign, Building2, Camera, Check, CheckCircle2, ChevronRight, ClipboardList, Clock,
-  Copy, FileText, Loader2, MessageSquare, PenLine, Play, Power, RefreshCw, Send, ShieldAlert, Sparkles, Target, TrendingUp, Users, X,
+  Copy, ExternalLink, FileText, Loader2, MessageSquare, Palette, PenLine, Play, Power, RefreshCw, Send, ShieldAlert, Sparkles, Target, TrendingUp, Users, X,
 } from 'lucide-react'
 import { ui, type DashboardPayload } from '@/lib/dashboard-client'
 
@@ -42,6 +42,7 @@ const KIND_META: Record<string, { label: string; icon: typeof FileText }> = {
   content_draft: { label: 'Konten Sosial', icon: PenLine },
   growth_plan: { label: 'Rencana Pertumbuhan', icon: TrendingUp },
   marketing_plan: { label: 'Rencana Pemasaran', icon: Target },
+  design_asset: { label: 'Aset Desain', icon: Palette },
   listing_task: { label: 'Tugas Listing', icon: Building2 },
   follow_up: { label: 'Tindak Lanjut', icon: Clock },
   task: { label: 'Tugas', icon: ClipboardList },
@@ -461,7 +462,32 @@ function QueueCard({ item, employee, busy, onDecide }: { item: Item; employee?: 
           </div>
         )
       })()}
-      {!reply && item.kind !== 'content_draft' && item.summary && <p className="mt-2 text-sm leading-6 text-[#33433d]">{item.summary}</p>}
+      {item.kind === 'design_asset' && (() => {
+        const fmt = str(item.payload?.format)
+        const what = str(item.payload?.headline)
+        const sub = str(item.payload?.subheadline)
+        const ctaDesign = str(item.payload?.cta)
+        const ill = str(item.payload?.illustration)
+        const lay = str(item.payload?.layout)
+        const prev = str(item.payload?.preview_url)
+        const pal = Array.isArray(item.payload?.palette) ? (item.payload.palette as unknown[]).map(String) : []
+        return (
+          <div className="mt-2 space-y-2 rounded-lg border border-[#d8ccbb] bg-white px-3 py-2 text-sm leading-6 text-[#33433d]">
+            <div className="flex items-center gap-2">
+              <Palette className="size-4 text-[#0b3d2e]" />
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-[#a18a61]">{fmt || 'Aset visual'}</span>
+            </div>
+            {what && <p className="text-base font-semibold text-[#0b3d2e]">{what}</p>}
+            {sub && <p>{sub}</p>}
+            {ctaDesign && <p className="font-medium text-[#0b3d2e]">CTA: {ctaDesign}</p>}
+            {!!pal.length && <div className="flex items-center gap-1.5">{pal.map((c, i) => <span key={i} className="inline-block size-5 rounded border border-black/10" style={{ background: c }} title={c} />)}</div>}
+            {lay && <p><span className="text-[#a18a61]">Tata letak:</span> {lay}</p>}
+            {ill && <p><span className="text-[#a18a61]">Ilustrasi:</span> {ill}</p>}
+            {prev && <a href={prev} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-semibold text-[#0b3d2e] hover:underline"><ExternalLink className="size-3.5" /> Lihat pratinjau poster</a>}
+          </div>
+        )
+      })()}
+      {!reply && item.kind !== 'content_draft' && item.kind !== 'design_asset' && item.summary && <p className="mt-2 text-sm leading-6 text-[#33433d]">{item.summary}</p>}
 
       {canDecide ? (
         <div className="mt-3 flex justify-end gap-2">
