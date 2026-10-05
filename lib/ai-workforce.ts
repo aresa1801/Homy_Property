@@ -863,26 +863,43 @@ async function runMarketing(snapshot: Snapshot, runId: string | null): Promise<{
   // Satu rencana pemasaran per hari.
   const today = await itemsSince(['marketing_plan'], wibDayStartIso())
   if (today.length) return { planCount: 0 }
-  const result = await aiJsonRetry<MarketingPlan>(
-    [
-      { role: 'system', content: 'Kamu "Maya", Marketing & Brand Homy (platform properti Indonesia). Fokus UTAMA: mempromosikan Homy Property agar makin banyak orang mendaftar & login — (a) calon pembeli/penyewa dan (b) agen properti yang ingin bergabung. Kamu menyusun arah kampanye yang nanti dieksekusi tim Social Media Manager (Sari) di Instagram, Threads, dan Facebook. Bahasa Indonesia, praktis, tanpa basa-basi. Jangan mengarang angka.' },
-      { role: 'user', content: `KONDISI PLATFORM (JSON): ${JSON.stringify({ totals: snapshot.totals, kota: snapshot.cityBreakdown, listing_tayang: snapshot.publishedListings?.slice(0, 8) }).slice(0, 5000)}\n\nSusun rencana pemasaran harian. Hasilkan JSON: { "summary": "2-3 kalimat arah pemasaran hari ini", "objectives": ["tujuan terukur"], "campaigns": [ { "title": "...", "audience": "pembeli|agen|umum", "channels": ["instagram","threads","facebook"], "key_message": "...", "cta": "...", "needs_budget": true|false } ], "agent_recruitment": ["langkah merekrut agen properti"] }. Maks 3 campaigns, 3 objectives, 3 agent_recruitment. Tandai needs_budget=true untuk apa pun yang butuh biaya iklan/anggaran.` },
-    ],
-    { temperature: 0.6, maxTokens: 1800 },
-  )
-  const campaigns = Array.isArray(result.campaigns) ? result.campaigns.slice(0, 3) : []
-  await insertItem({
-    employee_slug: 'marketing', kind: 'marketing_plan',
-    title: 'Rencana pemasaran & rekrutmen agen',
-    summary: String(result.summary ?? 'Rencana pemasaran disiapkan.').slice(0, 1000),
-    status: 'awaiting_approval', priority: 'normal', requires_approval: true,
-    payload: {
-      objectives: Array.isArray(result.objectives) ? result.objectives.slice(0, 3) : [],
-      campaigns,
-      agent_recruitment: Array.isArray(result.agent_recruitment) ? result.agent_recruitment.slice(0, 3) : [],
-    } as Json,
-    run_id: runId,
-  })
+  let campaigns: MarketingPlan['campaigns'] = []
+  try {
+    const result = await aiJsonRetry<MarketingPlan>(
+      [
+        { role: 'system', content: 'Kamu "Maya", Marketing & Brand Homy (platform properti Indonesia). Fokus UTAMA: mempromosikan Homy Property agar makin banyak orang mendaftar & login — (a) calon pembeli/penyewa dan (b) agen properti yang ingin bergabung. Kamu menyusun arah kampanye yang nanti dieksekusi tim Social Media Manager (Sari) di Instagram, Threads, dan Facebook. Bahasa Indonesia, praktis, tanpa basa-basi. Jangan mengarang angka.' },
+        { role: 'user', content: `KONDISI PLATFORM (JSON): ${JSON.stringify({ totals: snapshot.totals, kota: snapshot.cityBreakdown, listing_tayang: snapshot.publishedListings?.slice(0, 8) }).slice(0, 5000)}\n\nSusun rencana pemasaran harian. Hasilkan JSON: { "summary": "2-3 kalimat arah pemasaran hari ini", "objectives": ["tujuan terukur"], "campaigns": [ { "title": "...", "audience": "pembeli|agen|umum", "channels": ["instagram","threads","facebook"], "key_message": "...", "cta": "...", "needs_budget": true|false } ], "agent_recruitment": ["langkah merekrut agen properti"] }. Maks 3 campaigns, 3 objectives, 3 agent_recruitment. Tandai needs_budget=true untuk apa pun yang butuh biaya iklan/anggaran.` },
+      ],
+      { temperature: 0.5, maxTokens: 1500 },
+    )
+    campaigns = Array.isArray(result.campaigns) ? result.campaigns.slice(0, 3) : []
+    await insertItem({
+      employee_slug: 'marketing', kind: 'marketing_plan',
+      title: 'Rencana pemasaran & rekrutmen agen',
+      summary: String(result.summary ?? 'Rencana pemasaran disiapkan.').slice(0, 1000),
+      status: 'awaiting_approval', priority: 'normal', requires_approval: true,
+      payload: {
+        objectives: Array.isArray(result.objectives) ? result.objectives.slice(0, 3) : [],
+        campaigns,
+        agent_recruitment: Array.isArray(result.agent_recruitment) ? result.agent_recruitment.slice(0, 3) : [],
+      } as Json,
+      run_id: runId,
+    })
+  } catch {
+    await insertItem({
+      employee_slug: 'marketing', kind: 'marketing_plan',
+      title: 'Rencana pemasaran & rekrutmen agen',
+      summary: 'Fokus hari ini: dorong pendaftaran buyer & rekrutmen agen properti lewat konten Instagram, Threads, dan Facebook Page.',
+      status: 'awaiting_approval', priority: 'normal', requires_approval: true,
+      payload: {
+        objectives: ['Menambah pendaftar baru (buyer & agen)', 'Menaikkan trafik ke homyproperty.id'],
+        campaigns: [{ title: 'Ajak agen bergabung', audience: 'agen', channels: ['instagram', 'threads', 'facebook'], key_message: 'Pasarkan listing kamu ke lebih banyak pembeli di Homy Property.', cta: 'Daftar di homyproperty.id', needs_budget: false }],
+        agent_recruitment: ['Sorot benefit agen: jangkauan pembeli lebih luas, gratis, mudah dipakai.'],
+      } as Json,
+      run_id: runId,
+    })
+    return { planCount: 1 }
+  }
   if (campaigns.some((c) => c?.needs_budget)) {
     if (!(await anyActiveItem(['task'], (r) => String(r.payload.type ?? '') === 'budget'))) {
       await insertItem({
@@ -898,17 +915,34 @@ async function runMarketing(snapshot: Snapshot, runId: string | null): Promise<{
   return { planCount: 1 }
 }
 
+/** Cadangan bila AI mengembalikan kosong — jamin SMM tetap punya draf (approve-first). */
+function fallbackPosts(snapshot: Snapshot): ContentPost[] {
+  const l = snapshot.publishedListings?.[0]
+  const city = l?.city || snapshot.cityBreakdown?.[0]?.city || 'Indonesia'
+  const title = l?.title || 'properti unggulan'
+  const link = 'https://homyproperty.id'
+  return [
+    { channel: 'instagram', audience: 'pembeli', hook: `${title} — pilihan menarik di ${city}`, body: `Lagi cari properti di ${city}? ${title} bisa jadi opsi yang pas. Cek detail lengkap, foto, dan lokasinya di Homy Property.`, hashtags: ['#HomyProperty', '#PropertiIndonesia', '#RumahDijual', '#JualRumah', '#Properti'], cta: `Lihat detailnya di ${link}`, image_idea: 'Foto utama properti + logo Homy' },
+    { channel: 'threads', audience: 'agen', hook: 'Agen properti, pasarkan listing kamu di Homy', body: 'Punya listing? Pasarkan di Homy Property dan jangkau lebih banyak pembeli di seluruh Indonesia. Gratis dibuat, mudah dipakai.', hashtags: ['#HomyProperty', '#AgenProperti'], cta: `Daftar di ${link}`, image_idea: 'Kartu ajakan daftar agen' },
+    { channel: 'facebook', audience: 'umum', hook: `${title} di ${city}`, body: `Temukan ${title} di ${city} lewat Homy Property.\n\nHomy Property membantu kamu mencari rumah, apartemen, dan tanah dengan mudah — lengkap dengan informasi lokasi dan harga. Untuk agen properti, bergabunglah dan pasarkan listing Anda ke lebih banyak orang.`, hashtags: ['#HomyProperty', '#PropertiIndonesia', '#RumahDijual'], cta: `Kunjungi ${link}`, image_idea: 'Kartu Homy 1080×1080' },
+  ]
+}
+
 /** Social Media Manager: rangkai konten 3 kanal (Instagram, Threads, Facebook). */
 async function runContent(snapshot: Snapshot, runId: string | null): Promise<{ draftCount: number }> {
   const plan = await latestMarketingPlan()
-  const result = await aiJsonRetry<{ posts: ContentPost[] }>(
-    [
-      { role: 'system', content: 'Kamu "Sari", Social Media Manager Homy (platform properti Indonesia). Kamu mengatur konten untuk TIGA kanal resmi: Instagram, Threads, dan Facebook Page. Kamu menggabungkan (a) highlight listing dari tim Sales dan (b) arahan brand & rekrutmen dari tim Marketing. Nada hangat, jelas, membantu, tidak lebay, tanpa klaim harga/diskon. Bahasa Indonesia.' },
-      { role: 'user', content: `DATA (JSON): ${JSON.stringify({ listing: snapshot.publishedListings, kota: snapshot.cityBreakdown, total_tayang: snapshot.totals.listing_tayang, arahan_marketing: plan ? { summary: plan.summary, campaigns: plan.campaigns } : null }).slice(0, 6000)}\n\nBuat 3 konten: 1 untuk "instagram" (caption + 8-12 hashtag + CTA), 1 untuk "threads" (post singkat < 400 karakter + 2-3 hashtag), 1 untuk "facebook" (post Halaman 1-3 paragraf + CTA + maks 5 hashtag). Sisipkan minimal satu konten bernuansa rekrutmen agen / ajakan mendaftar bagi khalayak yang relevan. Hasilkan JSON: { "posts": [ { "channel": "instagram|threads|facebook", "audience": "pembeli|agen|umum", "hook": "...", "body": "...", "hashtags": ["#..."], "cta": "...", "image_idea": "..." } ] }.` },
-    ],
-    { temperature: 0.7, maxTokens: 2200 },
-  )
-  const posts = Array.isArray(result.posts) ? result.posts.slice(0, 3) : []
+  let posts: ContentPost[] = fallbackPosts(snapshot)
+  try {
+    const result = await aiJsonRetry<{ posts: ContentPost[] }>(
+      [
+        { role: 'system', content: 'Kamu "Sari", Social Media Manager Homy (platform properti Indonesia). Kamu mengatur konten untuk TIGA kanal resmi: Instagram, Threads, dan Facebook Page. Kamu menggabungkan (a) highlight listing dari tim Sales dan (b) arahan brand & rekrutmen dari tim Marketing. Nada hangat, jelas, membantu, tidak lebay, tanpa klaim harga/diskon. Bahasa Indonesia.' },
+        { role: 'user', content: `DATA (JSON): ${JSON.stringify({ listing: snapshot.publishedListings, kota: snapshot.cityBreakdown, total_tayang: snapshot.totals.listing_tayang, arahan_marketing: plan ? { summary: plan.summary, campaigns: plan.campaigns } : null }).slice(0, 6000)}\n\nBuat 3 konten: 1 untuk "instagram" (caption + 8-12 hashtag + CTA), 1 untuk "threads" (post singkat < 400 karakter + 2-3 hashtag), 1 untuk "facebook" (post Halaman 1-3 paragraf + CTA + maks 5 hashtag). Sisipkan minimal satu konten bernuansa rekrutmen agen / ajakan mendaftar bagi khalayak yang relevan. Hasilkan JSON: { "posts": [ { "channel": "instagram|threads|facebook", "audience": "pembeli|agen|umum", "hook": "...", "body": "...", "hashtags": ["#..."], "cta": "...", "image_idea": "..." } ] }.` },
+      ],
+      { temperature: 0.6, maxTokens: 1600 },
+    )
+    const rawPosts = Array.isArray(result.posts) ? result.posts.slice(0, 3) : []
+    if (rawPosts.length) posts = rawPosts
+  } catch { /* pakai cadangan */ }
   const usedChannels = new Set((await itemsSince(['content_draft'], wibDayStartIso())).map((p) => String(p.channel ?? '')))
   let draftCount = 0
   for (const p of posts) {
