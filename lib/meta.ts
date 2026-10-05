@@ -6,9 +6,11 @@ export const GRAPH = `https://graph.facebook.com/${GRAPH_VERSION}`
 export const THREADS_GRAPH = 'https://graph.threads.net'
 export const THREADS_VERSION = 'v1.0'
 
-export type Channel = 'instagram' | 'threads'
+export type Channel = 'instagram' | 'threads' | 'facebook'
 
 export const IG_SCOPES = ['instagram_basic', 'instagram_content_publish', 'pages_show_list', 'pages_read_engagement', 'business_management']
+/** Facebook Page: butuh pages_manage_posts agar bisa menerbitkan ke feed Halaman. */
+export const FB_SCOPES = ['pages_show_list', 'pages_read_engagement', 'pages_manage_posts', 'business_management', 'instagram_basic', 'instagram_content_publish']
 export const THREADS_SCOPES = ['threads_basic', 'threads_content_publish']
 
 export function siteUrl(): string {
@@ -19,7 +21,7 @@ export function redirectUri(): string {
 }
 
 export function appCredentials(channel: Channel): { id: string; secret: string } {
-  if (channel === 'instagram') {
+  if (channel !== 'threads') {
     return { id: process.env.META_APP_ID || '', secret: process.env.META_APP_SECRET || '' }
   }
   return { id: process.env.THREADS_APP_ID || '', secret: process.env.THREADS_APP_SECRET || '' }
@@ -34,8 +36,8 @@ export function authorizeUrl(channel: Channel, state: string): string | null {
   const { id } = appCredentials(channel)
   if (!id) return null
   const redirect = encodeURIComponent(redirectUri())
-  if (channel === 'instagram') {
-    const scope = encodeURIComponent(IG_SCOPES.join(','))
+  if (channel !== 'threads') {
+    const scope = encodeURIComponent((channel === 'facebook' ? FB_SCOPES : IG_SCOPES).join(','))
     return `https://www.facebook.com/${GRAPH_VERSION}/dialog/oauth?client_id=${id}&redirect_uri=${redirect}&state=${state}&response_type=code&scope=${scope}`
   }
   const scope = encodeURIComponent(THREADS_SCOPES.join(','))
@@ -60,7 +62,7 @@ async function jsonFetch(url: string, init?: RequestInit): Promise<Json> {
 
 export async function exchangeCode(channel: Channel, code: string): Promise<{ token: string; expiresIn: number }> {
   const { id, secret } = appCredentials(channel)
-  if (channel === 'instagram') {
+  if (channel !== 'threads') {
     const url = `${GRAPH}/oauth/access_token?client_id=${id}&redirect_uri=${encodeURIComponent(redirectUri())}&client_secret=${secret}&code=${encodeURIComponent(code)}`
     const d = await jsonFetch(url)
     return { token: String(d.access_token || ''), expiresIn: Number(d.expires_in || 0) }
@@ -74,7 +76,7 @@ export async function exchangeCode(channel: Channel, code: string): Promise<{ to
 
 export async function longLived(channel: Channel, shortToken: string): Promise<{ token: string; expiresIn: number }> {
   const { id, secret } = appCredentials(channel)
-  if (channel === 'instagram') {
+  if (channel !== 'threads') {
     const url = `${GRAPH}/oauth/access_token?grant_type=fb_exchange_token&client_id=${id}&client_secret=${secret}&fb_exchange_token=${encodeURIComponent(shortToken)}`
     const d = await jsonFetch(url)
     return { token: String(d.access_token || shortToken), expiresIn: Number(d.expires_in || 0) }
@@ -103,6 +105,17 @@ export async function resolveInstagram(userToken: string): Promise<IgResolved> {
 export async function threadsProfile(token: string): Promise<{ id: string; username: string }> {
   const d = await jsonFetch(`${THREADS_GRAPH}/${THREADS_VERSION}/me?fields=id,username&access_token=${encodeURIComponent(token)}`)
   return { id: String(d.id), username: d.username ? String(d.username) : '' }
+}
+
+export type PageResolved = { pageId: string; pageName: string; pageToken: string }
+
+/** Ambil Facebook Page pertama yang bisa dikelola akun ini (untuk terbit ke feed Halaman). */
+export async function resolvePage(userToken: string): Promise<PageResolved> {
+  const d = await jsonFetch(`${GRAPH}/me/accounts?fields=id,name,access_token&access_token=${encodeURIComponent(userToken)}`)
+  const pages = Array.isArray(d.data) ? (d.data as Json[]) : []
+  const page = pages.find((p) => p.id && p.access_token)
+  if (!page) throw new Error('Tidak ada Facebook Page yang bisa dikelola akun ini. Pastikan kamu admin Halaman tersebut.')
+  return { pageId: String(page.id), pageName: String(page.name || ''), pageToken: String(page.access_token) }
 }
 
 /* ---------- Store koneksi ---------- */
@@ -230,4 +243,24 @@ export async function publishThreads(text: string, imageUrl?: string): Promise<{
     body: new URLSearchParams({ creation_id: containerId, access_token: conn.token }),
   })
   return { id: String(pub.id || '') }
+}
+
+/** Terbit ke facebook Page: dengan gambar → /photos, teks saja → /feed. */
+export async function publishFacebook(message: string, imageUrl?: string): Promise<{ id: string }> {
+  const conn = await getConnectionSecret('facebook')
+  if (!conn?.token) throw new Error('Facebook belum terhubung.')
+  const pageId = conn.accountId
+  if (!pageId) throw new Error('ID Halaman Facebook tidak ditemukan.')
+  if (imageUrl) {
+    const r = await jsonFetch(`${GRAPH}/${pageId}/photos`, {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ url: imageUrl, caption: message, access_token: conn.token }),
+    })
+    return { id: String(r.post_id || r.id || '') }
+  }
+  const r = await jsonFetch(`${GRAPH}/${pageId}/feed`, {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ message, access_token: conn.token }),
+  })
+  return { id: String(r.id || '') }
 }

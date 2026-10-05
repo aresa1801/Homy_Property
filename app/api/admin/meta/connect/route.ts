@@ -9,14 +9,14 @@ const ADMIN_ROLES = ['admin', 'super_admin']
 const WORKFORCE_PATH = '/dashboard/admin/workforce'
 
 function isChannel(v: string | null): v is Channel {
-  return v === 'instagram' || v === 'threads'
+  return v === 'instagram' || v === 'threads' || v === 'facebook'
 }
 
 /** Mulai alur OAuth: set state di cookie lalu redirect ke Meta/Threads. */
 export async function GET(request: Request) {
   const url = new URL(request.url)
   const channel = url.searchParams.get('channel')
-  if (!isChannel(channel)) return NextResponse.json({ error: 'channel tidak dikenal (pakai instagram|threads).' }, { status: 400 })
+  if (!isChannel(channel)) return NextResponse.json({ error: 'channel tidak dikenal (pakai instagram|threads|facebook).' }, { status: 400 })
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import {
-  exchangeCode, longLived, resolveInstagram, threadsProfile, saveConnection, markConnectionError,
-  IG_SCOPES, THREADS_SCOPES, type Channel,
+  exchangeCode, longLived, resolveInstagram, resolvePage, threadsProfile, saveConnection, markConnectionError,
+  IG_SCOPES, FB_SCOPES, THREADS_SCOPES, type Channel,
 } from '@/lib/meta'
 
 export const runtime = 'nodejs'
@@ -13,7 +13,7 @@ const WORKFORCE_PATH = '/dashboard/admin/workforce'
 type Saved = { state: string; channel: Channel; uid: string }
 
 function isChannel(v: unknown): v is Channel {
-  return v === 'instagram' || v === 'threads'
+  return v === 'instagram' || v === 'threads' || v === 'facebook'
 }
 
 function back(url: URL, status: 'ok' | 'error', msg?: string) {
@@ -62,6 +62,17 @@ export async function GET(request: Request) {
       })
       if (!ok) throw new Error('Gagal menyimpan koneksi Instagram.')
       return back(url, 'ok', `Instagram terhubung: @${info.username || info.igId}`)
+    }
+
+    if (channel === 'facebook') {
+      const info = await resolvePage(token || short.token)
+      const ok = await saveConnection({
+        channel, accountId: info.pageId, username: info.pageName, pageId: info.pageId, pageName: info.pageName,
+        accessToken: info.pageToken || token, expiresAt: null, scopes: FB_SCOPES.join(' '),
+        connectedBy: saved.uid, status: 'connected',
+      })
+      if (!ok) throw new Error('Gagal menyimpan koneksi Facebook.')
+      return back(url, 'ok', `Facebook terhubung: ${info.pageName || info.pageId}`)
     }
 
     const profile = await threadsProfile(token)

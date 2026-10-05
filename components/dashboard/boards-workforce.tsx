@@ -41,6 +41,7 @@ const KIND_META: Record<string, { label: string; icon: typeof FileText }> = {
   reply_draft: { label: 'Draf Balasan', icon: MessageSquare },
   content_draft: { label: 'Konten Sosial', icon: PenLine },
   growth_plan: { label: 'Rencana Pertumbuhan', icon: TrendingUp },
+  marketing_plan: { label: 'Rencana Pemasaran', icon: Target },
   listing_task: { label: 'Tugas Listing', icon: Building2 },
   follow_up: { label: 'Tindak Lanjut', icon: Clock },
   task: { label: 'Tugas', icon: ClipboardList },
@@ -413,8 +414,8 @@ function QueueCard({ item, employee, busy, onDecide }: { item: Item; employee?: 
       {item.kind === 'content_draft' && (
         <div className="mt-2 rounded-lg border border-[#d8ccbb] bg-white px-3 py-2 text-sm leading-6 text-[#33433d]">
           <div className="mb-1 flex items-center gap-2">
-            {channel === 'threads' ? <AtSign className="size-4 text-[#0b3d2e]" /> : <Camera className="size-4 text-[#0b3d2e]" />}
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#a18a61]">{channel === 'threads' ? 'Threads' : 'Instagram'}</span>
+            {channel === 'threads' ? <AtSign className="size-4 text-[#0b3d2e]" /> : channel === 'facebook' ? <Users className="size-4 text-[#0b3d2e]" /> : <Camera className="size-4 text-[#0b3d2e]" />}
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#a18a61]">{CHANNEL_META[channel as 'instagram' | 'threads' | 'facebook']?.label ?? 'Instagram'}</span>
           </div>
           <p className="whitespace-pre-wrap">{postBody}</p>
           {cta && <p className="mt-1 font-medium text-[#0b3d2e]">{cta}</p>}
@@ -422,6 +423,44 @@ function QueueCard({ item, employee, busy, onDecide }: { item: Item; employee?: 
           <button type="button" onClick={() => void copyText(postText)} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#0b3d2e] hover:underline"><Copy className="size-3.5" /> Salin teks</button>
         </div>
       )}
+      {item.kind === 'marketing_plan' && (() => {
+        const cps = Array.isArray(item.payload?.campaigns) ? (item.payload.campaigns as Record<string, unknown>[]) : []
+        const rec = arr(item.payload?.agent_recruitment)
+        const objs = arr(item.payload?.objectives)
+        return (
+          <div className="mt-2 space-y-2 rounded-lg border border-[#d8ccbb] bg-white px-3 py-2 text-sm leading-6 text-[#33433d]">
+            {!!objs.length && (
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#a18a61]">Tujuan</p>
+                <ul className="mt-0.5 list-disc pl-5">{objs.map((o, i) => <li key={i}>{o}</li>)}</ul>
+              </div>
+            )}
+            {!!cps.length && (
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#a18a61]">Kampanye</p>
+                <ul className="mt-0.5 space-y-1">
+                  {cps.map((c, i) => (
+                    <li key={i}>
+                      <span className="font-semibold text-[#0b3d2e]">{str(c.title)}</span>
+                      {c.audience ? <span className="text-[#718078]"> · {str(c.audience)}</span> : null}
+                      {c.key_message ? <span className="block">{str(c.key_message)}</span> : null}
+                      {c.cta ? <span className="block text-[#0b3d2e]">CTA: {str(c.cta)}</span> : null}
+                      {Array.isArray(c.channels) ? <span className="block text-[#4e866d]">{(c.channels as unknown[]).map(String).join(', ')}</span> : null}
+                      {c.needs_budget ? <span className="ml-1 inline-block rounded bg-[#fbe9e6] px-1.5 text-[11px] font-semibold text-[#b4553f]">butuh anggaran</span> : null}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {!!rec.length && (
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-[#a18a61]">Rekrutmen agen</p>
+                <ul className="mt-0.5 list-disc pl-5">{rec.map((o, i) => <li key={i}>{o}</li>)}</ul>
+              </div>
+            )}
+          </div>
+        )
+      })()}
       {!reply && item.kind !== 'content_draft' && item.summary && <p className="mt-2 text-sm leading-6 text-[#33433d]">{item.summary}</p>}
 
       {canDecide ? (
@@ -677,15 +716,16 @@ function TargetCard({ t, busy, onUpdate }: { t: Target; busy: boolean; onUpdate:
 /* ------------------------------------------------------------------ */
 
 type Connection = {
-  channel: 'instagram' | 'threads'; accountId: string | null; username: string | null
+  channel: 'instagram' | 'threads' | 'facebook'; accountId: string | null; username: string | null
   pageId: string | null; pageName: string | null; status: string; expiresAt: string | null
   scopes: string | null; connectedAt: string | null; lastError: string | null
 }
-type SocialStatus = { configured: { instagram: boolean; threads: boolean }; redirectUri: string; connections: Connection[] }
+type SocialStatus = { configured: { instagram: boolean; threads: boolean; facebook: boolean }; redirectUri: string; connections: Connection[] }
 
-const CHANNEL_META: Record<'instagram' | 'threads', { label: string; emoji: string }> = {
+const CHANNEL_META: Record<'instagram' | 'threads' | 'facebook', { label: string; emoji: string }> = {
   instagram: { label: 'Instagram', emoji: '📸' },
   threads: { label: 'Threads', emoji: '🧵' },
+  facebook: { label: 'Facebook Page', emoji: '📘' },
 }
 
 function SocialPanel({ status, items, busy, onReload, onDisconnect, onPublish }: {
@@ -693,19 +733,19 @@ function SocialPanel({ status, items, busy, onReload, onDisconnect, onPublish }:
   onReload: () => void; onDisconnect: (channel: string) => void; onPublish: (id: string) => void
 }) {
   const drafts = items.filter((i) => i.kind === 'content_draft')
-  const conn = (ch: 'instagram' | 'threads') => status?.connections.find((c) => c.channel === ch)
+  const conn = (ch: 'instagram' | 'threads' | 'facebook') => status?.connections.find((c) => c.channel === ch)
   return (
     <div className="space-y-4">
       <div className={ui.card}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="max-w-2xl">
             <p className="flex items-center gap-2 text-sm font-semibold text-[#0b3d2e]"><AtSign className="size-4" /> Koneksi Sosial</p>
-            <p className="mt-1 text-sm text-[#718078]">Hubungkan akun <strong>Instagram Business</strong> &amp; <strong>Threads</strong> sekali di sini. Setelah terhubung, draf konten yang sudah Boss <strong>setujui</strong> bisa langsung diterbitkan — tetap approve-first, tidak ada post otomatis.</p>
+            <p className="mt-1 text-sm text-[#718078]">Hubungkan akun <strong>Instagram Business</strong>, <strong>Threads</strong>, &amp; <strong>Facebook Page</strong> sekali di sini. Setelah terhubung, draf konten yang sudah Boss <strong>setujui</strong> bisa langsung diterbitkan — tetap approve-first, tidak ada post otomatis.</p>
           </div>
           <button type="button" onClick={onReload} className={ui.ghost}><RefreshCw className="size-4" /> Muat ulang</button>
         </div>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          {(['instagram', 'threads'] as const).map((ch) => {
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          {(['instagram', 'threads', 'facebook'] as const).map((ch) => {
             const c = conn(ch)
             const isConfigured = status?.configured?.[ch]
             const connected = !!c && c.status === 'connected'
@@ -739,7 +779,7 @@ function SocialPanel({ status, items, busy, onReload, onDisconnect, onPublish }:
       <div className="space-y-3">
         <p className={ui.eyebrow}>Draf konten &amp; publikasi ({drafts.length})</p>
         {!drafts.length ? <div className={ui.card}><p className="text-sm text-[#718078]">Belum ada draf konten. Jalankan siklus “Konten”.</p></div> : drafts.map((i) => {
-          const ch = String((i.payload as Record<string, unknown>).channel || 'instagram') === 'threads' ? 'threads' : 'instagram'
+          const ch = (() => { const c = String((i.payload as Record<string, unknown>).channel || 'instagram').toLowerCase(); return c === 'threads' ? 'threads' : c === 'facebook' ? 'facebook' : 'instagram' })()
           return <PublishCard key={i.id} item={i} busy={busy === `pub:${i.id}`} connected={!!conn(ch)} onPublish={onPublish} />
         })}
       </div>

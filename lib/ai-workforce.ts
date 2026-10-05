@@ -18,11 +18,14 @@
  */
 import { aiConfigured, aiJson, aiModel, aiToolChat, AiError, type AiMessage, type AiToolDef } from '@/lib/ai'
 import { serviceClient } from '@/lib/visits'
-import { publishInstagram, publishThreads, siteUrl } from '@/lib/meta'
+import { publishFacebook, publishInstagram, publishThreads, siteUrl } from '@/lib/meta'
 
 type Json = Record<string, unknown>
 const nowIso = () => new Date().toISOString()
 const WIB_OFFSET_MS = 7 * 60 * 60 * 1000
+/** Kanal sosial resmi Homy. */
+const CONTENT_CHANNELS = ['instagram', 'threads', 'facebook'] as const
+const CHANNEL_LABEL: Record<string, string> = { instagram: 'Instagram', threads: 'Threads', facebook: 'Facebook' }
 
 function sb() {
   const admin = serviceClient()
@@ -36,7 +39,7 @@ function sb() {
 
 export type Autonomy = 'draft' | 'approve' | 'auto'
 export type EmployeeStatus = 'active' | 'planned' | 'paused'
-export type WorkItemKind = 'briefing' | 'report' | 'alert' | 'reply_draft' | 'task' | 'follow_up' | 'content_draft' | 'growth_plan' | 'listing_task'
+export type WorkItemKind = 'briefing' | 'report' | 'alert' | 'reply_draft' | 'task' | 'follow_up' | 'content_draft' | 'growth_plan' | 'marketing_plan' | 'listing_task'
 export type WorkItemStatus = 'open' | 'awaiting_approval' | 'approved' | 'rejected' | 'done' | 'escalated'
 
 export type EmployeeSeed = {
@@ -148,6 +151,37 @@ export const WORKFORCE_ROSTER: EmployeeSeed[] = [
     kpis: ['Waktu draf balasan < 5 menit sejak prospek masuk', 'Tingkat persetujuan draf ≥ 80%', 'Nol balasan terlambat > 24 jam'],
   },
   {
+    slug: 'marketing',
+    name: 'Maya',
+    roleTitle: 'Marketing & Brand',
+    department: 'Pemasaran',
+    emoji: '📣',
+    mission: 'Mempromosikan Homy Property agar makin banyak orang mendaftar & login — calon pembeli/penyewa maupun agen properti yang ingin bergabung. Menyusun arah kampanye brand & rekrutmen yang dieksekusi tim Social Media Manager di Instagram, Threads, dan Facebook.',
+    autonomy: 'approve',
+    status: 'active',
+    sortOrder: 4,
+    jobCard: {
+      responsibilities: [
+        'Menyusun arah promosi brand Homy Property (kenapa orang harus pakai Homy).',
+        'Merancang kampanye rekrutmen agen properti: benefit, langkah gabung, alasan bergabung.',
+        'Menargetkan khalayak yang tepat (pembeli/penyewa vs calon agen) per kanal.',
+        'Menyerahkan arahan kampanye ke Social Media Manager untuk diubah menjadi konten siap tayang.',
+      ],
+      standards: [
+        'Setiap kampanye punya audiens, pesan kunci, CTA, dan kanal yang jelas.',
+        'Klaim jujur & sesuai kebijakan platform — tanpa janji keuntungan yang menyesatkan.',
+        'Selalu dorong pendaftaran/login (buyer maupun agen) sebagai tujuan utama.',
+      ],
+      guardrails: [
+        'Tidak menayangkan iklan/konten atas nama brand tanpa approval Boss.',
+        'Semua yang menyangkut uang (anggaran iklan, promo, komisi) wajib persetujuan Boss.',
+        'Tidak menjanjikan komisi/keuntungan spesifik kepada calon agen tanpa approval.',
+      ],
+      escalates: ['Anggaran iklan', 'Skema komisi/insentif agen', 'Identitas & positioning brand'],
+    },
+    kpis: ['Pendaftar baru (buyer & agen) per minggu', 'Arahan kampanye siap harian', 'Konten brand tayang tepat jadwal'],
+  },
+  {
     slug: 'growth',
     name: 'Bima',
     roleTitle: 'Growth & Lead Generation',
@@ -156,7 +190,7 @@ export const WORKFORCE_ROSTER: EmployeeSeed[] = [
     mission: 'Mengisi pipeline calon penjual & pembeli dari prospek masuk dan data CRM, serta menjaga mesin pertumbuhan tetap hidup.',
     autonomy: 'approve',
     status: 'active',
-    sortOrder: 4,
+    sortOrder: 5,
     jobCard: {
       responsibilities: [
         'Mengubah prospek pasif menjadi pipeline aktif.',
@@ -172,15 +206,15 @@ export const WORKFORCE_ROSTER: EmployeeSeed[] = [
   {
     slug: 'content',
     name: 'Sari',
-    roleTitle: 'Content & Marketing',
+    roleTitle: 'Social Media Manager',
     department: 'Pemasaran',
     emoji: '✍️',
-    mission: 'Memproduksi konten berkualitas (highlight listing, edukasi properti) untuk dua kanal resmi: Instagram & Threads, dan menyiapkan draf siap unggah.',
+    mission: 'Mengatur seluruh konten sosial Homy di tiga kanal resmi — Instagram, Threads, dan Facebook Page. Menggabungkan highlight listing dari tim Sales dengan arahan brand & rekrutmen dari tim Marketing menjadi draf siap unggah.',
     autonomy: 'approve',
     status: 'active',
-    sortOrder: 5,
+    sortOrder: 6,
     jobCard: {
-      responsibilities: ['Menulis caption Instagram & post Threads untuk highlight listing / edukasi properti.', 'Menyiapkan hashtag, CTA, dan ide visual.', 'Menjaga konsistensi nada & jadwal tayang (Senin–Jumat).'],
+      responsibilities: ['Menulis caption Instagram, post Threads, dan post Facebook Page untuk highlight listing / edukasi properti / rekrutmen agen.', 'Menyiapkan hashtag, CTA, dan ide visual per kanal.', 'Menjaga konsistensi nada & jadwal tayang (Senin–Jumat).'],
       standards: ['Konten akurat, menarik, sesuai brand Homy, tanpa klaim harga/diskon.', 'Setiap draf punya kanal, hook, isi, hashtag, dan CTA.', 'Bahasa Indonesia yang hangat dan jelas.'],
       guardrails: ['Tidak menayangkan konten atas nama brand tanpa approval Boss.', 'Semua yang menyangkut uang (promo, harga, anggaran iklan) wajib persetujuan Boss.'],
       escalates: ['Kanal publikasi & identitas brand', 'Konten berbayar/promo'],
@@ -196,7 +230,7 @@ export const WORKFORCE_ROSTER: EmployeeSeed[] = [
     mission: 'Membantu onboarding penjual, melengkapi data listing, dan QC sebelum tayang agar setiap listing siap jual.',
     autonomy: 'approve',
     status: 'active',
-    sortOrder: 6,
+    sortOrder: 7,
     jobCard: {
       responsibilities: ['Membantu seller melengkapi data listing.', 'QC listing sebelum publikasi.'],
       standards: ['Setiap listing punya foto, harga, lokasi, dan deskripsi layak tayang.'],
@@ -802,32 +836,96 @@ async function runGrowth(snapshot: Snapshot, runId: string | null): Promise<{ pl
   return { planCount: 1 }
 }
 
-type ContentPost = { channel?: string; hook?: string; body?: string; hashtags?: string[]; cta?: string; image_idea?: string }
+type ContentPost = { channel?: string; audience?: string; hook?: string; body?: string; hashtags?: string[]; cta?: string; image_idea?: string }
 
+type MarketingPlan = {
+  summary?: string
+  objectives?: string[]
+  campaigns?: { title?: string; audience?: string; channels?: string[]; key_message?: string; cta?: string; needs_budget?: boolean }[]
+  agent_recruitment?: string[]
+}
+
+/** Arah pemasaran terakhir (dipakai Social Media Manager sebagai masukan). */
+async function latestMarketingPlan(): Promise<Json | null> {
+  const admin = sb()
+  const { data } = await admin.from('ai_work_items')
+    .select('payload')
+    .eq('kind', 'marketing_plan')
+    .in('status', ['approved', 'awaiting_approval', 'open', 'escalated'])
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return (data?.payload as Json) ?? null
+}
+
+/** Marketing & Brand: promosikan Homy agar makin banyak yang mendaftar (buyer & agen). */
+async function runMarketing(snapshot: Snapshot, runId: string | null): Promise<{ planCount: number }> {
+  // Satu rencana pemasaran per hari.
+  const today = await itemsSince(['marketing_plan'], wibDayStartIso())
+  if (today.length) return { planCount: 0 }
+  const result = await aiJsonRetry<MarketingPlan>(
+    [
+      { role: 'system', content: 'Kamu "Maya", Marketing & Brand Homy (platform properti Indonesia). Fokus UTAMA: mempromosikan Homy Property agar makin banyak orang mendaftar & login — (a) calon pembeli/penyewa dan (b) agen properti yang ingin bergabung. Kamu menyusun arah kampanye yang nanti dieksekusi tim Social Media Manager (Sari) di Instagram, Threads, dan Facebook. Bahasa Indonesia, praktis, tanpa basa-basi. Jangan mengarang angka.' },
+      { role: 'user', content: `KONDISI PLATFORM (JSON): ${JSON.stringify({ totals: snapshot.totals, kota: snapshot.cityBreakdown, listing_tayang: snapshot.publishedListings?.slice(0, 8) }).slice(0, 5000)}\n\nSusun rencana pemasaran harian. Hasilkan JSON: { "summary": "2-3 kalimat arah pemasaran hari ini", "objectives": ["tujuan terukur"], "campaigns": [ { "title": "...", "audience": "pembeli|agen|umum", "channels": ["instagram","threads","facebook"], "key_message": "...", "cta": "...", "needs_budget": true|false } ], "agent_recruitment": ["langkah merekrut agen properti"] }. Maks 3 campaigns, 3 objectives, 3 agent_recruitment. Tandai needs_budget=true untuk apa pun yang butuh biaya iklan/anggaran.` },
+    ],
+    { temperature: 0.6, maxTokens: 1800 },
+  )
+  const campaigns = Array.isArray(result.campaigns) ? result.campaigns.slice(0, 3) : []
+  await insertItem({
+    employee_slug: 'marketing', kind: 'marketing_plan',
+    title: 'Rencana pemasaran & rekrutmen agen',
+    summary: String(result.summary ?? 'Rencana pemasaran disiapkan.').slice(0, 1000),
+    status: 'awaiting_approval', priority: 'normal', requires_approval: true,
+    payload: {
+      objectives: Array.isArray(result.objectives) ? result.objectives.slice(0, 3) : [],
+      campaigns,
+      agent_recruitment: Array.isArray(result.agent_recruitment) ? result.agent_recruitment.slice(0, 3) : [],
+    } as Json,
+    run_id: runId,
+  })
+  if (campaigns.some((c) => c?.needs_budget)) {
+    if (!(await anyActiveItem(['task'], (r) => String(r.payload.type ?? '') === 'budget'))) {
+      await insertItem({
+        employee_slug: 'marketing', kind: 'task',
+        title: 'Perlu keputusan Boss: usulan anggaran iklan Marketing',
+        summary: campaigns.filter((c) => c?.needs_budget).map((c) => String(c.title ?? '')).join('; ').slice(0, 500),
+        status: 'awaiting_approval', priority: 'high', requires_approval: true,
+        payload: { type: 'budget' } as Json, run_id: runId,
+      })
+      return { planCount: 2 }
+    }
+  }
+  return { planCount: 1 }
+}
+
+/** Social Media Manager: rangkai konten 3 kanal (Instagram, Threads, Facebook). */
 async function runContent(snapshot: Snapshot, runId: string | null): Promise<{ draftCount: number }> {
+  const plan = await latestMarketingPlan()
   const result = await aiJsonRetry<{ posts: ContentPost[] }>(
     [
-      { role: 'system', content: 'Kamu "Sari", Content & Marketing Homy (platform properti Indonesia). Kamu menulis konten untuk dua kanal resmi: Instagram dan Threads. Nada hangat, jelas, membantu, tidak lebay, tanpa klaim harga/diskon. Bahasa Indonesia.' },
-      { role: 'user', content: `DATA (JSON): ${JSON.stringify({ listing: snapshot.publishedListings, kota: snapshot.cityBreakdown, total_tayang: snapshot.totals.listing_tayang }).slice(0, 5000)}\n\nBuat 2 konten: 1 untuk "instagram" (caption + 8-12 hashtag + CTA) dan 1 untuk "threads" (post singkat < 400 karakter + 2-3 hashtag). Angkat satu listing tayang atau tips properti. Hasilkan JSON: { "posts": [ { "channel": "instagram|threads", "hook": "...", "body": "...", "hashtags": ["#..."], "cta": "...", "image_idea": "..." } ] }.` },
+      { role: 'system', content: 'Kamu "Sari", Social Media Manager Homy (platform properti Indonesia). Kamu mengatur konten untuk TIGA kanal resmi: Instagram, Threads, dan Facebook Page. Kamu menggabungkan (a) highlight listing dari tim Sales dan (b) arahan brand & rekrutmen dari tim Marketing. Nada hangat, jelas, membantu, tidak lebay, tanpa klaim harga/diskon. Bahasa Indonesia.' },
+      { role: 'user', content: `DATA (JSON): ${JSON.stringify({ listing: snapshot.publishedListings, kota: snapshot.cityBreakdown, total_tayang: snapshot.totals.listing_tayang, arahan_marketing: plan ? { summary: plan.summary, campaigns: plan.campaigns } : null }).slice(0, 6000)}\n\nBuat 3 konten: 1 untuk "instagram" (caption + 8-12 hashtag + CTA), 1 untuk "threads" (post singkat < 400 karakter + 2-3 hashtag), 1 untuk "facebook" (post Halaman 1-3 paragraf + CTA + maks 5 hashtag). Sisipkan minimal satu konten bernuansa rekrutmen agen / ajakan mendaftar bagi khalayak yang relevan. Hasilkan JSON: { "posts": [ { "channel": "instagram|threads|facebook", "audience": "pembeli|agen|umum", "hook": "...", "body": "...", "hashtags": ["#..."], "cta": "...", "image_idea": "..." } ] }.` },
     ],
-    { temperature: 0.7, maxTokens: 1600 },
+    { temperature: 0.7, maxTokens: 2200 },
   )
-  const posts = Array.isArray(result.posts) ? result.posts.slice(0, 2) : []
+  const posts = Array.isArray(result.posts) ? result.posts.slice(0, 3) : []
   const usedChannels = new Set((await itemsSince(['content_draft'], wibDayStartIso())).map((p) => String(p.channel ?? '')))
   let draftCount = 0
   for (const p of posts) {
     const body = String(p?.body ?? '').trim()
     if (!body) continue
-    const channel = String(p?.channel ?? 'instagram').toLowerCase() === 'threads' ? 'threads' : 'instagram'
+    const rawCh = String(p?.channel ?? 'instagram').toLowerCase()
+    const channel = (CONTENT_CHANNELS as readonly string[]).includes(rawCh) ? rawCh : 'instagram'
     if (usedChannels.has(channel)) continue // sudah ada draf kanal ini hari ini
     usedChannels.add(channel)
     const hashtags = Array.isArray(p?.hashtags) ? p.hashtags.map((h) => String(h)).slice(0, 12) : []
+    const audience = String(p?.audience ?? '').toLowerCase()
     await insertItem({
       employee_slug: 'content', kind: 'content_draft',
-      title: `${channel === 'threads' ? 'Threads' : 'Instagram'}: ${String(p?.hook ?? body).slice(0, 60)}`,
+      title: `${CHANNEL_LABEL[channel] ?? channel}: ${String(p?.hook ?? body).slice(0, 60)}`,
       summary: body.slice(0, 800),
       status: 'awaiting_approval', priority: 'normal', requires_approval: true,
-      payload: { channel, hook: p?.hook ?? null, body, hashtags, cta: p?.cta ?? null, image_idea: p?.image_idea ?? null } as Json,
+      payload: { channel, audience: audience || null, hook: p?.hook ?? null, body, hashtags, cta: p?.cta ?? null, image_idea: p?.image_idea ?? null } as Json,
       run_id: runId,
     })
     draftCount += 1
@@ -1109,9 +1207,9 @@ export type CycleResult = {
 export type CycleScope = 'core' | 'content' | 'extended' | 'all'
 const SCOPE_PLAN: Record<CycleScope, string[]> = {
   core: ['analyst', 'sales', 'coo'],
-  content: ['content'],
+  content: ['marketing', 'content'],
   extended: ['growth', 'listing'],
-  all: ['analyst', 'sales', 'growth', 'content', 'listing', 'coo'],
+  all: ['analyst', 'sales', 'growth', 'marketing', 'content', 'listing', 'coo'],
 }
 
 export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron' | 'event' = 'manual', scope: CycleScope = 'core'): Promise<CycleResult> {
@@ -1157,6 +1255,11 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
           const g = await runGrowth(snapshot, runId)
           employees.push({ slug, work: g.planCount })
           itemsCreated += g.planCount
+        } else if (slug === 'marketing') {
+          if (skip) { employees.push({ slug, work: 0, note: 'dilewati (batas waktu)' }); continue }
+          const m = await runMarketing(snapshot, runId)
+          employees.push({ slug, work: m.planCount, note: m.planCount ? 'rencana pemasaran disiapkan' : 'sudah ada hari ini' })
+          itemsCreated += m.planCount
         } else if (slug === 'content') {
           if (skip) { employees.push({ slug, work: 0, note: 'dilewati (batas waktu)' }); continue }
           const c = await runContent(snapshot, runId)
@@ -1266,7 +1369,7 @@ export async function publishContentItem(actorId: string, id: string): Promise<{
   const published = payload.published as Json | undefined
   if (published?.external_id) return { ok: false, error: 'Item ini sudah diterbitkan.' }
 
-  const channel = String(payload.channel ?? 'instagram').toLowerCase() === 'threads' ? 'threads' : 'instagram'
+  const channel = String(payload.channel ?? 'instagram').toLowerCase() === 'threads' ? 'threads' : String(payload.channel ?? 'instagram').toLowerCase() === 'facebook' ? 'facebook' : 'instagram'
   const hook = String(payload.hook ?? '').trim()
   const body = String(payload.body ?? '').trim()
   const cta = payload.cta ? String(payload.cta).trim() : ''
@@ -1279,6 +1382,10 @@ export async function publishContentItem(actorId: string, id: string): Promise<{
     if (channel === 'instagram') {
       const imageUrl = `${siteUrl()}/api/og/content/${id}`
       const r = await publishInstagram(imageUrl, text)
+      externalId = r.id
+    } else if (channel === 'facebook') {
+      const imageUrl = `${siteUrl()}/api/og/content/${id}`
+      const r = await publishFacebook(text, imageUrl)
       externalId = r.id
     } else {
       const r = await publishThreads(text)
