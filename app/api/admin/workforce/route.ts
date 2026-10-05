@@ -37,7 +37,7 @@ export async function GET() {
 }
 
 type Body =
-  | { action: 'run'; scope?: 'core' | 'content' | 'extended' | 'all' }
+  | { action: 'run'; scope?: 'core' | 'content' | 'extended' | 'design' | 'all' }
   | { action: 'seed' }
   | { action: 'decide'; id: string; decision: 'approve' | 'reject'; note?: string }
   | { action: 'toggle'; slug: string; status: 'active' | 'paused' | 'planned' }

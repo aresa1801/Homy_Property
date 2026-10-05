@@ -133,7 +133,7 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
     window.history.replaceState({}, '', u.toString())
   }, [])
 
-  const run = useCallback(async (scope: 'core' | 'content' | 'extended' = 'core') => {
+  const run = useCallback(async (scope: 'core' | 'content' | 'extended' | 'design' = 'core') => {
     setBusy(`run:${scope}`); setError(null)
     try {
       const res = await fetch('/api/admin/workforce', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'run', scope }) })
@@ -218,6 +218,7 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
             <button type="button" onClick={() => void load()} className={ui.ghost} disabled={loading}><RefreshCw className={`size-4 ${loading ? 'animate-spin' : ''}`} /> Muat ulang</button>
             <button type="button" onClick={() => void run('content')} className={ui.ghost} disabled={!!busy}>{busy === 'run:content' ? <Loader2 className="size-4 animate-spin" /> : <PenLine className="size-4" />} Konten</button>
             <button type="button" onClick={() => void run('extended')} className={ui.ghost} disabled={!!busy}>{busy === 'run:extended' ? <Loader2 className="size-4 animate-spin" /> : <TrendingUp className="size-4" />} Pertumbuhan</button>
+            <button type="button" onClick={() => void run('design')} className={ui.ghost} disabled={!!busy}>{busy === 'run:design' ? <Loader2 className="size-4 animate-spin" /> : <Palette className="size-4" />} Desain</button>
             <button type="button" onClick={() => void run('core')} className={ui.btn} disabled={!!busy}>{busy === 'run:core' ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />} {busy === 'run:core' ? 'Menjalankan…' : 'Jalankan Siklus'}</button>
           </div>
         </div>

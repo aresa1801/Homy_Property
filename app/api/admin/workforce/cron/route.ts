@@ -32,7 +32,7 @@ async function handle(request: Request) {
   try {
     const url = new URL(request.url)
     const raw = url.searchParams.get('scope') ?? 'core'
-    const scope = (['core', 'content', 'extended', 'all'] as const).find((s) => s === raw) ?? 'core'
+    const scope = (['core', 'content', 'extended', 'design', 'all'] as const).find((s) => s === raw) ?? 'core'
     const result = await runCycle(null, 'cron', scope)
     return NextResponse.json({ ok: true, scope, cycle: result })
   } catch (error) {
