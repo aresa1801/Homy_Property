@@ -248,9 +248,9 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
       </div>
 
       {tab === 'office' && (
-        <div className="grid gap-4 lg:grid-cols-[1.15fr_1fr]">
+        <div className="grid min-w-0 gap-4 lg:grid-cols-[1.15fr_1fr]">
           {/* Kantor: grid karyawan */}
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3">
             <p className={ui.eyebrow}>Denah kantor</p>
             <div className="grid gap-3 sm:grid-cols-2">
               {employees.map((e) => <EmployeeCard key={e.slug} e={e} awaiting={items.filter((i) => i.employee_slug === e.slug && (i.status === 'awaiting_approval' || i.status === 'escalated')).length} />)}
@@ -275,7 +275,7 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
           </div>
 
           {/* Antrean kerja */}
-          <div className="space-y-3">
+          <div className="min-w-0 space-y-3">
             <p className={ui.eyebrow}>Antrean kerja & keputusan ({queue.length})</p>
             {!queue.length ? (
               <div className={ui.card}><p className="text-sm text-[#718078]">Tidak ada item menunggu. Kantor bersih. ✅</p></div>
@@ -301,9 +301,9 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
       {tab === 'targets' && <TargetsPanel targets={data?.targets ?? []} employees={employees} onChange={() => void load()} />}
 
       {tab === 'jobs' && (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid min-w-0 gap-4 lg:grid-cols-2">
           {employees.map((e) => (
-            <div key={e.slug} className={ui.card}>
+            <div key={e.slug} className={`${ui.card} min-w-0`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <span className="grid size-10 place-items-center rounded-xl bg-[#f7f3ec] text-xl">{e.emoji}</span>
@@ -366,13 +366,13 @@ function TabButton({ active, onClick, icon: Icon, children }: { active: boolean;
 
 function EmployeeCard({ e, awaiting }: { e: Employee; awaiting: number }) {
   return (
-    <div className={ui.card}>
+    <div className={`${ui.card} min-w-0`}>
       <div className="flex items-start gap-3">
         <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#f7f3ec] text-xl">{e.emoji}</span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
-            <p className="truncate text-sm font-semibold text-[#0b3d2e]">{e.name}</p>
-            <span className={`${ui.badge} ${STATUS_META[e.status]?.cls ?? ''}`}>{STATUS_META[e.status]?.label ?? e.status}</span>
+            <p className="min-w-0 truncate text-sm font-semibold text-[#0b3d2e]">{e.name}</p>
+            <span className={`${ui.badge} shrink-0 ${STATUS_META[e.status]?.cls ?? ''}`}>{STATUS_META[e.status]?.label ?? e.status}</span>
           </div>
           <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-[#a18a61]">{e.role_title}</p>
         </div>
@@ -399,29 +399,29 @@ function QueueCard({ item, employee, busy, onDecide }: { item: Item; employee?: 
   const postText = [postBody, cta, hashtags.join(' ')].filter(Boolean).join('\n\n')
   const canDecide = item.requires_approval && (item.status === 'awaiting_approval' || item.status === 'escalated' || item.status === 'open')
   return (
-    <div className={ui.card}>
+    <div className={`${ui.card} min-w-0`}>
       <div className="flex items-start justify-between gap-3">
-        <div className="flex min-w-0 items-start gap-2">
+        <div className="flex min-w-0 flex-1 items-start gap-2">
           {employee && <span className="text-lg">{employee.emoji}</span>}
-          <div className="min-w-0">
-            <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[#0b3d2e]"><Icon className="size-4 shrink-0" /> <span className="truncate">{item.title}</span></p>
+          <div className="min-w-0 flex-1">
+            <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[#0b3d2e]"><Icon className="size-4 shrink-0" /> <span className="min-w-0 flex-1 break-words">{item.title}</span></p>
             <p className="mt-0.5 text-[11px] text-[#8a9a92]">{meta.label} · {employee?.name ?? item.employee_slug} · {ago(item.created_at)}</p>
           </div>
         </div>
-        <span className={`${ui.badge} ${prio.cls}`}>{prio.label}</span>
+        <span className={`${ui.badge} shrink-0 ${prio.cls}`}>{prio.label}</span>
       </div>
 
-      {buyerMessage && <p className="mt-3 rounded-lg bg-[#f7f3ec] px-3 py-2 text-xs text-[#5c5133]"><span className="font-semibold">Pesan prospek:</span> {buyerMessage}</p>}
-      {reply && <p className="mt-2 rounded-lg border border-[#d8ccbb] bg-white px-3 py-2 text-sm leading-6 text-[#33433d]"><span className="font-semibold text-[#0b3d2e]">Draf balasan:</span> {reply}</p>}
+      {buyerMessage && <p className="mt-3 break-words rounded-lg bg-[#f7f3ec] px-3 py-2 text-xs text-[#5c5133]"><span className="font-semibold">Pesan prospek:</span> {buyerMessage}</p>}
+      {reply && <p className="mt-2 break-words rounded-lg border border-[#d8ccbb] bg-white px-3 py-2 text-sm leading-6 text-[#33433d]"><span className="font-semibold text-[#0b3d2e]">Draf balasan:</span> {reply}</p>}
       {item.kind === 'content_draft' && (
         <div className="mt-2 rounded-lg border border-[#d8ccbb] bg-white px-3 py-2 text-sm leading-6 text-[#33433d]">
           <div className="mb-1 flex items-center gap-2">
             {channel === 'threads' ? <AtSign className="size-4 text-[#0b3d2e]" /> : channel === 'facebook' ? <Users className="size-4 text-[#0b3d2e]" /> : <Camera className="size-4 text-[#0b3d2e]" />}
             <span className="text-[11px] font-semibold uppercase tracking-wide text-[#a18a61]">{CHANNEL_META[channel as 'instagram' | 'threads' | 'facebook']?.label ?? 'Instagram'}</span>
           </div>
-          <p className="whitespace-pre-wrap">{postBody}</p>
-          {cta && <p className="mt-1 font-medium text-[#0b3d2e]">{cta}</p>}
-          {!!hashtags.length && <p className="mt-1 text-[#4e866d]">{hashtags.join(' ')}</p>}
+          <p className="whitespace-pre-wrap break-words">{postBody}</p>
+          {cta && <p className="mt-1 break-words font-medium text-[#0b3d2e]">{cta}</p>}
+          {!!hashtags.length && <p className="mt-1 break-words text-[#4e866d]">{hashtags.join(' ')}</p>}
           <button type="button" onClick={() => void copyText(postText)} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[#0b3d2e] hover:underline"><Copy className="size-3.5" /> Salin teks</button>
         </div>
       )}
@@ -488,7 +488,7 @@ function QueueCard({ item, employee, busy, onDecide }: { item: Item; employee?: 
           </div>
         )
       })()}
-      {!reply && item.kind !== 'content_draft' && item.kind !== 'design_asset' && item.summary && <p className="mt-2 text-sm leading-6 text-[#33433d]">{item.summary}</p>}
+      {!reply && item.kind !== 'content_draft' && item.kind !== 'design_asset' && item.summary && <p className="mt-2 break-words text-sm leading-6 text-[#33433d]">{item.summary}</p>}
 
       {canDecide ? (
         <div className="mt-3 flex justify-end gap-2">
@@ -508,20 +508,20 @@ function ReportCard({ item, employee }: { item: Item; employee?: Employee }) {
   const metrics = (p.metrics && typeof p.metrics === 'object' ? p.metrics : {}) as Record<string, unknown>
   const showMetrics = !isBriefing && Object.keys(metrics).length > 0
   return (
-    <div className={ui.card}>
+    <div className={`${ui.card} min-w-0`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="flex items-center gap-2 font-serif text-xl text-[#0b3d2e]">{employee?.emoji} {item.title}</h3>
+        <h3 className="flex items-center gap-2 break-words font-serif text-xl text-[#0b3d2e]">{employee?.emoji} {item.title}</h3>
         <span className="text-xs text-[#8a9a92]">{employee?.name ?? item.employee_slug} · {when(item.created_at)}</span>
       </div>
 
-      <p className="mt-3 text-sm leading-6 text-[#33433d]">{isBriefing ? str(p.briefing) || item.summary : (item.summary || '')}</p>
+      <p className="mt-3 break-words text-sm leading-6 text-[#33433d]">{isBriefing ? str(p.briefing) || item.summary : (item.summary || '')}</p>
 
       {showMetrics && (
         <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {Object.entries(metrics).map(([k, v]) => (
-            <div key={k} className="rounded-xl bg-[#f7f3ec] px-3 py-2">
+            <div key={k} className="min-w-0 rounded-xl bg-[#f7f3ec] px-3 py-2">
               <p className="text-[11px] uppercase tracking-wide text-[#a18a61]">{k.replace(/_/g, ' ')}</p>
-              <p className="text-sm font-semibold text-[#0b3d2e]">{typeof v === 'number' ? v.toLocaleString('id-ID') : str(v)}</p>
+              <p className="break-words text-sm font-semibold text-[#0b3d2e]">{typeof v === 'number' ? v.toLocaleString('id-ID') : str(v)}</p>
             </div>
           ))}
         </div>
@@ -531,7 +531,7 @@ function ReportCard({ item, employee }: { item: Item; employee?: Employee }) {
         <div className="mt-4">
           <p className="flex items-center gap-2 text-sm font-semibold text-[#0b3d2e]"><ChevronRight className="size-4" /> Prioritas hari ini</p>
           <ul className="mt-2 space-y-1.5 text-sm leading-6 text-[#33433d]">
-            {arr(p.priorities).map((x, i) => <li key={i} className="flex gap-2"><span className="text-[#a18a61]">•</span><span>{x}</span></li>)}
+            {arr(p.priorities).map((x, i) => <li key={i} className="flex gap-2"><span className="text-[#a18a61]">•</span><span className="break-words">{x}</span></li>)}
           </ul>
         </div>
       )}
@@ -553,7 +553,7 @@ function MiniList({ title, items, tone, icon: Icon }: { title: string; items: st
     <div>
       <p className={`flex items-center gap-2 text-sm font-semibold ${tone === 'danger' ? 'text-[#b4553f]' : 'text-[#0b3d2e]'}`}><Icon className="size-4" /> {title}</p>
       <ul className="mt-2 space-y-1.5 text-sm leading-6 text-[#33433d]">
-        {items.map((x, i) => <li key={i} className="flex gap-2"><span className="text-[#a18a61]">•</span><span>{x}</span></li>)}
+        {items.map((x, i) => <li key={i} className="flex gap-2"><span className="text-[#a18a61]">•</span><span className="break-words">{x}</span></li>)}
       </ul>
     </div>
   )
@@ -565,7 +565,7 @@ function JobList({ title, items }: { title: string; items?: string[] }) {
     <div>
       <p className="text-[11px] font-semibold uppercase tracking-wide text-[#a18a61]">{title}</p>
       <ul className="mt-1 space-y-1 text-xs leading-5 text-[#4b5a53]">
-        {items.map((x, i) => <li key={i} className="flex gap-1.5"><span className="text-[#c3b48d]">–</span><span>{x}</span></li>)}
+        {items.map((x, i) => <li key={i} className="flex gap-1.5"><span className="text-[#c3b48d]">–</span><span className="break-words">{x}</span></li>)}
       </ul>
     </div>
   )
@@ -634,7 +634,7 @@ function ChatPanel() {
         ) : null}
         {messages.map((m) => (
           <div key={m.id} className={m.role === 'user' ? 'flex justify-end' : 'flex justify-start'}>
-            <div className={m.role === 'user' ? 'max-w-[85%] rounded-2xl rounded-br-sm bg-[#0b3d2e] px-3.5 py-2 text-sm leading-6 text-white' : 'max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-[#f7f3ec] px-3.5 py-2 text-sm leading-6 text-[#33433d]'}>{m.content}</div>
+            <div className={m.role === 'user' ? 'max-w-[85%] break-words rounded-2xl rounded-br-sm bg-[#0b3d2e] px-3.5 py-2 text-sm leading-6 text-white' : 'max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-bl-sm bg-[#f7f3ec] px-3.5 py-2 text-sm leading-6 text-[#33433d]'}>{m.content}</div>
           </div>
         ))}
         {sending ? <div className="flex justify-start"><div className="rounded-2xl bg-[#f7f3ec] px-3.5 py-2 text-sm text-[#718078]"><Loader2 className="inline size-4 animate-spin" /> Ayana sedang menyusun…</div></div> : null}
@@ -717,10 +717,10 @@ function TargetCard({ t, busy, onUpdate }: { t: Target; busy: boolean; onUpdate:
   const pct = t.target_value > 0 ? Math.min(100, Math.round((t.current_value / t.target_value) * 100)) : 0
   const done = t.status === 'achieved'
   return (
-    <div className={ui.card}>
+    <div className={`${ui.card} min-w-0`}>
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-[#0b3d2e]">{t.title}</p>
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-sm font-semibold text-[#0b3d2e]">{t.title}</p>
           <p className="text-xs text-[#8a9a92]">{t.metric ?? '—'}{t.owner_slug ? ` · ${t.owner_slug}` : ''}{t.source === 'coo' ? ' · dari COO' : ''}</p>
         </div>
         <span className={`${ui.badge} ${done ? 'bg-[#e7f2ea] text-[#2f7a52]' : 'bg-[#f2ecdf] text-[#9b762a]'}`}>{done ? 'Tercapai' : `${pct}%`}</span>
@@ -800,7 +800,7 @@ function SocialPanel({ status, items, busy, onReload, onDisconnect, onPublish }:
             )
           })}
         </div>
-        <p className="mt-3 text-[11px] text-[#8a9a92]">Redirect URI (daftarkan di Meta app): <span className="rounded bg-[#f7f3ec] px-1.5 py-0.5 text-[#5c5133]">{status?.redirectUri ?? '—'}</span></p>
+        <p className="mt-3 text-[11px] text-[#8a9a92]">Redirect URI (daftarkan di Meta app): <span className="break-all rounded bg-[#f7f3ec] px-1.5 py-0.5 text-[#5c5133]">{status?.redirectUri ?? '—'}</span></p>
       </div>
 
       <div className="space-y-3">
@@ -820,10 +820,10 @@ function PublishCard({ item, busy, connected, onPublish }: { item: Item; busy: b
   const body = str(p.body)
   const hashtags = arr(p.hashtags)
   return (
-    <div className={ui.card}>
+    <div className={`${ui.card} min-w-0`}>
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-[#0b3d2e]">{item.title}</p>
+        <div className="min-w-0 flex-1">
+          <p className="break-words text-sm font-semibold text-[#0b3d2e]">{item.title}</p>
           <p className="text-xs text-[#8a9a92]">{str(p.channel)} · {item.status === 'approved' ? 'disetujui' : item.status === 'awaiting_approval' ? 'menunggu keputusan' : item.status}</p>
         </div>
         {pub?.external_id ? <span className={`${ui.badge} bg-[#e7f2ea] text-[#2f7a52]`}>Terbit</span> : <span className={ui.badge}>{str(p.channel)}</span>}
@@ -832,7 +832,7 @@ function PublishCard({ item, busy, connected, onPublish }: { item: Item; busy: b
       {body ? <p className="mt-1 whitespace-pre-wrap text-sm text-[#5c5133]">{body}</p> : null}
       {hashtags.length ? <p className="mt-1 text-xs text-[#8a9a92]">{hashtags.join(' ')}</p> : null}
       {pub?.external_id ? (
-        <p className="mt-2 text-xs text-[#2f7a52]">Terkirim {when(str(pub.posted_at))} · id {str(pub.external_id)}</p>
+        <p className="mt-2 text-xs text-[#2f7a52]">Terkirim {when(str(pub.posted_at))} · id <span className="break-all">{str(pub.external_id)}</span></p>
       ) : (
         <div className="mt-3 flex items-center justify-between gap-2">
           <p className="text-xs text-[#8a9a92]">{item.status === 'approved' ? (connected ? 'Siap diterbitkan.' : 'Kanal belum terhubung.') : 'Setujui dulu di tab “Kantor & Antrean”.'}</p>
