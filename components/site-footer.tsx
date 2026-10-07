@@ -5,6 +5,8 @@ import { Mail } from 'lucide-react'
 const LINKS = [
   { label: 'Jual', href: '/buy' },
   { label: 'Sewa', href: '/rent' },
+  { label: 'Properti Dijual (per kota)', href: '/jual' },
+  { label: 'Properti Disewa (per kota)', href: '/sewa' },
   { label: 'Pesan', href: '/message' },
   { label: 'Partnership', href: '/partnership' },
   { label: 'Notaris & PPAT', href: '/notaris' },

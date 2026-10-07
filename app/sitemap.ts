@@ -1,4 +1,6 @@
 import type { MetadataRoute } from 'next'
+import { REGIONS, } from '@/lib/regions-data'
+import { regionSlug } from '@/lib/location-seo'
 
 const SITE_URL = (process.env.HOMY_APP_URL || 'https://homyproperty.id').replace(/\/$/, '')
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -20,6 +22,8 @@ const STATIC_ROUTES: StaticRoute[] = [
   { path: '/', priority: 1, freq: 'daily' },
   { path: '/buy', priority: 0.9, freq: 'daily' },
   { path: '/rent', priority: 0.9, freq: 'daily' },
+  { path: '/jual', priority: 0.8, freq: 'daily' },
+  { path: '/sewa', priority: 0.8, freq: 'daily' },
   { path: '/list', priority: 0.9, freq: 'weekly' },
   { path: '/partnership', priority: 0.8, freq: 'weekly' },
   { path: '/notaris', priority: 0.7, freq: 'weekly' },
@@ -73,6 +77,24 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     images: ROUTE_IMAGES[r.path],
   }))
 
+  // Halaman SEO lokasi: /jual/<kota> & /sewa/<kota> untuk 514 kabupaten/kota.
+  const locationEntries: MetadataRoute.Sitemap = []
+  for (const r of REGIONS) {
+    const slug = regionSlug(r)
+    locationEntries.push({
+      url: `${SITE_URL}/jual/${slug}`,
+      lastModified: now,
+      changeFrequency: 'weekly' as ChangeFreq,
+      priority: 0.6,
+    })
+    locationEntries.push({
+      url: `${SITE_URL}/sewa/${slug}`,
+      lastModified: now,
+      changeFrequency: 'weekly' as ChangeFreq,
+      priority: 0.6,
+    })
+  }
+
   const listings = await fetchPublishedListings()
   const listingEntries: MetadataRoute.Sitemap = listings
     .filter((row) => Boolean(row.id))
@@ -83,5 +105,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.8,
     }))
 
-  return [...staticEntries, ...listingEntries]
+  return [...staticEntries, ...locationEntries, ...listingEntries]
 }
