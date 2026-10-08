@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { AiError } from '@/lib/ai'
-import { decideWorkItem, listWorkforce, runCycle, setEmployeeStatus, ensureWorkforce, ensureSkills, getSkill, createTarget, updateTarget } from '@/lib/ai-workforce'
+import { decideWorkItem, listWorkforce, runCycle, setEmployeeStatus, ensureWorkforce, ensureSkills, getSkill, createTarget, updateTarget, addLesson, retireLesson } from '@/lib/ai-workforce'
 import { createClient } from '@/lib/supabase/server'
 import { clientKey, rateLimit } from '@/lib/rate-limit'
 
@@ -43,11 +43,12 @@ export async function GET(request: Request) {
 }
 
 type Body =
-  | { action: 'run'; scope?: 'core' | 'content' | 'extended' | 'design' | 'publish' | 'all'; slot?: 'pagi' | 'sore' }
+  | { action: 'run'; scope?: 'core' | 'content' | 'extended' | 'design' | 'publish' | 'learn' | 'all'; slot?: 'pagi' | 'sore' }
   | { action: 'seed' }
   | { action: 'skills-seed' }
   | { action: 'decide'; id: string; decision: 'approve' | 'reject'; note?: string }
   | { action: 'toggle'; slug: string; status: 'active' | 'paused' | 'planned' }
+  | { action: 'lesson'; op: 'create' | 'retire'; id?: string; employee_slug?: string | null; scope?: string; title?: string; context?: string; lesson?: string; severity?: string }
   | {
       action: 'target'; op: 'create' | 'update' | 'archive'
       id?: string; period?: string; title?: string; metric?: string; target_value?: number
@@ -92,6 +93,22 @@ export async function POST(request: Request) {
       if (!result.ok) return NextResponse.json({ error: result.error ?? 'Gagal memproses' }, { status: 400 })
       const payload = await listWorkforce()
       return NextResponse.json({ ok: true, status: result.status, ...payload })
+    }
+
+    if (body.action === 'lesson') {
+      if (body.op === 'retire') {
+        if (!body.id) return NextResponse.json({ error: 'id wajib' }, { status: 400 })
+        const ok = await retireLesson(body.id)
+        return NextResponse.json({ ok, ...(await listWorkforce()) })
+      }
+      if (!body.lesson) return NextResponse.json({ error: 'lesson wajib' }, { status: 400 })
+      const id = await addLesson({
+        employee_slug: body.employee_slug ?? null, scope: body.scope ?? 'global',
+        title: body.title ?? String(body.lesson).slice(0, 80), context: body.context ?? 'Ditambahkan manual oleh admin.',
+        lesson: body.lesson, source: 'manual', severity: body.severity ?? 'info',
+      })
+      if (!id) return NextResponse.json({ error: 'Gagal menyimpan pelajaran' }, { status: 400 })
+      return NextResponse.json({ ok: true, id, ...(await listWorkforce()) })
     }
 
     if (body.action === 'target') {

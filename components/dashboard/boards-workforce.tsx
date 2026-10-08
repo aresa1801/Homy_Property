@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  AlertTriangle, AtSign, Building2, Camera, Check, CheckCircle2, ChevronRight, ClipboardList, Clock,
-  Copy, ExternalLink, FileText, Loader2, MessageSquare, Palette, PenLine, Play, Power, RefreshCw, Send, ShieldAlert, Sparkles, Target, TrendingUp, Users, X,
+  AlertTriangle, AtSign, Brain, Building2, Camera, Check, CheckCircle2, ChevronRight, ClipboardList, Clock,
+  Copy, ExternalLink, FileText, GraduationCap, Loader2, MessageSquare, Palette, PenLine, Play, Plus, Power, RefreshCw, Send, ShieldAlert, Sparkles, Target, Trash2, TrendingUp, Users, X,
 } from 'lucide-react'
 import { ui, type DashboardPayload } from '@/lib/dashboard-client'
 
@@ -30,9 +30,12 @@ type Target = {
   owner_slug: string | null; status: string; source: string; notes: string | null; created_at: string
 }
 type SkillItem = { slug: string; name: string; category: string; emoji: string; summary: string; enabled: boolean; sort_order: number }
+type Lesson = { id: string; employee_slug: string | null; scope: string; title: string; context: string; lesson: string; source: string; severity: string; status: string; applied_count: number; created_at: string; updated_at: string }
+type PerfRow = { slug: string; name: string; emoji: string; produced7: number; corrections7: number; producedPrev7: number; correctionsPrev7: number; score: number; trend: number; lessons: number }
 type Payload = {
   configured: boolean; model: string; employees: Employee[]; items: Item[]; runs: Run[]; targets: Target[]; skills: SkillItem[]
-  stats: { activeEmployees: number; totalEmployees: number; skillCount?: number; awaitingApproval: number; openAlerts: number; itemsToday: number; doneToday: number; lastRunAt: string | null }
+  lessons?: Lesson[]; perf?: PerfRow[]
+  stats: { activeEmployees: number; totalEmployees: number; skillCount?: number; lessonCount?: number; awaitingApproval: number; openAlerts: number; itemsToday: number; doneToday: number; lastRunAt: string | null }
 }
 
 const KIND_META: Record<string, { label: string; icon: typeof FileText }> = {
@@ -95,7 +98,7 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<'office' | 'reports' | 'jobs' | 'chat' | 'targets' | 'skills' | 'social'>('office')
+  const [tab, setTab] = useState<'office' | 'reports' | 'jobs' | 'chat' | 'targets' | 'skills' | 'learn' | 'social'>('office')
   const [social, setSocial] = useState<SocialStatus | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -134,7 +137,7 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
     window.history.replaceState({}, '', u.toString())
   }, [])
 
-  const run = useCallback(async (scope: 'core' | 'content' | 'extended' | 'design' = 'core') => {
+  const run = useCallback(async (scope: 'core' | 'content' | 'extended' | 'design' | 'learn' = 'core') => {
     setBusy(`run:${scope}`); setError(null)
     try {
       const res = await fetch('/api/admin/workforce', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'run', scope }) })
@@ -144,6 +147,26 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Terjadi kesalahan')
     } finally { setBusy(null) }
+  }, [])
+
+  const learnAdd = useCallback(async (input: { employee_slug: string; lesson: string }) => {
+    setBusy('lesson'); setError(null)
+    try {
+      const res = await fetch('/api/admin/workforce', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'lesson', op: 'create', ...input }) })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(payload?.error ?? 'Gagal menyimpan pelajaran.')
+      setData(payload as Payload)
+    } catch (e) { setError(e instanceof Error ? e.message : 'Terjadi kesalahan') } finally { setBusy(null) }
+  }, [])
+
+  const learnRetire = useCallback(async (id: string) => {
+    setBusy(`lesson:${id}`); setError(null)
+    try {
+      const res = await fetch('/api/admin/workforce', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'lesson', op: 'retire', id }) })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(payload?.error ?? 'Gagal menonaktifkan pelajaran.')
+      setData(payload as Payload)
+    } catch (e) { setError(e instanceof Error ? e.message : 'Terjadi kesalahan') } finally { setBusy(null) }
   }, [])
 
   const decide = useCallback(async (id: string, decision: 'approve' | 'reject') => {
@@ -236,6 +259,7 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
         <TabButton active={tab === 'reports'} onClick={() => setTab('reports')} icon={FileText}>Laporan & Briefing</TabButton>
         <TabButton active={tab === 'jobs'} onClick={() => setTab('jobs')} icon={ClipboardList}>Job Card Karyawan</TabButton>
         <TabButton active={tab === 'skills'} onClick={() => setTab('skills')} icon={Sparkles}>Pustaka Skill</TabButton>
+        <TabButton active={tab === 'learn'} onClick={() => setTab('learn')} icon={GraduationCap}>Pembelajaran</TabButton>
       </div>
 
       {tab === 'office' && (
@@ -345,6 +369,18 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
       )}
 
       {tab === 'skills' && <SkillsPanel skills={data?.skills ?? []} employees={employees} />}
+
+      {tab === 'learn' && (
+        <LearningPanel
+          lessons={data?.lessons ?? []}
+          perf={data?.perf ?? []}
+          employees={employees}
+          busy={busy}
+          onLearnNow={() => void run('learn')}
+          onAdd={learnAdd}
+          onRetire={learnRetire}
+        />
+      )}
     </div>
   )
 }
@@ -939,6 +975,106 @@ function PublishCard({ item, connected }: { item: Item; connected: boolean }) {
         <p className="mt-3 text-xs text-[#8a9a92]">{connected ? 'Akan diterbitkan otomatis oleh Sari pada siklus publikasi berikutnya.' : 'Kanal belum terhubung — hubungkan di atas agar bisa terbit otomatis.'}</p>
       )}
       {p.publish_error ? <p className="mt-2 text-xs text-[#b45c50]">Tertunda: {str(p.publish_error)}</p> : null}
+    </div>
+  )
+}
+
+function LearningPanel({ lessons, perf, employees, busy, onLearnNow, onAdd, onRetire }: {
+  lessons: Lesson[]
+  perf: PerfRow[]
+  employees: Employee[]
+  busy: string | null
+  onLearnNow: () => void
+  onAdd: (input: { employee_slug: string; lesson: string }) => void
+  onRetire: (id: string) => void
+}) {
+  const [slug, setSlug] = useState('')
+  const [text, setText] = useState('')
+  const active = lessons.filter((l) => l.status === 'active')
+  const empName = (s: string | null) => { const e = employees.find((x) => x.slug === s); return e ? `${e.emoji} ${e.name}` : '🌐 Global' }
+  const sevCls: Record<string, string> = { critical: 'bg-[#fbe9e6] text-[#b4553f]', warn: 'bg-[#f2ecdf] text-[#9b762a]', info: 'bg-[#eef3ee] text-[#3f6b55]' }
+  const srcLabel: Record<string, string> = { reject: 'Koreksi Boss', publish_fail: 'Publikasi gagal', duplicate: 'Duplikat', auto: 'Evaluasi mandiri', manual: 'Manual' }
+  const improving = perf.filter((p) => p.trend > 0).length
+  return (
+    <div className="space-y-4">
+      <div className={ui.card}>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="flex items-center gap-2 text-sm font-semibold text-[#0b3d2e]"><Brain className="size-4 text-[#a18a61]" /> Self-Improvement — tim belajar dari kesalahan</p>
+            <p className="mt-1 max-w-2xl text-sm text-[#718078]">Setiap koreksi Boss, kegagalan publikasi, dan konten duplikat otomatis menjadi <b>pelajaran</b> yang disuntikkan ke prompt karyawan berikutnya — supaya kesalahan yang sama tidak terulang dan kinerja naik dari waktu ke waktu.</p>
+          </div>
+          <button type="button" onClick={onLearnNow} className={ui.btn} disabled={!!busy}>{busy === 'run:learn' ? <Loader2 className="size-4 animate-spin" /> : <GraduationCap className="size-4" />} Latih sekarang</button>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <Kpi label="Pelajaran aktif" value={String(active.length)} tone="brand" />
+          <Kpi label="Total pelajaran" value={String(lessons.length)} tone="muted" />
+          <Kpi label="Tim membaik (7h)" value={`${improving}/${perf.length}`} tone={improving ? 'brand' : 'muted'} />
+          <Kpi label="Koreksi 7 hari" value={String(perf.reduce((a, p) => a + p.corrections7, 0))} tone={perf.some((p) => p.corrections7) ? 'warn' : 'muted'} />
+        </div>
+      </div>
+
+      <div>
+        <p className={ui.eyebrow}>Kinerja karyawan (7 hari terakhir vs sebelumnya)</p>
+        <div className={`${ui.card} overflow-x-auto`}>
+          <table className="w-full min-w-[520px] text-sm">
+            <thead><tr className="text-left text-xs uppercase tracking-wide text-[#8a9a92]">
+              <th className="py-2">Karyawan</th><th className="py-2">Produksi</th><th className="py-2">Koreksi</th><th className="py-2">Skor</th><th className="py-2">Tren</th><th className="py-2">Pelajaran</th>
+            </tr></thead>
+            <tbody className="divide-y divide-[#eee7dc]">
+              {perf.map((p) => (
+                <tr key={p.slug}>
+                  <td className="py-2"><span className="font-medium text-[#33433d]">{p.emoji} {p.name}</span></td>
+                  <td className="py-2 text-[#5c5133]">{p.produced7}<span className="text-[#b7b0a2]"> ({p.producedPrev7} lalu)</span></td>
+                  <td className="py-2 text-[#5c5133]">{p.corrections7}<span className="text-[#b7b0a2]"> ({p.correctionsPrev7} lalu)</span></td>
+                  <td className="py-2"><span className={`${ui.badge} ${p.score >= 90 ? 'bg-[#e7f2ea] text-[#2f7a52]' : p.score >= 70 ? 'bg-[#f2ecdf] text-[#9b762a]' : 'bg-[#fbe9e6] text-[#b4553f]'}`}>{p.score}</span></td>
+                  <td className="py-2">{p.trend > 0 ? <span className="text-[#2f7a52]">▲ +{p.trend}</span> : p.trend < 0 ? <span className="text-[#b4553f]">▼ {p.trend}</span> : <span className="text-[#8a9a92]">–</span>}</td>
+                  <td className="py-2 text-[#5c5133]">{p.lessons}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+        <div className="space-y-3">
+          <p className={ui.eyebrow}>Buku pelajaran ({active.length} aktif)</p>
+          {!active.length ? <div className={ui.card}><p className="text-sm text-[#718078]">Belum ada pelajaran. Jalankan “Latih sekarang” atau tambahkan manual.</p></div> : (
+            <div className="space-y-2">
+              {active.map((l) => (
+                <div key={l.id} className={ui.card}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[#0b3d2e]">{l.title} <span className={`${ui.badge} ${sevCls[l.severity] ?? sevCls.info}`}>{l.severity}</span></p>
+                      <p className="mt-0.5 text-xs text-[#8a9a92]">{empName(l.employee_slug)} · {srcLabel[l.source] ?? l.source} · dipakai {l.applied_count}× · {ago(l.updated_at)}</p>
+                    </div>
+                    <button type="button" onClick={() => onRetire(l.id)} disabled={!!busy} className="shrink-0 rounded-lg p-1.5 text-[#8a9a92] hover:bg-[#f2ecdf] hover:text-[#9b762a]" title="Nonaktifkan"><Trash2 className="size-4" /></button>
+                  </div>
+                  <p className="mt-2 text-sm text-[#5c5133]">{l.lesson}</p>
+                  {l.context ? <p className="mt-1 text-xs text-[#8a9a92]">Konteks: {l.context}</p> : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <p className={ui.eyebrow}>Tambah pelajaran manual</p>
+          <div className={`${ui.card} space-y-3`}>
+            <label className="block text-xs text-[#718078]">Berlaku untuk
+              <select value={slug} onChange={(e) => setSlug(e.target.value)} className="mt-1 w-full rounded-lg border border-[#e2dccd] bg-white px-3 py-2 text-sm text-[#33433d]">
+                <option value="">🌐 Global (semua karyawan)</option>
+                {employees.map((e) => <option key={e.slug} value={e.slug}>{e.emoji} {e.name} — {e.role_title}</option>)}
+              </select>
+            </label>
+            <label className="block text-xs text-[#718078]">Aturan / pelajaran
+              <textarea value={text} onChange={(e) => setText(e.target.value)} rows={4} placeholder="Contoh: Selalu sertakan foto & denah pada listing agar lebih cepat laku." className="mt-1 w-full rounded-lg border border-[#e2dccd] bg-white px-3 py-2 text-sm text-[#33433d]" />
+            </label>
+            <button type="button" disabled={!!busy || !text.trim()} onClick={() => { onAdd({ employee_slug: slug, lesson: text.trim() }); setText('') }} className={ui.btn}>{busy === 'lesson' ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} Simpan pelajaran</button>
+            <p className="text-[11px] text-[#8a9a92]">Pelajaran langsung dipakai karyawan pada siklus berikutnya.</p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

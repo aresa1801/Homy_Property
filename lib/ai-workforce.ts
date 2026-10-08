@@ -373,6 +373,256 @@ export async function getSkill(slug: string): Promise<AiSkill | null> {
 }
 
 /* ------------------------------------------------------------------ */
+/* Self-Improvement (Pembelajaran Berkelanjutan) — Fase 6              */
+/* ------------------------------------------------------------------ */
+
+export type AiLesson = {
+  id: string
+  employee_slug: string | null
+  scope: string
+  title: string
+  context: string
+  lesson: string
+  source: string
+  severity: string
+  status: string
+  applied_count: number
+  created_at: string
+  updated_at: string
+}
+
+/** Maksimal pelajaran yang disuntikkan ke prompt tiap karyawan. */
+const LESSON_INJECT_LIMIT = 6
+
+/** Cache pelajaran aktif per karyawan untuk satu siklus (diisi runCycle). */
+let LESSON_CACHE: Record<string, string> = {}
+
+/** Teks pelajaran yang ditempelkan ke system prompt karyawan (jika ada). */
+function lessonSuffix(slug: string): string {
+  const t = LESSON_CACHE[slug]
+  return t
+    ? `\n\nPELAJARAN DARI PENGALAMAN (WAJIB DIPATUHI — jangan ulangi kesalahan yang sama; hasil koreksi Boss & evaluasi mandiri tim):\n${t}`
+    : ''
+}
+
+/** Muat ringkasan pelajaran aktif untuk daftar karyawan tertentu → teks siap suntik. */
+async function loadLessonBriefs(slugs: string[]): Promise<Record<string, string>> {
+  const admin = sb()
+  const out: Record<string, string> = {}
+  try {
+    const { data } = await admin.from('ai_lessons')
+      .select('id,employee_slug,scope,title,lesson,severity,applied_count')
+      .eq('status', 'active')
+      .order('severity', { ascending: false })
+      .order('updated_at', { ascending: false })
+      .limit(150)
+    const rows = (data ?? []) as unknown as { id: string; employee_slug: string | null; scope: string; title: string; lesson: string; severity: string; applied_count: number }[]
+    if (!rows.length) return out
+    const injected = new Set<string>()
+    const inc: { id: string; applied_count: number }[] = []
+    for (const slug of Array.from(new Set(slugs))) {
+      const own = rows.filter((r) => r.employee_slug === slug)
+      const global = rows.filter((r) => !r.employee_slug)
+      const merged = [...own, ...global].slice(0, LESSON_INJECT_LIMIT)
+      if (!merged.length) continue
+      out[slug] = merged.map((r, i) => `${i + 1}. (${r.severity}) ${r.lesson}`).join('\n')
+      for (const m of merged) if (!injected.has(m.id)) { injected.add(m.id); inc.push({ id: m.id, applied_count: (m.applied_count ?? 0) + 1 }) }
+    }
+    // best-effort: tandai pelajaran sudah diterapkan.
+    await Promise.all(inc.map((x) => admin.from('ai_lessons').update({ applied_count: x.applied_count }).eq('id', x.id))).catch(() => {})
+  } catch { /* tabel belum ada → tanpa pelajaran */ }
+  return out
+}
+
+/** Tambah pelajaran (dengan dedupe berdasar judul+karyawan). Mengembalikan id. */
+export async function addLesson(input: {
+  employee_slug?: string | null
+  scope?: string
+  title: string
+  context?: string
+  lesson: string
+  source?: string
+  severity?: string
+  source_item_id?: string | null
+}): Promise<string | null> {
+  const admin = sb()
+  const slug = input.employee_slug ? String(input.employee_slug).trim() : null
+  const title = String(input.title ?? '').trim().slice(0, 200)
+  const lesson = String(input.lesson ?? '').trim().slice(0, 1000)
+  if (!title || !lesson) return null
+  try {
+    let q = admin.from('ai_lessons').select('id').eq('status', 'active').eq('title', title)
+    q = slug ? q.eq('employee_slug', slug) : q.is('employee_slug', null)
+    const { data: dup } = await q.limit(1)
+    if (dup && dup.length) {
+      await admin.from('ai_lessons').update({ lesson, severity: input.severity ?? 'info', updated_at: nowIso() }).eq('id', String(dup[0].id))
+      return String(dup[0].id)
+    }
+    const { data } = await admin.from('ai_lessons').insert({
+      employee_slug: slug,
+      scope: input.scope ?? 'global',
+      title,
+      context: String(input.context ?? '').slice(0, 1000),
+      lesson,
+      source: input.source ?? 'auto',
+      severity: input.severity ?? 'info',
+      source_item_id: input.source_item_id ?? null,
+    }).select('id').maybeSingle()
+    if (slug) await admin.from('ai_employees').update({ last_learned_at: nowIso() }).eq('slug', slug)
+    return data?.id ? String(data.id) : null
+  } catch { return null }
+}
+
+/** Daftar pelajaran (terbaru lebih dulu). */
+export async function listLessons(limit = 60): Promise<AiLesson[]> {
+  const admin = sb()
+  try {
+    const { data } = await admin.from('ai_lessons').select('*').order('updated_at', { ascending: false }).limit(limit)
+    return (data ?? []) as unknown as AiLesson[]
+  } catch { return [] }
+}
+
+/** Nonaktifkan pelajaran (mis. sudah tidak relevan). */
+export async function retireLesson(id: string): Promise<boolean> {
+  const admin = sb()
+  try {
+    const { error } = await admin.from('ai_lessons').update({ status: 'retired', updated_at: nowIso() }).eq('id', id)
+    return !error
+  } catch { return false }
+}
+
+/** Pelajaran instan saat Boss menolak sebuah item kerja. */
+async function captureLessonFromReject(item: Json, note?: string) {
+  const slug = String(item.employee_slug ?? '') || null
+  const judul = String(item.title ?? '').slice(0, 80)
+  const title = `Koreksi Boss: ${judul}`.slice(0, 200)
+  const lesson = note && note.trim().length > 3
+    ? `Boss menolak item "${judul}" (${String(item.kind ?? '')}). Koreksi Boss: "${note.trim().slice(0, 300)}". Terapkan koreksi ini pada pekerjaan berikutnya; jangan mengulang pola yang sama.`
+    : `Boss menolak item "${judul}" (${String(item.kind ?? '')}). Tinjau mutu & relevansi sebelum mengulang; sesuaikan dengan standar dan kebutuhan Boss.`
+  await addLesson({ employee_slug: slug, scope: String(item.kind ?? 'global'), title, context: `Item #${String(item.id ?? '').slice(0, 8)} ditolak Boss.`, lesson, source: 'reject', severity: 'warn', source_item_id: item.id ? String(item.id) : null })
+}
+
+/** Pelajaran saat publikasi sebuah kanal gagal. */
+async function captureLessonFromPublishFail(channel: string, raw: string) {
+  const label = CHANNEL_LABEL[channel] ?? channel
+  await addLesson({
+    employee_slug: 'content', scope: 'publish',
+    title: `Publikasi ${label} pernah gagal`,
+    context: raw.slice(0, 180),
+    lesson: `Publikasi ${label} pernah gagal: "${friendlyMetaError(raw)}". Sebelum menerbitkan, pastikan format & izin kanal sesuai (mis. Threads maks 500 karakter, teks total tidak melebihi batas).`,
+    source: 'publish_fail', severity: 'warn',
+  })
+}
+
+/** Pelajaran saat konten identik dilewati (anti-duplikat). */
+async function captureLessonFromDuplicate() {
+  await addLesson({
+    employee_slug: 'content', scope: 'content',
+    title: 'Hindari konten identik',
+    context: 'Ada draf yang isinya sama dengan yang sudah tayang sehingga di-skip otomatis.',
+    lesson: 'Jangan mengulang konten dengan isi/angle identik. Variasikan sudut pandang, contoh, dan kalimat; cek riwayat sebelum menulis.',
+    source: 'duplicate', severity: 'info',
+  })
+}
+
+/**
+ * Siklus belajar mandiri: tinjau masalah 7 hari terakhir (item ditolak, publikasi
+ * gagal, duplikat) lalu tarik pelajaran baru via AI agar tidak terulang.
+ */
+export async function runSelfImprovement(actorId: string | null, runId: string | null = null): Promise<{ lessons: number; reviewed: number }> {
+  const admin = sb()
+  const since = new Date(Date.now() - 7 * 864e5).toISOString()
+  const { data } = await admin.from('ai_work_items')
+    .select('employee_slug,kind,title,status,payload,decision_note,created_at')
+    .gte('created_at', since).order('created_at', { ascending: false }).limit(200)
+  const rows = (data ?? []) as unknown as Json[]
+  const problems = rows.filter((r) => {
+    const p = (r.payload ?? {}) as Json
+    return String(r.status ?? '') === 'rejected' || !!p.publish_error || !!p.skipped_duplicate
+  })
+  if (!problems.length) {
+    await audit(actorId, 'workforce.learn', 'ai_run', runId, { reviewed: 0, newLessons: 0 })
+    return { lessons: 0, reviewed: 0 }
+  }
+  const digest = problems.slice(0, 40).map((r) => {
+    const p = (r.payload ?? {}) as Json
+    const tag = String(r.status) === 'rejected' ? 'DITOLAK' : p.publish_error ? 'GAGAL-TAYANG' : 'DUPLIKAT'
+    return `- [${tag}] ${String(r.employee_slug ?? '')}: ${String(r.title ?? '')}${r.decision_note ? ` | catatan Boss: ${String(r.decision_note)}` : ''}${p.publish_error ? ` | error: ${String(p.publish_error)}` : ''}`
+  }).join('\n')
+  const existing = (await listLessons(120)).filter((l) => l.status === 'active')
+  const existingText = existing.slice(0, 60).map((l) => `- ${l.employee_slug ?? 'GLOBAL'}: ${l.title}`).join('\n') || '(belum ada)'
+  try {
+    const out = await aiJsonRetry<{ lessons: { employee_slug?: string; scope?: string; title: string; lesson: string; severity?: string }[] }>([
+      { role: 'system', content: `Kamu "Ayana", COO yang juga memimpin sistem PEMBELAJARAN MANDIRI tim AI Homy. Dari daftar masalah (item ditolak Boss, publikasi gagal, konten duplikat), tarik PELAJARAN singkat & actionable agar tiap karyawan TIDAK mengulang kesalahan yang sama. Jangan mengarang di luar data. Karyawan: coo, analyst, sales, marketing, design, growth, content, listing. Bahasa Indonesia.` },
+      { role: 'user', content: `MASALAH 7 HARI TERAKHIR:\n${digest}\n\nPELAJARAN YANG SUDAH ADA (jangan duplikat):\n${existingText}\n\nHasilkan 0-4 pelajaran BARU saja. Tiap pelajaran = satu aturan konkret & bisa dijalankan. JSON: { "lessons": [ { "employee_slug": "content", "scope": "publish", "title": "judul singkat", "lesson": "aturan korektif", "severity": "info|warn|critical" } ] }.` },
+    ], { temperature: 0.3, maxTokens: 900 })
+    const items = Array.isArray(out.lessons) ? out.lessons.slice(0, 4) : []
+    let n = 0
+    for (const l of items) {
+      if (!l?.lesson) continue
+      const id = await addLesson({
+        employee_slug: (l.employee_slug ?? '').trim() || null,
+        scope: l.scope ?? 'global',
+        title: l.title ?? String(l.lesson).slice(0, 80),
+        lesson: l.lesson,
+        source: 'auto', severity: l.severity ?? 'info',
+      })
+      if (id) n += 1
+    }
+    await audit(actorId, 'workforce.learn', 'ai_run', runId, { reviewed: problems.length, newLessons: n })
+    return { lessons: n, reviewed: problems.length }
+  } catch {
+    return { lessons: 0, reviewed: problems.length }
+  }
+}
+
+/** Kinerja tiap karyawan dari waktu ke waktu (28 hari): produksi, koreksi, skor, tren. */
+export type PerfRow = {
+  slug: string
+  name: string
+  emoji: string
+  produced7: number
+  corrections7: number
+  producedPrev7: number
+  correctionsPrev7: number
+  score: number
+  trend: number
+  lessons: number
+}
+
+export async function performanceReport(): Promise<PerfRow[]> {
+  const admin = sb()
+  const since = new Date(Date.now() - 28 * 864e5).toISOString()
+  const [{ data }, { data: employees }, lessons] = await Promise.all([
+    admin.from('ai_work_items').select('employee_slug,status,payload,created_at').gte('created_at', since).limit(500),
+    admin.from('ai_employees').select('slug,name,emoji,sort_order').order('sort_order', { ascending: true }),
+    listLessons(200),
+  ])
+  const rows = (data ?? []) as unknown as Json[]
+  const now = Date.now()
+  const wkb = (iso: unknown) => Math.floor((now - new Date(String(iso ?? '')).getTime()) / (7 * 864e5))
+  const isErr = (r: Json) => { const p = (r.payload ?? {}) as Json; return String(r.status) === 'rejected' || !!p.publish_error || !!p.skipped_duplicate }
+  const out: PerfRow[] = []
+  for (const e of (employees ?? []) as unknown as { slug: string; name: string; emoji: string }[]) {
+    const own = rows.filter((r) => String(r.employee_slug) === e.slug)
+    const cur = own.filter((r) => wkb(r.created_at) === 0)
+    const prev = own.filter((r) => wkb(r.created_at) === 1)
+    const c7 = cur.length, e7 = cur.filter(isErr).length
+    const cp = prev.length, ep = prev.filter(isErr).length
+    const rate = c7 ? e7 / c7 : 0
+    const prevRate = cp ? ep / cp : rate
+    out.push({
+      slug: e.slug, name: e.name, emoji: e.emoji || '🤖',
+      produced7: c7, corrections7: e7, producedPrev7: cp, correctionsPrev7: ep,
+      score: Math.max(0, Math.min(100, Math.round(100 * (1 - rate)))),
+      trend: Math.round((prevRate - rate) * 100),
+      lessons: lessons.filter((l) => l.employee_slug === e.slug && l.status === 'active').length,
+    })
+  }
+  return out
+}
+
+/* ------------------------------------------------------------------ */
 /* Snapshot data operasional                                           */
 /* ------------------------------------------------------------------ */
 
@@ -645,7 +895,7 @@ type AnalystReport = {
 async function runAnalyst(snapshot: Snapshot, runId: string | null): Promise<{ analysis: AnalystReport; alertCount: number }> {
   const result = await aiJsonRetry<AnalystReport>(
     [
-      { role: 'system', content: `Kamu "Rani", Analyst & Compliance sebuah platform properti (Homy). Tugasmu menyusun laporan operasional harian yang jujur, padat, dan actionable. Gunakan HANYA data yang diberikan. Bahasa Indonesia.\n\n${skillBriefFor('analyst')}` },
+      { role: 'system', content: `Kamu "Rani", Analyst & Compliance sebuah platform properti (Homy). Tugasmu menyusun laporan operasional harian yang jujur, padat, dan actionable. Gunakan HANYA data yang diberikan. Bahasa Indonesia.\n\n${skillBriefFor('analyst')}${lessonSuffix('analyst')}` },
       { role: 'user', content: `DATA OPERASIONAL (JSON): ${JSON.stringify(snapshot).slice(0, 12000)}\n\nHasilkan JSON dengan kunci: report_title (judul singkat), summary (2-3 kalimat), metrics (objek angka penting, maks 6, kunci memakai istilah manusia), insights (array maks 4 temuan), risks (array maks 3 risiko/anomali, utamakan yang dari daftar anomalies), recommendations (array maks 4 saran konkret). Padat, jangan bertele-tele.` },
     ],
     { temperature: 0.3, maxTokens: 2200 },
@@ -733,7 +983,7 @@ async function runSales(snapshot: Snapshot, runId: string | null): Promise<{ dra
 
   const result = await aiJsonRetry<unknown>(
     [
-      { role: 'system', content: `Kamu "Dita", Sales & Customer Success platform properti Homy. Tulis draf balasan yang ramah, profesional, jelas, dan mendorong langkah berikutnya (mis. tawarkan jadwal viewing). Jangan menjanjikan diskon/harga khusus. Bahasa Indonesia santun. Maks 3 kalimat per balasan.\n\n${skillBriefFor('sales')}` },
+      { role: 'system', content: `Kamu "Dita", Sales & Customer Success platform properti Homy. Tulis draf balasan yang ramah, profesional, jelas, dan mendorong langkah berikutnya (mis. tawarkan jadwal viewing). Jangan menjanjikan diskon/harga khusus. Bahasa Indonesia santun. Maks 3 kalimat per balasan.\n\n${skillBriefFor('sales')}${lessonSuffix('sales')}` },
       { role: 'user', content: `PROSPEK TERBUKA (JSON): ${JSON.stringify(targets).slice(0, 6000)}\n\nBalas HANYA dengan JSON valid berbentuk objek: { "drafts": [ { "inquiry_id": "<id dari data>", "reply": "<teks balasan>", "intent": "tanya_harga|jadwal_viewing|umum|nego", "urgency": "low|normal|high" } ] }. Sertakan SEMUA inquiry_id yang diberikan, tanpa teks lain di luar JSON.` },
     ],
     { temperature: 0.5, maxTokens: 2000 },
@@ -807,7 +1057,7 @@ async function runCOO(snapshot: Snapshot, analyst: AnalystReport | null, sales: 
     try {
       const result = await aiJsonRetry<Briefing>(
         [
-          { role: 'system', content: `Kamu "Ayana", Chief Operating Officer platform properti Homy. Kamu memimpin tim kecil karyawan AI kelas dunia. Susun briefing pagi untuk pemilik (Boss) yang ringkas, tajam, dan berorientasi keputusan. Bahasa Indonesia, tanpa basa-basi, tanpa markdown.\n\n${skillBriefFor('coo')}` },
+          { role: 'system', content: `Kamu "Ayana", Chief Operating Officer platform properti Homy. Kamu memimpin tim kecil karyawan AI kelas dunia. Susun briefing pagi untuk pemilik (Boss) yang ringkas, tajam, dan berorientasi keputusan. Bahasa Indonesia, tanpa basa-basi, tanpa markdown.\n\n${skillBriefFor('coo')}${lessonSuffix('coo')}` },
           { role: 'user', content: `KONDISI PLATFORM (JSON): ${JSON.stringify(snapshot.totals).slice(0, 3000)}\nANOMALI: ${JSON.stringify(snapshot.anomalies).slice(0, 2000)}\nLAPORAN ANALIS: ${JSON.stringify(analyst ?? {}).slice(0, 2500)}\nDRAF PENJUALAN menunggu persetujuan: ${sales.draftCount} (prioritas tinggi: ${sales.hotCount})\n\nHasilkan JSON: { "briefing": "maks 150 kata", "priorities": ["maks 4 prioritas hari ini"], "escalate": [ { "title": "...", "why": "..." } ] } untuk hal yang benar-benar butuh keputusan Boss (uang/kebijakan/risiko). Bila tidak ada, escalate = [].` },
         ],
         { temperature: 0.4, maxTokens: 1500 },
@@ -878,7 +1128,7 @@ async function runGrowth(snapshot: Snapshot, runId: string | null): Promise<{ pl
   if (today.length) return { planCount: 0 }
   const result = await aiJsonRetry<GrowthPlan>(
     [
-      { role: 'system', content: `Kamu "Bima", Growth & Lead Generation platform properti Homy. Fokus: mengisi pipeline penjual & pembeli dari prospek yang ada dan data CRM. Bahasa Indonesia, praktis, tanpa basa-basi. Jangan mengarang angka.\n\n${skillBriefFor('growth')}` },
+      { role: 'system', content: `Kamu "Bima", Growth & Lead Generation platform properti Homy. Fokus: mengisi pipeline penjual & pembeli dari prospek yang ada dan data CRM. Bahasa Indonesia, praktis, tanpa basa-basi. Jangan mengarang angka.\n\n${skillBriefFor('growth')}${lessonSuffix('growth')}` },
       { role: 'user', content: `KONDISI PLATFORM (JSON): ${JSON.stringify({ totals: snapshot.totals, cityBreakdown: snapshot.cityBreakdown, prospek: snapshot.openInquiries.map((i) => ({ judul: i.property_title, umur_jam: i.ageHours })), kunjungan_mangkrak: snapshot.staleVisits }).slice(0, 8000)}\n\nHasilkan JSON: { "summary": "2-3 kalimat kondisi pipeline & peluang", "bets": [ { "title": "...", "rationale": "...", "channel": "instagram|threads|whatsapp|web|agen", "expected_impact": "...", "needs_budget": true|false } ], "crm_actions": ["langkah taktis menjaga pipeline"] }. Maks 3 bets dan maks 4 crm_actions. Tandai needs_budget=true untuk apa pun yang butuh biaya/anggaran.` },
     ],
     { temperature: 0.4, maxTokens: 1600 },
@@ -973,7 +1223,7 @@ async function runMarketing(snapshot: Snapshot, runId: string | null): Promise<{
   try {
     const result = await aiJsonRetry<MarketingPlan>(
       [
-        { role: 'system', content: `Kamu "Maya", Marketing & Brand Homy (platform properti Indonesia). Fokus UTAMA: mempromosikan Homy Property agar makin banyak orang mendaftar & login — (a) calon pembeli/penyewa dan (b) agen properti yang ingin bergabung. Kamu menyusun arah kampanye yang nanti dieksekusi tim Social Media Manager (Sari) di Instagram, Threads, dan Facebook. Bahasa Indonesia, praktis, tanpa basa-basi. Jangan mengarang angka.\n\n${skillBriefFor('marketing')}` },
+        { role: 'system', content: `Kamu "Maya", Marketing & Brand Homy (platform properti Indonesia). Fokus UTAMA: mempromosikan Homy Property agar makin banyak orang mendaftar & login — (a) calon pembeli/penyewa dan (b) agen properti yang ingin bergabung. Kamu menyusun arah kampanye yang nanti dieksekusi tim Social Media Manager (Sari) di Instagram, Threads, dan Facebook. Bahasa Indonesia, praktis, tanpa basa-basi. Jangan mengarang angka.\n\n${skillBriefFor('marketing')}${lessonSuffix('marketing')}` },
         { role: 'user', content: `KONDISI PLATFORM (JSON): ${JSON.stringify({ totals: snapshot.totals, kota: snapshot.cityBreakdown, listing_tayang: snapshot.publishedListings?.slice(0, 8) }).slice(0, 5000)}\n\nSusun rencana pemasaran harian. Hasilkan JSON: { "summary": "2-3 kalimat arah pemasaran hari ini", "objectives": ["tujuan terukur"], "campaigns": [ { "title": "...", "audience": "pembeli|agen|umum", "channels": ["instagram","threads","facebook"], "key_message": "...", "cta": "...", "needs_budget": true|false } ], "agent_recruitment": ["langkah merekrut agen properti"] }. Maks 3 campaigns, 3 objectives, 3 agent_recruitment. Tandai needs_budget=true untuk apa pun yang butuh biaya iklan/anggaran.` },
       ],
       { temperature: 0.5, maxTokens: 1500 },
@@ -1045,7 +1295,7 @@ async function runContent(snapshot: Snapshot, runId: string | null, slot: Conten
   try {
     const result = await aiJsonRetry<{ posts: ContentPost[] }>(
       [
-        { role: 'system', content: `Kamu "Sari", Social Media Manager Homy (platform properti Indonesia). Tujuan UTAMA setiap konten: EDUKASI & ONBOARDING calon agen properti — supaya mereka paham cara memulai dan mau bergabung serta aktif di Homy Property. Kanal resmi: Instagram, Threads, Facebook Page. Nada hangat, jelas, ringkas, praktis, tanpa klaim harga/diskon, tanpa janji berlebihan. Bahasa Indonesia.\n\n${skillBriefFor('content')}` },
+        { role: 'system', content: `Kamu "Sari", Social Media Manager Homy (platform properti Indonesia). Tujuan UTAMA setiap konten: EDUKASI & ONBOARDING calon agen properti — supaya mereka paham cara memulai dan mau bergabung serta aktif di Homy Property. Kanal resmi: Instagram, Threads, Facebook Page. Nada hangat, jelas, ringkas, praktis, tanpa klaim harga/diskon, tanpa janji berlebihan. Bahasa Indonesia.\n\n${skillBriefFor('content')}${lessonSuffix('content')}` },
         { role: 'user', content: `SESI: ${slot === 'pagi' ? 'PAGI' : 'SORE'} (WIB).\nTEMA WAJIB HARI INI (angkat isu & tujuan ini, jangan keluar topik): "${theme.topic}" — tujuan: ${theme.goal}.\nPoin edukasi yang bisa dipakai: ${theme.points.join('; ')}.\n\nKONDISI PLATFORM (JSON): ${JSON.stringify({ listing: snapshot.publishedListings?.slice(0, 6), kota: snapshot.cityBreakdown, total_tayang: snapshot.totals.listing_tayang, arahan_marketing: plan ? { summary: plan.summary, campaigns: plan.campaigns } : null }).slice(0, 6000)}\n\nBuat 3 konten BERBEDA untuk kanal: 1 "instagram" (caption edukatif + 8-12 hashtag + CTA), 1 "threads" (post singkat — TOTAL hook+isi+CTA+hashtag WAJIB di bawah 450 karakter — + 2-3 hashtag), 1 "facebook" (1-3 paragraf + CTA + maks 5 hashtag). Semua WAJIB bernuansa edukasi/onboarding agen mengikuti tema di atas. Hasilkan JSON: { "posts": [ { "channel": "instagram|threads|facebook", "audience": "agen|umum|pembeli", "hook": "...", "body": "...", "hashtags": ["#..."], "cta": "...", "image_idea": "..." } ] }.` },
       ],
       { temperature: 0.7, maxTokens: 1700 },
@@ -1119,7 +1369,7 @@ async function runDesign(snapshot: Snapshot, runId: string | null): Promise<{ as
     try {
       const r = await aiJsonRetry<DesignSpec>(
         [
-          { role: 'system', content: `Kamu "Vino", Visual & Desain Grafis Homy (platform properti Indonesia). Kamu membuat brief poster & ilustrasi konten yang selaras dengan arahan Marketing (Maya) dan konten Social Media Manager (Sari). Gaya: bersih, modern, hangat, terpercaya. Bahasa Indonesia.\n\n${skillBriefFor('design')}` },
+          { role: 'system', content: `Kamu "Vino", Visual & Desain Grafis Homy (platform properti Indonesia). Kamu membuat brief poster & ilustrasi konten yang selaras dengan arahan Marketing (Maya) dan konten Social Media Manager (Sari). Gaya: bersih, modern, hangat, terpercaya. Bahasa Indonesia.\n\n${skillBriefFor('design')}${lessonSuffix('design')}` },
           { role: 'user', content: `KANAL: ${channel}\nJUDUL/HOOK: ${headline}\nISI: ${body}\nCTA: ${cta}\n\nBuat brief visual. Hasilkan JSON: { "headline": "teks utama poster (maks 8 kata)", "subheadline": "penjelas singkat", "cta": "ajakan", "palette": ["#hex", "#hex", "#hex"], "layout": "tata letak ringkas", "illustration": "ide ilustrasi/gambar", "notes": "catatan produksi" }.` },
         ],
         { temperature: 0.6, maxTokens: 800 },
@@ -1421,13 +1671,14 @@ export type CycleResult = {
   error?: string
 }
 
-export type CycleScope = 'core' | 'content' | 'extended' | 'design' | 'publish' | 'all'
+export type CycleScope = 'core' | 'content' | 'extended' | 'design' | 'publish' | 'learn' | 'all'
 const SCOPE_PLAN: Record<CycleScope, string[]> = {
   core: ['analyst', 'sales', 'coo'],
   content: ['marketing', 'content'],
   design: ['design'],
   extended: ['growth', 'listing'],
   publish: [],
+  learn: [],
   all: ['analyst', 'sales', 'growth', 'marketing', 'content', 'design', 'listing', 'coo'],
 }
 
@@ -1453,6 +1704,8 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
 
     // Rencana kerja sesuai cakupan (Fase 1 inti; Fase 2 konten/pertumbuhan/listing).
     const plan = SCOPE_PLAN[scope] ?? SCOPE_PLAN.core
+    // Self-improvement: suntikkan pelajaran yang sudah dipelajari ke prompt tiap karyawan.
+    LESSON_CACHE = await loadLessonBriefs(plan)
     for (const slug of plan) {
       const elapsed = Date.now() - t0
       // Sisakan margin agar total < 60s (Vercel Hobby). Jika terlalu jauh, langkah AI dilewati.
@@ -1517,9 +1770,16 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
       else if (pub.notConnected && pub.skipped) publishNote = ' · kanal sosial belum terhubung'
     }
 
+    // Siklus belajar mandiri: tinjau masalah 7 hari → tarik pelajaran baru (scope 'learn').
+    let learnNote = ''
+    if (scope === 'learn') {
+      const r = await runSelfImprovement(actorId, runId)
+      learnNote = ` · ${r.lessons} pelajaran baru dari ${r.reviewed} masalah`
+    }
+
     const failed = employees.filter((e) => /^(gagal|dilewati)/.test(String(e.note ?? ''))).length
-    const ok = itemsCreated > 0 || publishedCount > 0 || scope === 'publish'
-    const summary = (failed ? `[${failed} langkah terganggu] ` : '') + (briefing?.briefing || `Siklus ${scope} selesai: ${itemsCreated} item kerja dibuat.`) + publishNote
+    const ok = itemsCreated > 0 || publishedCount > 0 || scope === 'publish' || scope === 'learn'
+    const summary = (failed ? `[${failed} langkah terganggu] ` : '') + (briefing?.briefing || `Siklus ${scope} selesai: ${itemsCreated} item kerja dibuat.`) + publishNote + learnNote
     await admin.from('ai_runs').update({
       status: ok ? 'ok' : 'error', summary: summary.slice(0, 800), items_created: itemsCreated, employees, finished_at: nowIso(),
     }).eq('id', runId ?? '00000000-0000-0000-0000-000000000000')
@@ -1531,8 +1791,10 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
     }
 
     await audit(actorId, 'workforce.cycle', 'ai_run', runId, { trigger, scope, itemsCreated, publishedCount, employees, failed })
+    LESSON_CACHE = {}
     return { runId, ok, employees, itemsCreated, briefing: briefing ?? undefined }
   } catch (error) {
+    LESSON_CACHE = {}
     const message = error instanceof Error ? error.message : 'Siklus gagal'
     await admin.from('ai_runs').update({ status: 'error', summary: message.slice(0, 800), finished_at: nowIso(), employees, items_created: itemsCreated }).eq('id', runId ?? '00000000-0000-0000-0000-000000000000')
     await audit(actorId, 'workforce.cycle.error', 'ai_run', runId, { trigger, error: message })
@@ -1558,6 +1820,8 @@ export async function decideWorkItem(actorId: string, id: string, decision: Deci
   if (decision === 'reject') {
     await admin.from('ai_work_items').update({ ...patch, status: 'rejected' }).eq('id', id)
     await audit(actorId, 'workforce.reject', 'ai_work_item', id, { kind: item.kind, note })
+    // Self-improvement: pelajaran instan dari koreksi Boss (best-effort).
+    try { await captureLessonFromReject(item as unknown as Json, note) } catch { /* best effort */ }
     return { ok: true, status: 'rejected' }
   }
 
@@ -1701,6 +1965,7 @@ export async function autopublishDrafts(opts: { limit?: number; budgetMs?: numbe
     if ((p.published as Json | undefined)?.external_id) seen.add(`${String(p.channel ?? '')}\n${String(p.body ?? '').trim()}`)
   }
 
+  let dupSeen = false
   for (const row of pending) {
     if (out.published.length >= limit) { out.skipped += 1; continue }
     // Sisakan margin: jangan mulai publikasi baru jika sisa waktu < 20s (Instagram ~25s).
@@ -1711,6 +1976,7 @@ export async function autopublishDrafts(opts: { limit?: number; budgetMs?: numbe
     const key = `${channel}\n${String(p.body ?? '').trim()}`
     if (seen.has(key)) {
       out.skipped += 1
+      dupSeen = true
       await admin.from('ai_work_items').update({ status: 'archived', payload: { ...p, skipped_duplicate: true, publish_note: 'Dilewati: konten identik sudah tayang.' }, updated_at: nowIso() }).eq('id', String(row.id))
       continue
     }
@@ -1719,6 +1985,11 @@ export async function autopublishDrafts(opts: { limit?: number; budgetMs?: numbe
     if (res.ok) out.published.push({ id: String(row.id), channel, externalId: String(res.externalId ?? '') })
     else out.failed.push({ id: String(row.id), channel, error: res.error ?? 'gagal' })
   }
+  // Self-improvement: catat pelajaran dari kegagalan/duplikat (best-effort).
+  try {
+    for (const f of out.failed) await captureLessonFromPublishFail(f.channel, f.error)
+    if (dupSeen) await captureLessonFromDuplicate()
+  } catch { /* best effort */ }
   return out
 }
 
@@ -1730,11 +2001,13 @@ export async function listWorkforce() {
   const admin = sb()
   const { employees } = await ensureWorkforce()
   await ensureSkills()
-  const [itemsRes, runsRes, targets, skills] = await Promise.all([
+  const [itemsRes, runsRes, targets, skills, lessons, perf] = await Promise.all([
     admin.from('ai_work_items').select('*').order('created_at', { ascending: false }).limit(80),
     admin.from('ai_runs').select('*').order('started_at', { ascending: false }).limit(12),
     listTargets(),
     listSkills(),
+    listLessons(80),
+    performanceReport(),
   ])
   const items = (itemsRes.data ?? []) as unknown as Json[]
   const runs = (runsRes.data ?? []) as unknown as Json[]
@@ -1747,6 +2020,7 @@ export async function listWorkforce() {
     activeEmployees: employees.filter((e) => e.status === 'active').length,
     totalEmployees: employees.length,
     skillCount: skills.length,
+    lessonCount: lessons.filter((l) => l.status === 'active').length,
     awaitingApproval: items.filter((i) => i.status === 'awaiting_approval').length,
     openAlerts: items.filter((i) => i.kind === 'alert' && (i.status === 'open' || i.status === 'escalated')).length,
     itemsToday: items.filter((i) => today(i.created_at)).length,
@@ -1754,5 +2028,5 @@ export async function listWorkforce() {
     lastRunAt: runs[0]?.finished_at ?? runs[0]?.started_at ?? null,
   }
 
-  return { configured: aiConfigured(), model: aiModel(), employees, items, runs, targets, skills, stats }
+  return { configured: aiConfigured(), model: aiModel(), employees, items, runs, targets, skills, lessons, perf, stats }
 }

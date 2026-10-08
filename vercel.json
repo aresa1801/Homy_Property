@@ -7,6 +7,7 @@
     { "path": "/api/admin/workforce/cron?scope=content&slot=sore", "schedule": "0 8 * * *" },
     { "path": "/api/admin/workforce/cron?scope=publish", "schedule": "30 8 * * *" },
     { "path": "/api/admin/workforce/cron?scope=publish", "schedule": "0 12 * * *" },
+    { "path": "/api/admin/workforce/cron?scope=learn", "schedule": "30 13 * * *" },
     { "path": "/api/admin/workforce/cron?scope=extended", "schedule": "30 1 * * 1" }
   ]
 }
