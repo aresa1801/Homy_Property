@@ -1652,6 +1652,14 @@ export async function autopublishDrafts(opts: { limit?: number; budgetMs?: numbe
   })
   if (!pending.length) return out
 
+  // Anti-spam: catat (kanal + isi) yang sudah pernah tayang; lewati duplikat.
+  const { data: hist } = await admin.from('ai_work_items').select('payload').eq('kind', 'content_draft').limit(300)
+  const seen = new Set<string>()
+  for (const r of hist ?? []) {
+    const p = (r.payload ?? {}) as Json
+    if ((p.published as Json | undefined)?.external_id) seen.add(`${String(p.channel ?? '')}\n${String(p.body ?? '').trim()}`)
+  }
+
   for (const row of pending) {
     if (out.published.length >= limit) { out.skipped += 1; continue }
     // Sisakan margin: jangan mulai publikasi baru jika sisa waktu < 20s (Instagram ~25s).
@@ -1659,6 +1667,12 @@ export async function autopublishDrafts(opts: { limit?: number; budgetMs?: numbe
     const p = (row.payload ?? {}) as Json
     const ch = String(p.channel ?? 'instagram').toLowerCase()
     const channel = ch === 'threads' ? 'threads' : ch === 'facebook' ? 'facebook' : 'instagram'
+    const key = `${channel}\n${String(p.body ?? '').trim()}`
+    if (seen.has(key)) {
+      out.skipped += 1
+      await admin.from('ai_work_items').update({ status: 'archived', payload: { ...p, skipped_duplicate: true, publish_note: 'Dilewati: konten identik sudah tayang.' }, updated_at: nowIso() }).eq('id', String(row.id))
+      continue
+    }
     if (status.get(channel) !== 'connected') { out.notConnected = true; out.skipped += 1; continue }
     const res = await publishContentItem(opts.actorId ?? null, String(row.id))
     if (res.ok) out.published.push({ id: String(row.id), channel, externalId: String(res.externalId ?? '') })

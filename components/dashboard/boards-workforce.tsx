@@ -916,6 +916,7 @@ function SocialPanel({ status, items, busy, onReload, onDisconnect }: {
 function PublishCard({ item, connected }: { item: Item; connected: boolean }) {
   const p = item.payload as Record<string, unknown>
   const pub = p.published as Record<string, unknown> | undefined
+  const dup = !!p.skipped_duplicate
   const body = str(p.body)
   const hashtags = arr(p.hashtags)
   return (
@@ -923,15 +924,17 @@ function PublishCard({ item, connected }: { item: Item; connected: boolean }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="break-words text-sm font-semibold text-[#0b3d2e]">{item.title}</p>
-          <p className="text-xs text-[#8a9a92]">{str(p.channel)} · {pub?.external_id ? 'tayang' : 'menunggu publikasi otonom'}</p>
+          <p className="text-xs text-[#8a9a92]">{str(p.channel)} · {pub?.external_id ? 'tayang' : dup ? 'dilewati' : 'menunggu publikasi otonom'}</p>
         </div>
-        {pub?.external_id ? <span className={`${ui.badge} bg-[#e7f2ea] text-[#2f7a52]`}>Terbit</span> : <span className={ui.badge}>{str(p.channel)}</span>}
+        {pub?.external_id ? <span className={`${ui.badge} bg-[#e7f2ea] text-[#2f7a52]`}>Terbit</span> : dup ? <span className={ui.badge}>Dilewati</span> : <span className={ui.badge}>{str(p.channel)}</span>}
       </div>
       {p.hook ? <p className="mt-2 text-sm font-semibold text-[#33433d]">{str(p.hook)}</p> : null}
       {body ? <p className="mt-1 whitespace-pre-wrap text-sm text-[#5c5133]">{body}</p> : null}
       {hashtags.length ? <p className="mt-1 text-xs text-[#8a9a92]">{hashtags.join(' ')}</p> : null}
       {pub?.external_id ? (
         <p className="mt-2 text-xs text-[#2f7a52]">Terkirim {when(str(pub.posted_at))} · id <span className="break-all">{str(pub.external_id)}</span></p>
+      ) : dup ? (
+        <p className="mt-3 text-xs text-[#8a9a92]">Dilewati otomatis oleh Sari — konten identik sudah tayang.</p>
       ) : (
         <p className="mt-3 text-xs text-[#8a9a92]">{connected ? 'Akan diterbitkan otomatis oleh Sari pada siklus publikasi berikutnya.' : 'Kanal belum terhubung — hubungkan di atas agar bisa terbit otomatis.'}</p>
       )}
