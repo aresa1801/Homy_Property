@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 }
 
 type Body =
-  | { action: 'run'; scope?: 'core' | 'content' | 'extended' | 'design' | 'publish' | 'learn' | 'all'; slot?: 'pagi' | 'sore' }
+  | { action: 'run'; scope?: 'core' | 'content' | 'extended' | 'design' | 'publish' | 'learn' | 'digest' | 'all'; slot?: 'pagi' | 'sore' }
   | { action: 'seed' }
   | { action: 'skills-seed' }
   | { action: 'decide'; id: string; decision: 'approve' | 'reject'; note?: string }

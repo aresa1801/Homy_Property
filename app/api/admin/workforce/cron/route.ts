@@ -32,7 +32,7 @@ async function handle(request: Request) {
   try {
     const url = new URL(request.url)
     const raw = url.searchParams.get('scope') ?? 'core'
-    const scope = (['core', 'content', 'extended', 'design', 'publish', 'learn', 'all'] as const).find((s) => s === raw) ?? 'core'
+    const scope = (['core', 'content', 'extended', 'design', 'publish', 'learn', 'digest', 'all'] as const).find((s) => s === raw) ?? 'core'
     const rawSlot = url.searchParams.get('slot')
     const slot = rawSlot === 'pagi' || rawSlot === 'sore' ? rawSlot : undefined
     const result = await runCycle(null, 'cron', scope, slot)

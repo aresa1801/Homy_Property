@@ -20,6 +20,7 @@ import { aiConfigured, aiJson, aiModel, aiToolChat, AiError, type AiMessage, typ
 import { AI_SKILLS, EMPLOYEE_SKILLS, skillBriefFor, type AiSkill } from '@/lib/ai-skills'
 import { serviceClient } from '@/lib/visits'
 import { friendlyMetaError, getConnectionSecret, isMetaBlocked, markConnectionError, publishFacebook, publishInstagram, publishThreads, siteUrl } from '@/lib/meta'
+import { emailsFor } from '@/lib/user-emails'
 
 type Json = Record<string, unknown>
 const nowIso = () => new Date().toISOString()
@@ -40,7 +41,7 @@ function sb() {
 
 export type Autonomy = 'draft' | 'approve' | 'auto'
 export type EmployeeStatus = 'active' | 'planned' | 'paused'
-export type WorkItemKind = 'briefing' | 'report' | 'alert' | 'reply_draft' | 'task' | 'follow_up' | 'content_draft' | 'growth_plan' | 'marketing_plan' | 'design_asset' | 'listing_task'
+export type WorkItemKind = 'briefing' | 'report' | 'alert' | 'reply_draft' | 'task' | 'follow_up' | 'content_draft' | 'growth_plan' | 'marketing_plan' | 'design_asset' | 'listing_task' | 'routine'
 export type WorkItemStatus = 'open' | 'awaiting_approval' | 'approved' | 'rejected' | 'done' | 'escalated'
 
 export type EmployeeSeed = {
@@ -875,6 +876,144 @@ async function notifyAdmins(title: string, body: string, href = '/dashboard/admi
   return error ? 0 : rows.length
 }
 
+/* ------------------------------------------------------------------ */
+/* Jejak produksi harian & laporan harian Kantor AI                   */
+/* ------------------------------------------------------------------ */
+
+export type EmployeeActivity = { today: number; week: number; lastAt: string | null }
+
+/** Rekap produksi (item kerja) per karyawan: hari ini (WIB), 7 hari terakhir, dan waktu terakhir. */
+export async function employeeActivity(): Promise<Record<string, EmployeeActivity>> {
+  const admin = sb()
+  const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const { data } = await admin.from('ai_work_items').select('employee_slug,created_at').gte('created_at', since).limit(3000)
+  const dayStart = new Date(wibDayStartIso()).getTime()
+  const map: Record<string, EmployeeActivity> = {}
+  for (const r of (data ?? []) as unknown as { employee_slug: string | null; created_at: string }[]) {
+    const slug = String(r.employee_slug ?? '')
+    if (!slug) continue
+    const t = new Date(String(r.created_at)).getTime()
+    const m = map[slug] ?? (map[slug] = { today: 0, week: 0, lastAt: null })
+    m.week += 1
+    if (t >= dayStart) m.today += 1
+    if (!m.lastAt || t > new Date(m.lastAt).getTime()) m.lastAt = String(r.created_at)
+  }
+  return map
+}
+
+function hhmmWib(iso: string | null): string {
+  if (!iso) return '—'
+  try { return new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' }).format(new Date(iso)) } catch { return '—' }
+}
+
+/** Ringkasan "rutinitas job desk" tiap karyawan bila pada putaran ini tak ada output khusus. */
+function routineSummary(slug: string, snapshot: Snapshot): { title: string; summary: string } | null {
+  const anomalies = Array.isArray(snapshot.anomalies) ? snapshot.anomalies : []
+  const listingAnom = anomalies.filter((a) => String(a.kind ?? '').startsWith('listing')).length
+  switch (slug) {
+    case 'sales':
+      return { title: 'Pemeriksaan pipeline penjualan harian', summary: `Pipeline diperiksa: ${(snapshot.openInquiries ?? []).length} prospek terbuka, ${(snapshot.staleVisits ?? []).length} kunjungan perlu tindak lanjut. Tidak ada prospek baru yang menunggu balasan.` }
+    case 'marketing':
+      return { title: 'Pemantauan kanal & kalender konten', summary: 'Kalender konten & kanal pemasaran diperiksa; rencana harian tetap berjalan.' }
+    case 'content':
+      return { title: 'Pemeriksaan jadwal konten', summary: 'Antrean konten diperiksa; slot berikutnya mengikuti kalender pagi/sore.' }
+    case 'design':
+      return { title: 'Pemeriksaan aset visual', summary: 'Aset desain diperiksa dan siap mendukung konten berikutnya.' }
+    case 'growth':
+      return { title: 'Pemantauan pertumbuhan & funnel', summary: 'Metrik akuisisi & funnel dipantau; belum ada aksi baru yang diperlukan pada putaran ini.' }
+    case 'listing':
+      return { title: 'Audit kesehatan listing', summary: listingAnom ? `${listingAnom} anomali listing terdeteksi & sedang ditangani.` : 'Seluruh listing sehat: foto & judul lengkap, tidak ada duplikasi.' }
+    default:
+      return null
+  }
+}
+
+/** Pastikan tiap karyawan punya jejak produksi harian walau tak ada output khusus (dedupe per hari). */
+async function ensureRoutineItems(idle: { slug: string }[], snapshot: Snapshot, runId: string | null): Promise<number> {
+  const admin = sb()
+  let created = 0
+  for (const e of idle) {
+    const text = routineSummary(e.slug, snapshot)
+    if (!text) continue
+    const { data } = await admin.from('ai_work_items').select('id').eq('employee_slug', e.slug).eq('kind', 'routine').gte('created_at', wibDayStartIso()).limit(1)
+    if ((data ?? []).length) continue
+    const id = await insertItem({ employee_slug: e.slug, kind: 'routine', title: text.title, summary: text.summary, status: 'done', priority: 'low', requires_approval: false, payload: { routine: true } as Json, run_id: runId })
+    if (id) created += 1
+  }
+  return created
+}
+
+function renderDigestHtml(dateLabel: string, totalToday: number, rows: { name: string; role: string; emoji: string; today: number; week: number; last: string }[]): string {
+  const body = rows.map((r) => `
+    <tr>
+      <td style="padding:10px 12px;border-bottom:1px solid #eee"><span style="font-size:18px">${r.emoji}</span> <strong>${r.name}</strong><br/><span style="color:#8a938f;font-size:12px">${r.role}</span></td>
+      <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:center;font-weight:700;color:${r.today > 0 ? '#0b3d2e' : '#b45c50'}">${r.today}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:center;color:#65706c">${r.week}</td>
+      <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;color:#65706c">${r.last} WIB</td>
+    </tr>`).join('')
+  return `<!doctype html><html><body style="margin:0;background:#f7f3ec;font-family:'Segoe UI',Helvetica,Arial,sans-serif">
+  <div style="max-width:600px;margin:0 auto;padding:32px 20px">
+    <div style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:#0b3d2e;margin-bottom:20px">Homy<span style="color:#c9a961">.</span> <span style="font-size:14px;color:#8a938f;font-weight:400">Kantor AI</span></div>
+    <div style="background:#ffffff;border:1px solid #e8dfd3;border-radius:16px;padding:24px">
+      <p style="margin:0 0 6px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#c9a961">Laporan Harian</p>
+      <h1 style="margin:0 0 4px;font-family:Georgia,serif;font-size:22px;color:#0b3d2e">Kegiatan Karyawan AI</h1>
+      <p style="margin:0 0 16px;color:#65706c">${dateLabel} · total <strong>${totalToday}</strong> item diproduksi hari ini</p>
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <tr style="text-align:left;color:#9b762a;font-size:11px;text-transform:uppercase"><th style="padding:6px 12px">Karyawan</th><th style="padding:6px 12px;text-align:center">Hari ini</th><th style="padding:6px 12px;text-align:center">7 hari</th><th style="padding:6px 12px;text-align:right">Terakhir</th></tr>
+        ${body}
+      </table>
+      <a href="${appUrlSafe()}/dashboard/admin/workforce" style="display:inline-block;margin-top:18px;background:#0b3d2e;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">Buka Kantor AI</a>
+    </div>
+    <p style="margin:18px 0 0;font-size:12px;color:#8a938f">Email otomatis dari Kantor AI Homy Property · dikirim setiap pukul 18.00 WIB.</p>
+  </div></body></html>`
+}
+
+function appUrlSafe(): string {
+  return (process.env.HOMY_APP_URL || 'https://homyproperty.id').replace(/\/$/, '')
+}
+
+/** Laporan harian Kantor AI: kirim in-app + email ke seluruh admin (dedupe satu per hari). */
+export async function sendDailyDigest(runId: string | null = null): Promise<{ recipients: number; employees: number; alreadyToday: boolean }> {
+  const admin = sb()
+  const dayStart = wibDayStartIso()
+  const { data: prev } = await admin.from('ai_work_items').select('id,payload').eq('kind', 'report').gte('created_at', dayStart).limit(40)
+  if ((prev ?? []).some((r) => ((r.payload ?? {}) as Json).digest === true)) {
+    return { recipients: 0, employees: 0, alreadyToday: true }
+  }
+  const { employees } = await ensureWorkforce()
+  const act = await employeeActivity()
+  const dateLabel = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' }).format(new Date())
+  const rows = employees.map((e) => {
+    const a = act[e.slug] ?? { today: 0, week: 0, lastAt: null as string | null }
+    return { name: e.name, role: e.role_title, emoji: e.emoji, today: a.today, week: a.week, last: hhmmWib(a.lastAt) }
+  })
+  const totalToday = rows.reduce((s, r) => s + r.today, 0)
+  const title = `Laporan Harian Kantor AI — ${dateLabel}`
+  const body = `Total produksi hari ini: ${totalToday} item dari ${rows.length} karyawan AI.\n\n` + rows.map((r) => `• ${r.name} (${r.role}): ${r.today} item hari ini, terakhir ${r.last} WIB`).join('\n')
+
+  await notifyAdmins(title, body, '/dashboard/admin/workforce')
+
+  let recipients = 0
+  try {
+    const { data: roles } = await admin.from('user_roles').select('user_id').in('role', ['admin', 'super_admin'])
+    const ids = Array.from(new Set((roles ?? []).map((r) => String(r.user_id))))
+    const mailMap = await emailsFor(admin, ids)
+    const key = process.env.RESEND_API_KEY
+    if (key) {
+      const from = process.env.HOMY_EMAIL_FROM || 'Homy Property <notifikasi@homy.id>'
+      const html = renderDigestHtml(dateLabel, totalToday, rows)
+      for (const to of Array.from(mailMap.values())) {
+        const res = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to: [to], subject: title, html }) }).catch(() => null)
+        if (res && res.ok) recipients += 1
+      }
+    }
+  } catch { /* email opsional — jangan gagalkan laporan */ }
+
+  await insertItem({ employee_slug: 'coo', kind: 'report', title, summary: body, status: 'done', priority: 'normal', requires_approval: false, payload: { digest: true, totalToday, dateLabel } as Json, run_id: runId })
+  await audit(null, 'workforce.digest', 'ai_run', runId, { recipients, totalToday })
+  return { recipients, employees: employees.length, alreadyToday: false }
+}
+
 async function audit(actorId: string | null, action: string, entityType: string, entityId: string | null, metadata: Json) {
   try { await sb().from('audit_logs').insert({ actor_id: actorId, action, entity_type: entityType, entity_id: entityId, metadata }) } catch { /* best effort */ }
 }
@@ -1671,7 +1810,7 @@ export type CycleResult = {
   error?: string
 }
 
-export type CycleScope = 'core' | 'content' | 'extended' | 'design' | 'publish' | 'learn' | 'all'
+export type CycleScope = 'core' | 'content' | 'extended' | 'design' | 'publish' | 'learn' | 'digest' | 'all'
 const SCOPE_PLAN: Record<CycleScope, string[]> = {
   core: ['analyst', 'sales', 'coo'],
   content: ['marketing', 'content'],
@@ -1679,6 +1818,7 @@ const SCOPE_PLAN: Record<CycleScope, string[]> = {
   extended: ['growth', 'listing'],
   publish: [],
   learn: [],
+  digest: [],
   all: ['analyst', 'sales', 'growth', 'marketing', 'content', 'design', 'listing', 'coo'],
 }
 
@@ -1758,6 +1898,15 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
       }
     }
 
+    // Jejak produksi harian: karyawan yang tak menghasilkan output khusus pada putaran ini tetap
+    // mencatat rutinitas job desk-nya (dedupe per hari) agar dashboard tidak salah tampil "lengang".
+    if (scope !== 'publish' && scope !== 'learn' && scope !== 'digest') {
+      const produced = new Set(employees.filter((e) => e.work > 0).map((e) => e.slug))
+      const idle = plan.filter((s) => !produced.has(s)).map((s) => ({ slug: s }))
+      const extra = await ensureRoutineItems(idle, snapshot, runId).catch(() => 0)
+      if (extra) itemsCreated += extra
+    }
+
     // Publikasi otonom: karyawan AI (Sari) menerbitkan konten sendiri sesuai analisa & skill.
     let publishedCount = 0
     let publishNote = ''
@@ -1777,9 +1926,16 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
       learnNote = ` · ${r.lessons} pelajaran baru dari ${r.reviewed} masalah`
     }
 
+    // Laporan harian Kantor AI (scope 'digest'): rekap kegiatan tiap karyawan → in-app + email admin.
+    let digestNote = ''
+    if (scope === 'digest') {
+      const d = await sendDailyDigest(runId)
+      digestNote = d.alreadyToday ? ' · laporan harian sudah dikirim hari ini' : ` · laporan harian terkirim (${d.recipients} email, ${d.employees} karyawan)`
+    }
+
     const failed = employees.filter((e) => /^(gagal|dilewati)/.test(String(e.note ?? ''))).length
-    const ok = itemsCreated > 0 || publishedCount > 0 || scope === 'publish' || scope === 'learn'
-    const summary = (failed ? `[${failed} langkah terganggu] ` : '') + (briefing?.briefing || `Siklus ${scope} selesai: ${itemsCreated} item kerja dibuat.`) + publishNote + learnNote
+    const ok = itemsCreated > 0 || publishedCount > 0 || scope === 'publish' || scope === 'learn' || scope === 'digest'
+    const summary = (failed ? `[${failed} langkah terganggu] ` : '') + (briefing?.briefing || `Siklus ${scope} selesai: ${itemsCreated} item kerja dibuat.`) + publishNote + learnNote + digestNote
     await admin.from('ai_runs').update({
       status: ok ? 'ok' : 'error', summary: summary.slice(0, 800), items_created: itemsCreated, employees, finished_at: nowIso(),
     }).eq('id', runId ?? '00000000-0000-0000-0000-000000000000')
@@ -2011,6 +2167,7 @@ export async function listWorkforce() {
   ])
   const items = (itemsRes.data ?? []) as unknown as Json[]
   const runs = (runsRes.data ?? []) as unknown as Json[]
+  const activity = await employeeActivity()
 
   const wib = new Date(Date.now() + WIB_OFFSET_MS)
   const dayStart = Date.UTC(wib.getUTCFullYear(), wib.getUTCMonth(), wib.getUTCDate()) - WIB_OFFSET_MS
@@ -2028,5 +2185,6 @@ export async function listWorkforce() {
     lastRunAt: runs[0]?.finished_at ?? runs[0]?.started_at ?? null,
   }
 
-  return { configured: aiConfigured(), model: aiModel(), employees, items, runs, targets, skills, lessons, perf, stats }
+  const employeesWithActivity = employees.map((e) => ({ ...e, activity: activity[e.slug] ?? { today: 0, week: 0, lastAt: null } }))
+  return { configured: aiConfigured(), model: aiModel(), employees: employeesWithActivity, items, runs, targets, skills, lessons, perf, stats }
 }

@@ -13,6 +13,7 @@ type JobCard = { responsibilities?: string[]; standards?: string[]; guardrails?:
 type Employee = {
   id: string; slug: string; name: string; role_title: string; department: string; emoji: string
   mission: string; job_card: JobCard; kpis: string[]; autonomy: string; status: string; skills?: string[]; sort_order: number
+  activity?: { today: number; week: number; lastAt: string | null }
 }
 type Item = {
   id: string; employee_slug: string; kind: string; title: string; summary: string | null
@@ -137,7 +138,7 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
     window.history.replaceState({}, '', u.toString())
   }, [])
 
-  const run = useCallback(async (scope: 'core' | 'content' | 'extended' | 'design' | 'learn' = 'core') => {
+  const run = useCallback(async (scope: 'core' | 'content' | 'extended' | 'design' | 'learn' | 'digest' = 'core') => {
     setBusy(`run:${scope}`); setError(null)
     try {
       const res = await fetch('/api/admin/workforce', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'run', scope }) })
@@ -232,6 +233,7 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
             <button type="button" onClick={() => void run('content')} className={ui.ghost} disabled={!!busy}>{busy === 'run:content' ? <Loader2 className="size-4 animate-spin" /> : <PenLine className="size-4" />} Konten</button>
             <button type="button" onClick={() => void run('extended')} className={ui.ghost} disabled={!!busy}>{busy === 'run:extended' ? <Loader2 className="size-4 animate-spin" /> : <TrendingUp className="size-4" />} Pertumbuhan</button>
             <button type="button" onClick={() => void run('design')} className={ui.ghost} disabled={!!busy}>{busy === 'run:design' ? <Loader2 className="size-4 animate-spin" /> : <Palette className="size-4" />} Desain</button>
+            <button type="button" onClick={() => void run('digest')} className={ui.ghost} disabled={!!busy}>{busy === 'run:digest' ? <Loader2 className="size-4 animate-spin" /> : <FileText className="size-4" />} Laporan Harian</button>
             <button type="button" onClick={() => void run('core')} className={ui.btn} disabled={!!busy}>{busy === 'run:core' ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />} {busy === 'run:core' ? 'Menjalankan…' : 'Jalankan Siklus'}</button>
           </div>
         </div>
@@ -492,6 +494,10 @@ function TabButton({ active, onClick, icon: Icon, children }: { active: boolean;
 }
 
 function EmployeeCard({ e, awaiting }: { e: Employee; awaiting: number }) {
+  const today = e.activity?.today ?? 0
+  const last = e.activity?.lastAt
+    ? new Date(e.activity.lastAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' })
+    : null
   return (
     <div className={`${ui.card} min-w-0`}>
       <div className="flex items-start gap-3">
@@ -507,7 +513,13 @@ function EmployeeCard({ e, awaiting }: { e: Employee; awaiting: number }) {
       <p className="mt-2 line-clamp-3 text-xs leading-5 text-[#718078]">{e.mission}</p>
       <div className="mt-2 flex items-center justify-between">
         <span className="text-[11px] text-[#8a9a92]">{e.department}</span>
-        {awaiting > 0 ? <span className="rounded-full bg-[#fbe9e6] px-2 py-0.5 text-[11px] font-semibold text-[#b4553f]">{awaiting} menunggu</span> : <span className="text-[11px] text-[#8a9a92]">lengang</span>}
+        {awaiting > 0
+          ? <span className="rounded-full bg-[#fbe9e6] px-2 py-0.5 text-[11px] font-semibold text-[#b4553f]">{awaiting} menunggu</span>
+          : today > 0
+            ? <span className="rounded-full bg-[#e7f2ea] px-2 py-0.5 text-[11px] font-semibold text-[#2f7a52]">sibuk · {today} item hari ini</span>
+            : last
+              ? <span className="rounded-full bg-[#f2ecdf] px-2 py-0.5 text-[11px] font-semibold text-[#9b762a]">aktif · terakhir {last}</span>
+              : <span className="text-[11px] text-[#8a9a92]">baru bergabung</span>}
       </div>
     </div>
   )
