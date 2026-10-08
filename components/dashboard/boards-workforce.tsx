@@ -12,7 +12,7 @@ type BoardProps = { data: DashboardPayload; loading: boolean; reload: () => void
 type JobCard = { responsibilities?: string[]; standards?: string[]; guardrails?: string[]; escalates?: string[] }
 type Employee = {
   id: string; slug: string; name: string; role_title: string; department: string; emoji: string
-  mission: string; job_card: JobCard; kpis: string[]; autonomy: string; status: string; sort_order: number
+  mission: string; job_card: JobCard; kpis: string[]; autonomy: string; status: string; skills?: string[]; sort_order: number
 }
 type Item = {
   id: string; employee_slug: string; kind: string; title: string; summary: string | null
@@ -29,9 +29,10 @@ type Target = {
   target_value: number; current_value: number; unit: string | null
   owner_slug: string | null; status: string; source: string; notes: string | null; created_at: string
 }
+type SkillItem = { slug: string; name: string; category: string; emoji: string; summary: string; enabled: boolean; sort_order: number }
 type Payload = {
-  configured: boolean; model: string; employees: Employee[]; items: Item[]; runs: Run[]; targets: Target[]
-  stats: { activeEmployees: number; totalEmployees: number; awaitingApproval: number; openAlerts: number; itemsToday: number; doneToday: number; lastRunAt: string | null }
+  configured: boolean; model: string; employees: Employee[]; items: Item[]; runs: Run[]; targets: Target[]; skills: SkillItem[]
+  stats: { activeEmployees: number; totalEmployees: number; skillCount?: number; awaitingApproval: number; openAlerts: number; itemsToday: number; doneToday: number; lastRunAt: string | null }
 }
 
 const KIND_META: Record<string, { label: string; icon: typeof FileText }> = {
@@ -94,7 +95,7 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [tab, setTab] = useState<'office' | 'reports' | 'jobs' | 'chat' | 'targets' | 'social'>('office')
+  const [tab, setTab] = useState<'office' | 'reports' | 'jobs' | 'chat' | 'targets' | 'skills' | 'social'>('office')
   const [social, setSocial] = useState<SocialStatus | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
 
@@ -198,6 +199,7 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
   const stats = data?.stats
 
   const empBySlug = useMemo(() => Object.fromEntries(employees.map((e) => [e.slug, e])), [employees])
+  const skillMap = useMemo(() => Object.fromEntries((data?.skills ?? []).map((s) => [s.slug, s])), [data])
   const queue = items.filter((i) => i.status === 'awaiting_approval' || i.status === 'escalated' || i.status === 'open')
   const reports = items.filter((i) => i.kind === 'report' || i.kind === 'briefing')
 
@@ -245,6 +247,7 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
         <TabButton active={tab === 'targets'} onClick={() => setTab('targets')} icon={Target}>Target & Kinerja</TabButton>
         <TabButton active={tab === 'reports'} onClick={() => setTab('reports')} icon={FileText}>Laporan & Briefing</TabButton>
         <TabButton active={tab === 'jobs'} onClick={() => setTab('jobs')} icon={ClipboardList}>Job Card Karyawan</TabButton>
+        <TabButton active={tab === 'skills'} onClick={() => setTab('skills')} icon={Sparkles}>Pustaka Skill</TabButton>
       </div>
 
       {tab === 'office' && (
@@ -333,6 +336,14 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
                   </ul>
                 </div>
               )}
+              {!!e.skills?.length && (
+                <div className="mt-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[#a18a61]">Skill dikuasai ({e.skills.length})</p>
+                  <ul className="mt-1 flex flex-wrap gap-1.5">
+                    {e.skills.map((s) => { const sk = skillMap[s]; return <li key={s} className="rounded-full bg-[#eef3ee] px-2 py-0.5 text-[11px] text-[#3f6b55]">{sk ? `${sk.emoji} ${sk.name}` : s}</li> })}
+                  </ul>
+                </div>
+              )}
               {e.slug !== 'coo' && (
                 <div className="mt-4 flex justify-end">
                   <button type="button" onClick={() => void toggle(e.slug, e.status === 'active' ? 'paused' : 'active')} disabled={busy === e.slug} className={e.status === 'active' ? ui.ghost : ui.btn}>
@@ -344,6 +355,98 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
           ))}
         </div>
       )}
+
+      {tab === 'skills' && <SkillsPanel skills={data?.skills ?? []} employees={employees} />}
+    </div>
+  )
+}
+
+function SkillsPanel({ skills, employees }: { skills: SkillItem[]; employees: Employee[] }) {
+  const [q, setQ] = useState('')
+  const [open, setOpen] = useState<string | null>(null)
+  const [detail, setDetail] = useState<{ slug: string; body: string } | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+
+  const filtered = useMemo(() => {
+    const t = q.trim().toLowerCase()
+    if (!t) return skills
+    return skills.filter((s) => `${s.name} ${s.summary} ${s.category}`.toLowerCase().includes(t))
+  }, [skills, q])
+
+  const byCat = useMemo(() => {
+    const m = new Map<string, SkillItem[]>()
+    for (const s of filtered) { const a = m.get(s.category) ?? []; a.push(s); m.set(s.category, a) }
+    return [...m.entries()]
+  }, [filtered])
+
+  const openSkill = async (slug: string) => {
+    if (open === slug) { setOpen(null); return }
+    setOpen(slug); setErr(null)
+    if (detail?.slug === slug) return
+    setBusy(true)
+    try {
+      const res = await fetch(`/api/admin/workforce?skill=${encodeURIComponent(slug)}`, { cache: 'no-store' })
+      const p = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(p?.error ?? 'Gagal memuat skill.')
+      setDetail({ slug, body: String(p?.skill?.body ?? '') })
+    } catch (e) { setErr(e instanceof Error ? e.message : 'Gagal memuat skill.') }
+    finally { setBusy(false) }
+  }
+
+  const ownerOf = (slug: string) => employees.filter((e) => (e.skills ?? []).includes(slug)).map((e) => `${e.emoji} ${e.name}`)
+
+  return (
+    <div className="space-y-4">
+      <div className={`${ui.card} min-w-0`}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="font-serif text-lg text-[#0b3d2e]">📚 Pustaka Skill Kantor AI</p>
+            <p className="mt-1 max-w-2xl text-sm text-[#718078]">{skills.length} skill kelas dunia diadaptasi dari paket skill marketing bot Athlas (sosial, SEO, konten, adopsi, penjualan, desain, analitik) — otomatis dipakai tiap karyawan AI saat bekerja.</p>
+          </div>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Cari skill…" className={`${ui.input} w-56`} />
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+          {employees.map((e) => (
+            <span key={e.slug} className="rounded-full bg-[#f7f3ec] px-2 py-0.5 text-[#5c5133]">{e.emoji} {e.name}: {(e.skills ?? []).length} skill</span>
+          ))}
+        </div>
+      </div>
+
+      {err && <p className="rounded-lg bg-[#fbeeec] px-3 py-2 text-sm text-[#b45c50]">{err}</p>}
+
+      {byCat.map(([cat, list]) => (
+        <div key={cat} className="space-y-2">
+          <p className="px-1 text-xs font-semibold uppercase tracking-wide text-[#a18a61]">{cat} · {list.length}</p>
+          <div className="grid min-w-0 gap-2 md:grid-cols-2">
+            {list.map((s) => (
+              <div key={s.slug} className={`${ui.card} min-w-0`}>
+                <button type="button" onClick={() => void openSkill(s.slug)} className="flex w-full items-start gap-3 text-left">
+                  <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-[#f7f3ec] text-lg">{s.emoji}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold text-[#0b3d2e]">{s.name}</span>
+                    <span className="mt-0.5 block text-xs leading-5 text-[#718078]">{s.summary || '—'}</span>
+                  </span>
+                  <ChevronRight className={`mt-1 size-4 shrink-0 text-[#a18a61] transition-transform ${open === s.slug ? 'rotate-90' : ''}`} />
+                </button>
+                {!!ownerOf(s.slug).length && (
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-[11px]">
+                    {ownerOf(s.slug).map((o, i) => <span key={i} className="rounded-full bg-[#eef3ee] px-2 py-0.5 text-[#3f6b55]">{o}</span>)}
+                  </div>
+                )}
+                {open === s.slug && (
+                  <div className="mt-3 border-t border-[#eee6d8] pt-3">
+                    {busy && detail?.slug !== s.slug
+                      ? <p className="flex items-center gap-2 text-sm text-[#718078]"><Loader2 className="size-4 animate-spin" /> Memuat playbook…</p>
+                      : <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words text-xs leading-5 text-[#33433d]">{detail?.slug === s.slug ? detail.body : ''}</pre>}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+      {!byCat.length && <p className="text-sm text-[#718078]">Tidak ada skill yang cocok.</p>}
     </div>
   )
 }

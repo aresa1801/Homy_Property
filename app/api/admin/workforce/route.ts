@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { AiError } from '@/lib/ai'
-import { decideWorkItem, listWorkforce, runCycle, setEmployeeStatus, ensureWorkforce, createTarget, updateTarget } from '@/lib/ai-workforce'
+import { decideWorkItem, listWorkforce, runCycle, setEmployeeStatus, ensureWorkforce, ensureSkills, getSkill, createTarget, updateTarget } from '@/lib/ai-workforce'
 import { createClient } from '@/lib/supabase/server'
 import { clientKey, rateLimit } from '@/lib/rate-limit'
 
@@ -23,10 +23,16 @@ async function requireAdmin() {
 }
 
 /** GET — kantor AI: roster karyawan, antrean kerja, riwayat siklus, statistik. */
-export async function GET() {
+export async function GET(request: Request) {
   const guard = await requireAdmin()
   if ('error' in guard) return guard.error
   try {
+    const slug = new URL(request.url).searchParams.get('skill')
+    if (slug) {
+      const skill = await getSkill(slug)
+      if (!skill) return NextResponse.json({ error: 'Skill tidak ditemukan.' }, { status: 404 })
+      return NextResponse.json({ skill })
+    }
     const payload = await listWorkforce()
     return NextResponse.json(payload)
   } catch (error) {
@@ -39,6 +45,7 @@ export async function GET() {
 type Body =
   | { action: 'run'; scope?: 'core' | 'content' | 'extended' | 'design' | 'all' }
   | { action: 'seed' }
+  | { action: 'skills-seed' }
   | { action: 'decide'; id: string; decision: 'approve' | 'reject'; note?: string }
   | { action: 'toggle'; slug: string; status: 'active' | 'paused' | 'planned' }
   | {
@@ -62,6 +69,11 @@ export async function POST(request: Request) {
     if (body.action === 'seed') {
       const { seeded, employees } = await ensureWorkforce()
       return NextResponse.json({ ok: true, seeded, total: employees.length })
+    }
+
+    if (body.action === 'skills-seed') {
+      const res = await ensureSkills(true)
+      return NextResponse.json({ ok: true, ...res })
     }
 
     if (body.action === 'toggle') {

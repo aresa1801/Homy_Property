@@ -17,6 +17,7 @@
  * Hanya dipakai admin/super_admin (dijaga di route API).
  */
 import { aiConfigured, aiJson, aiModel, aiToolChat, AiError, type AiMessage, type AiToolDef } from '@/lib/ai'
+import { AI_SKILLS, EMPLOYEE_SKILLS, skillBriefFor, type AiSkill } from '@/lib/ai-skills'
 import { serviceClient } from '@/lib/visits'
 import { publishFacebook, publishInstagram, publishThreads, siteUrl } from '@/lib/meta'
 
@@ -283,6 +284,7 @@ export type EmployeeRow = {
   kpis: string[]
   autonomy: Autonomy
   status: EmployeeStatus
+  skills: string[]
   sort_order: number
 }
 
@@ -302,6 +304,7 @@ export async function ensureWorkforce(): Promise<{ employees: EmployeeRow[]; see
       mission: seed.mission,
       job_card: seed.jobCard as unknown as Json,
       kpis: seed.kpis,
+      skills: EMPLOYEE_SKILLS[seed.slug] ?? [],
       sort_order: seed.sortOrder,
     }
     if (have.has(seed.slug)) {
@@ -320,6 +323,53 @@ export async function setEmployeeStatus(slug: string, status: EmployeeStatus): P
   const admin = sb()
   const { error } = await admin.from('ai_employees').update({ status, updated_at: nowIso() }).eq('slug', slug)
   return !error
+}
+
+/* ------------------------------------------------------------------ */
+/* Pustaka Skill (Kantor AI) — dari paket skill bot Athlas              */
+/* ------------------------------------------------------------------ */
+
+/** Sinkronkan katalog skill ke database. Idempoten: hanya menulis bila jumlah belum lengkap. */
+export async function ensureSkills(force = false): Promise<{ seeded: number; total: number }> {
+  const admin = sb()
+  try {
+    if (!force) {
+      const { count } = await admin.from('ai_skills').select('slug', { count: 'exact', head: true })
+      if ((count ?? 0) >= AI_SKILLS.length) return { seeded: 0, total: AI_SKILLS.length }
+    }
+    const rows = AI_SKILLS.map((s, i) => ({
+      slug: s.slug, name: s.name, category: s.category, emoji: s.emoji,
+      summary: s.summary, body: s.body, source: s.source,
+      sort_order: i, enabled: true, updated_at: nowIso(),
+    }))
+    for (let i = 0; i < rows.length; i += 20) {
+      await admin.from('ai_skills').upsert(rows.slice(i, i + 20), { onConflict: 'slug' })
+    }
+    return { seeded: rows.length, total: rows.length }
+  } catch {
+    // Tabel belum ada (migrasi belum dijalankan) → pakai katalog lokal, jangan gagalkan.
+    return { seeded: 0, total: AI_SKILLS.length }
+  }
+}
+
+/** Katalog skill ringkas (tanpa body) untuk ditampilkan di Kantor AI. */
+export async function listSkills(): Promise<{ slug: string; name: string; category: string; emoji: string; summary: string; enabled: boolean; sort_order: number }[]> {
+  const admin = sb()
+  try {
+    const { data } = await admin.from('ai_skills').select('slug,name,category,emoji,summary,enabled,sort_order').order('sort_order', { ascending: true })
+    if (data && data.length) return data as unknown as { slug: string; name: string; category: string; emoji: string; summary: string; enabled: boolean; sort_order: number }[]
+  } catch { /* fallback lokal */ }
+  return AI_SKILLS.map((s, i) => ({ slug: s.slug, name: s.name, category: s.category, emoji: s.emoji, summary: s.summary, enabled: true, sort_order: i }))
+}
+
+/** Detail satu skill (termasuk playbook) untuk panel detail. */
+export async function getSkill(slug: string): Promise<AiSkill | null> {
+  const admin = sb()
+  try {
+    const { data } = await admin.from('ai_skills').select('*').eq('slug', slug).maybeSingle()
+    if (data) return data as unknown as AiSkill
+  } catch { /* fallback lokal */ }
+  return AI_SKILLS.find((s) => s.slug === slug) ?? null
 }
 
 /* ------------------------------------------------------------------ */
@@ -595,7 +645,7 @@ type AnalystReport = {
 async function runAnalyst(snapshot: Snapshot, runId: string | null): Promise<{ analysis: AnalystReport; alertCount: number }> {
   const result = await aiJsonRetry<AnalystReport>(
     [
-      { role: 'system', content: 'Kamu "Rani", Analyst & Compliance sebuah platform properti (Homy). Tugasmu menyusun laporan operasional harian yang jujur, padat, dan actionable. Gunakan HANYA data yang diberikan. Bahasa Indonesia.' },
+      { role: 'system', content: `Kamu "Rani", Analyst & Compliance sebuah platform properti (Homy). Tugasmu menyusun laporan operasional harian yang jujur, padat, dan actionable. Gunakan HANYA data yang diberikan. Bahasa Indonesia.\n\n${skillBriefFor('analyst')}` },
       { role: 'user', content: `DATA OPERASIONAL (JSON): ${JSON.stringify(snapshot).slice(0, 12000)}\n\nHasilkan JSON dengan kunci: report_title (judul singkat), summary (2-3 kalimat), metrics (objek angka penting, maks 6, kunci memakai istilah manusia), insights (array maks 4 temuan), risks (array maks 3 risiko/anomali, utamakan yang dari daftar anomalies), recommendations (array maks 4 saran konkret). Padat, jangan bertele-tele.` },
     ],
     { temperature: 0.3, maxTokens: 2200 },
@@ -683,7 +733,7 @@ async function runSales(snapshot: Snapshot, runId: string | null): Promise<{ dra
 
   const result = await aiJsonRetry<unknown>(
     [
-      { role: 'system', content: 'Kamu "Dita", Sales & Customer Success platform properti Homy. Tulis draf balasan yang ramah, profesional, jelas, dan mendorong langkah berikutnya (mis. tawarkan jadwal viewing). Jangan menjanjikan diskon/harga khusus. Bahasa Indonesia santun. Maks 3 kalimat per balasan.' },
+      { role: 'system', content: `Kamu "Dita", Sales & Customer Success platform properti Homy. Tulis draf balasan yang ramah, profesional, jelas, dan mendorong langkah berikutnya (mis. tawarkan jadwal viewing). Jangan menjanjikan diskon/harga khusus. Bahasa Indonesia santun. Maks 3 kalimat per balasan.\n\n${skillBriefFor('sales')}` },
       { role: 'user', content: `PROSPEK TERBUKA (JSON): ${JSON.stringify(targets).slice(0, 6000)}\n\nBalas HANYA dengan JSON valid berbentuk objek: { "drafts": [ { "inquiry_id": "<id dari data>", "reply": "<teks balasan>", "intent": "tanya_harga|jadwal_viewing|umum|nego", "urgency": "low|normal|high" } ] }. Sertakan SEMUA inquiry_id yang diberikan, tanpa teks lain di luar JSON.` },
     ],
     { temperature: 0.5, maxTokens: 2000 },
@@ -757,7 +807,7 @@ async function runCOO(snapshot: Snapshot, analyst: AnalystReport | null, sales: 
     try {
       const result = await aiJsonRetry<Briefing>(
         [
-          { role: 'system', content: 'Kamu "Ayana", Chief Operating Officer platform properti Homy. Kamu memimpin tim kecil karyawan AI kelas dunia. Susun briefing pagi untuk pemilik (Boss) yang ringkas, tajam, dan berorientasi keputusan. Bahasa Indonesia, tanpa basa-basi, tanpa markdown.' },
+          { role: 'system', content: `Kamu "Ayana", Chief Operating Officer platform properti Homy. Kamu memimpin tim kecil karyawan AI kelas dunia. Susun briefing pagi untuk pemilik (Boss) yang ringkas, tajam, dan berorientasi keputusan. Bahasa Indonesia, tanpa basa-basi, tanpa markdown.\n\n${skillBriefFor('coo')}` },
           { role: 'user', content: `KONDISI PLATFORM (JSON): ${JSON.stringify(snapshot.totals).slice(0, 3000)}\nANOMALI: ${JSON.stringify(snapshot.anomalies).slice(0, 2000)}\nLAPORAN ANALIS: ${JSON.stringify(analyst ?? {}).slice(0, 2500)}\nDRAF PENJUALAN menunggu persetujuan: ${sales.draftCount} (prioritas tinggi: ${sales.hotCount})\n\nHasilkan JSON: { "briefing": "maks 150 kata", "priorities": ["maks 4 prioritas hari ini"], "escalate": [ { "title": "...", "why": "..." } ] } untuk hal yang benar-benar butuh keputusan Boss (uang/kebijakan/risiko). Bila tidak ada, escalate = [].` },
         ],
         { temperature: 0.4, maxTokens: 1500 },
@@ -828,7 +878,7 @@ async function runGrowth(snapshot: Snapshot, runId: string | null): Promise<{ pl
   if (today.length) return { planCount: 0 }
   const result = await aiJsonRetry<GrowthPlan>(
     [
-      { role: 'system', content: 'Kamu "Bima", Growth & Lead Generation platform properti Homy. Fokus: mengisi pipeline penjual & pembeli dari prospek yang ada dan data CRM. Bahasa Indonesia, praktis, tanpa basa-basi. Jangan mengarang angka.' },
+      { role: 'system', content: `Kamu "Bima", Growth & Lead Generation platform properti Homy. Fokus: mengisi pipeline penjual & pembeli dari prospek yang ada dan data CRM. Bahasa Indonesia, praktis, tanpa basa-basi. Jangan mengarang angka.\n\n${skillBriefFor('growth')}` },
       { role: 'user', content: `KONDISI PLATFORM (JSON): ${JSON.stringify({ totals: snapshot.totals, cityBreakdown: snapshot.cityBreakdown, prospek: snapshot.openInquiries.map((i) => ({ judul: i.property_title, umur_jam: i.ageHours })), kunjungan_mangkrak: snapshot.staleVisits }).slice(0, 8000)}\n\nHasilkan JSON: { "summary": "2-3 kalimat kondisi pipeline & peluang", "bets": [ { "title": "...", "rationale": "...", "channel": "instagram|threads|whatsapp|web|agen", "expected_impact": "...", "needs_budget": true|false } ], "crm_actions": ["langkah taktis menjaga pipeline"] }. Maks 3 bets dan maks 4 crm_actions. Tandai needs_budget=true untuk apa pun yang butuh biaya/anggaran.` },
     ],
     { temperature: 0.4, maxTokens: 1600 },
@@ -889,7 +939,7 @@ async function runMarketing(snapshot: Snapshot, runId: string | null): Promise<{
   try {
     const result = await aiJsonRetry<MarketingPlan>(
       [
-        { role: 'system', content: 'Kamu "Maya", Marketing & Brand Homy (platform properti Indonesia). Fokus UTAMA: mempromosikan Homy Property agar makin banyak orang mendaftar & login — (a) calon pembeli/penyewa dan (b) agen properti yang ingin bergabung. Kamu menyusun arah kampanye yang nanti dieksekusi tim Social Media Manager (Sari) di Instagram, Threads, dan Facebook. Bahasa Indonesia, praktis, tanpa basa-basi. Jangan mengarang angka.' },
+        { role: 'system', content: `Kamu "Maya", Marketing & Brand Homy (platform properti Indonesia). Fokus UTAMA: mempromosikan Homy Property agar makin banyak orang mendaftar & login — (a) calon pembeli/penyewa dan (b) agen properti yang ingin bergabung. Kamu menyusun arah kampanye yang nanti dieksekusi tim Social Media Manager (Sari) di Instagram, Threads, dan Facebook. Bahasa Indonesia, praktis, tanpa basa-basi. Jangan mengarang angka.\n\n${skillBriefFor('marketing')}` },
         { role: 'user', content: `KONDISI PLATFORM (JSON): ${JSON.stringify({ totals: snapshot.totals, kota: snapshot.cityBreakdown, listing_tayang: snapshot.publishedListings?.slice(0, 8) }).slice(0, 5000)}\n\nSusun rencana pemasaran harian. Hasilkan JSON: { "summary": "2-3 kalimat arah pemasaran hari ini", "objectives": ["tujuan terukur"], "campaigns": [ { "title": "...", "audience": "pembeli|agen|umum", "channels": ["instagram","threads","facebook"], "key_message": "...", "cta": "...", "needs_budget": true|false } ], "agent_recruitment": ["langkah merekrut agen properti"] }. Maks 3 campaigns, 3 objectives, 3 agent_recruitment. Tandai needs_budget=true untuk apa pun yang butuh biaya iklan/anggaran.` },
       ],
       { temperature: 0.5, maxTokens: 1500 },
@@ -957,7 +1007,7 @@ async function runContent(snapshot: Snapshot, runId: string | null): Promise<{ d
   try {
     const result = await aiJsonRetry<{ posts: ContentPost[] }>(
       [
-        { role: 'system', content: 'Kamu "Sari", Social Media Manager Homy (platform properti Indonesia). Kamu mengatur konten untuk TIGA kanal resmi: Instagram, Threads, dan Facebook Page. Kamu menggabungkan (a) highlight listing dari tim Sales dan (b) arahan brand & rekrutmen dari tim Marketing. Nada hangat, jelas, membantu, tidak lebay, tanpa klaim harga/diskon. Bahasa Indonesia.' },
+        { role: 'system', content: `Kamu "Sari", Social Media Manager Homy (platform properti Indonesia). Kamu mengatur konten untuk TIGA kanal resmi: Instagram, Threads, dan Facebook Page. Kamu menggabungkan (a) highlight listing dari tim Sales dan (b) arahan brand & rekrutmen dari tim Marketing. Nada hangat, jelas, membantu, tidak lebay, tanpa klaim harga/diskon. Bahasa Indonesia.\n\n${skillBriefFor('content')}` },
         { role: 'user', content: `DATA (JSON): ${JSON.stringify({ listing: snapshot.publishedListings, kota: snapshot.cityBreakdown, total_tayang: snapshot.totals.listing_tayang, arahan_marketing: plan ? { summary: plan.summary, campaigns: plan.campaigns } : null }).slice(0, 6000)}\n\nBuat 3 konten: 1 untuk "instagram" (caption + 8-12 hashtag + CTA), 1 untuk "threads" (post singkat < 400 karakter + 2-3 hashtag), 1 untuk "facebook" (post Halaman 1-3 paragraf + CTA + maks 5 hashtag). Sisipkan minimal satu konten bernuansa rekrutmen agen / ajakan mendaftar bagi khalayak yang relevan. Hasilkan JSON: { "posts": [ { "channel": "instagram|threads|facebook", "audience": "pembeli|agen|umum", "hook": "...", "body": "...", "hashtags": ["#..."], "cta": "...", "image_idea": "..." } ] }.` },
       ],
       { temperature: 0.6, maxTokens: 1600 },
@@ -1031,7 +1081,7 @@ async function runDesign(snapshot: Snapshot, runId: string | null): Promise<{ as
     try {
       const r = await aiJsonRetry<DesignSpec>(
         [
-          { role: 'system', content: 'Kamu "Vino", Visual & Desain Grafis Homy (platform properti Indonesia). Kamu membuat brief poster & ilustrasi konten yang selaras dengan arahan Marketing (Maya) dan konten Social Media Manager (Sari). Gaya: bersih, modern, hangat, terpercaya. Bahasa Indonesia.' },
+          { role: 'system', content: `Kamu "Vino", Visual & Desain Grafis Homy (platform properti Indonesia). Kamu membuat brief poster & ilustrasi konten yang selaras dengan arahan Marketing (Maya) dan konten Social Media Manager (Sari). Gaya: bersih, modern, hangat, terpercaya. Bahasa Indonesia.\n\n${skillBriefFor('design')}` },
           { role: 'user', content: `KANAL: ${channel}\nJUDUL/HOOK: ${headline}\nISI: ${body}\nCTA: ${cta}\n\nBuat brief visual. Hasilkan JSON: { "headline": "teks utama poster (maks 8 kata)", "subheadline": "penjelas singkat", "cta": "ajakan", "palette": ["#hex", "#hex", "#hex"], "layout": "tata letak ringkas", "illustration": "ide ilustrasi/gambar", "notes": "catatan produksi" }.` },
         ],
         { temperature: 0.6, maxTokens: 800 },
@@ -1545,10 +1595,12 @@ export async function publishContentItem(actorId: string, id: string): Promise<{
 export async function listWorkforce() {
   const admin = sb()
   const { employees } = await ensureWorkforce()
-  const [itemsRes, runsRes, targets] = await Promise.all([
+  await ensureSkills()
+  const [itemsRes, runsRes, targets, skills] = await Promise.all([
     admin.from('ai_work_items').select('*').order('created_at', { ascending: false }).limit(80),
     admin.from('ai_runs').select('*').order('started_at', { ascending: false }).limit(12),
     listTargets(),
+    listSkills(),
   ])
   const items = (itemsRes.data ?? []) as unknown as Json[]
   const runs = (runsRes.data ?? []) as unknown as Json[]
@@ -1560,6 +1612,7 @@ export async function listWorkforce() {
   const stats = {
     activeEmployees: employees.filter((e) => e.status === 'active').length,
     totalEmployees: employees.length,
+    skillCount: skills.length,
     awaitingApproval: items.filter((i) => i.status === 'awaiting_approval').length,
     openAlerts: items.filter((i) => i.kind === 'alert' && (i.status === 'open' || i.status === 'escalated')).length,
     itemsToday: items.filter((i) => today(i.created_at)).length,
@@ -1567,5 +1620,5 @@ export async function listWorkforce() {
     lastRunAt: runs[0]?.finished_at ?? runs[0]?.started_at ?? null,
   }
 
-  return { configured: aiConfigured(), model: aiModel(), employees, items, runs, targets, stats }
+  return { configured: aiConfigured(), model: aiModel(), employees, items, runs, targets, skills, stats }
 }
