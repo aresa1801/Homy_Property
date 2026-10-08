@@ -1069,7 +1069,7 @@ async function runContent(snapshot: Snapshot, runId: string | null, slot: Conten
       title: `${CHANNEL_LABEL[channel] ?? channel} (${slot}): ${String(p?.hook ?? body).slice(0, 50)}`,
       summary: body.slice(0, 800),
       status: 'open', priority: 'normal', requires_approval: false,
-      payload: { channel, audience: audience || null, hook: p?.hook ?? null, body, hashtags, cta: p?.cta ?? null, image_idea: p?.image_idea ?? null, slot, theme: theme.topic, goal: theme.goal, autonomous: true } as Json,
+      payload: { channel, audience: audience || null, hook: p?.hook ?? null, body, hashtags, cta: p?.cta ?? null, image_idea: p?.image_idea ?? null, slot, theme: theme.topic, goal: theme.goal, points: theme.points, autonomous: true } as Json,
       run_id: runId,
     })
     draftCount += 1
