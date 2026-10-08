@@ -943,26 +943,35 @@ async function ensureRoutineItems(idle: { slug: string }[], snapshot: Snapshot, 
   return created
 }
 
-function renderDigestHtml(dateLabel: string, totalToday: number, rows: { name: string; role: string; emoji: string; today: number; week: number; last: string }[]): string {
-  const body = rows.map((r) => `
-    <tr>
-      <td style="padding:10px 12px;border-bottom:1px solid #eee"><span style="font-size:18px">${r.emoji}</span> <strong>${r.name}</strong><br/><span style="color:#8a938f;font-size:12px">${r.role}</span></td>
-      <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:center;font-weight:700;color:${r.today > 0 ? '#0b3d2e' : '#b45c50'}">${r.today}</td>
-      <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:center;color:#65706c">${r.week}</td>
-      <td style="padding:10px 12px;border-bottom:1px solid #eee;text-align:right;color:#65706c">${r.last} WIB</td>
-    </tr>`).join('')
+function escapeHtml(s: string): string {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+}
+
+function renderDigestHtml(dateLabel: string, totalToday: number, rows: { name: string; role: string; emoji: string; today: number; week: number; last: string; titles: string[] }[]): string {
+  const blocks = rows.map((r) => {
+    const shown = r.titles.slice(0, 10)
+    const extra = r.titles.length - shown.length
+    const list = shown.length
+      ? `<ul style="margin:8px 0 0;padding-left:20px;color:#3d4744;font-size:13px;line-height:1.7">${shown.map((t) => `<li>${escapeHtml(t)}</li>`).join('')}${extra > 0 ? `<li style="color:#8a938f;list-style:none;margin-left:-16px">… dan ${extra} pekerjaan lain</li>` : ''}</ul>`
+      : `<p style="margin:8px 0 0;color:#b45c50;font-size:13px">Belum ada output hari ini (terakhir aktif ${r.last} WIB).</p>`
+    return `
+    <div style="border:1px solid #ece3d6;border-radius:12px;padding:14px 16px;margin-bottom:12px">
+      <div>
+        <span style="font-size:14px;color:#0b3d2e"><span style="font-size:17px">${r.emoji}</span> <strong>${escapeHtml(r.name)}</strong> <span style="color:#8a938f;font-size:12px">· ${escapeHtml(r.role)}</span></span>
+        <span style="float:right;font-size:12px;font-weight:700;color:${r.today > 0 ? '#0b3d2e' : '#b45c50'}">${r.today} item</span>
+      </div>
+      ${list}
+    </div>`
+  }).join('')
   return `<!doctype html><html><body style="margin:0;background:#f7f3ec;font-family:'Segoe UI',Helvetica,Arial,sans-serif">
   <div style="max-width:600px;margin:0 auto;padding:32px 20px">
     <div style="font-family:Georgia,serif;font-size:22px;font-weight:700;color:#0b3d2e;margin-bottom:20px">Homy<span style="color:#c9a961">.</span> <span style="font-size:14px;color:#8a938f;font-weight:400">Kantor AI</span></div>
     <div style="background:#ffffff;border:1px solid #e8dfd3;border-radius:16px;padding:24px">
       <p style="margin:0 0 6px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#c9a961">Laporan Harian</p>
       <h1 style="margin:0 0 4px;font-family:Georgia,serif;font-size:22px;color:#0b3d2e">Kegiatan Karyawan AI</h1>
-      <p style="margin:0 0 16px;color:#65706c">${dateLabel} · total <strong>${totalToday}</strong> item diproduksi hari ini</p>
-      <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <tr style="text-align:left;color:#9b762a;font-size:11px;text-transform:uppercase"><th style="padding:6px 12px">Karyawan</th><th style="padding:6px 12px;text-align:center">Hari ini</th><th style="padding:6px 12px;text-align:center">7 hari</th><th style="padding:6px 12px;text-align:right">Terakhir</th></tr>
-        ${body}
-      </table>
-      <a href="${appUrlSafe()}/dashboard/admin/workforce" style="display:inline-block;margin-top:18px;background:#0b3d2e;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">Buka Kantor AI</a>
+      <p style="margin:0 0 18px;color:#65706c">${dateLabel} · total <strong>${totalToday}</strong> pekerjaan dari ${rows.length} karyawan AI</p>
+      ${blocks}
+      <a href="${appUrlSafe()}/dashboard/admin/workforce" style="display:inline-block;margin-top:8px;background:#0b3d2e;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">Buka Kantor AI</a>
     </div>
     <p style="margin:18px 0 0;font-size:12px;color:#8a938f">Email otomatis dari Kantor AI Homy Property · dikirim setiap pukul 18.00 WIB.</p>
   </div></body></html>`
@@ -983,13 +992,24 @@ export async function sendDailyDigest(runId: string | null = null): Promise<{ re
   const { employees } = await ensureWorkforce()
   const act = await employeeActivity()
   const dateLabel = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' }).format(new Date())
+  // Rincian judul pekerjaan tiap karyawan hari ini.
+  const { data: todayItems } = await admin.from('ai_work_items').select('employee_slug,title').gte('created_at', dayStart).order('created_at', { ascending: true }).limit(2000)
+  const titlesBySlug: Record<string, string[]> = {}
+  for (const it of (todayItems ?? []) as unknown as { employee_slug: string | null; title: string }[]) {
+    const s = String(it.employee_slug ?? '')
+    if (!s) continue
+    const arr = titlesBySlug[s] ?? (titlesBySlug[s] = [])
+    const t = String(it.title ?? '').trim()
+    if (t && !arr.includes(t)) arr.push(t)
+  }
   const rows = employees.map((e) => {
     const a = act[e.slug] ?? { today: 0, week: 0, lastAt: null as string | null }
-    return { name: e.name, role: e.role_title, emoji: e.emoji, today: a.today, week: a.week, last: hhmmWib(a.lastAt) }
+    return { name: e.name, role: e.role_title, emoji: e.emoji, today: a.today, week: a.week, last: hhmmWib(a.lastAt), titles: titlesBySlug[e.slug] ?? [] }
   })
   const totalToday = rows.reduce((s, r) => s + r.today, 0)
   const title = `Laporan Harian Kantor AI — ${dateLabel}`
-  const body = `Total produksi hari ini: ${totalToday} item dari ${rows.length} karyawan AI.\n\n` + rows.map((r) => `• ${r.name} (${r.role}): ${r.today} item hari ini, terakhir ${r.last} WIB`).join('\n')
+  const body = `Total produksi hari ini: ${totalToday} pekerjaan dari ${rows.length} karyawan AI.\n\n` +
+    rows.map((r) => `• ${r.name} (${r.role}) — ${r.today} item hari ini, terakhir ${r.last} WIB\n` + (r.titles.length ? r.titles.slice(0, 10).map((t) => `    - ${t}`).join('\n') : '    - (belum ada output hari ini)')).join('\n')
 
   await notifyAdmins(title, body, '/dashboard/admin/workforce')
 
@@ -1009,7 +1029,7 @@ export async function sendDailyDigest(runId: string | null = null): Promise<{ re
     }
   } catch { /* email opsional — jangan gagalkan laporan */ }
 
-  await insertItem({ employee_slug: 'coo', kind: 'report', title, summary: body, status: 'done', priority: 'normal', requires_approval: false, payload: { digest: true, totalToday, dateLabel } as Json, run_id: runId })
+  await insertItem({ employee_slug: 'coo', kind: 'report', title, summary: body, status: 'done', priority: 'normal', requires_approval: false, payload: { digest: true, totalToday, dateLabel, titles: titlesBySlug } as Json, run_id: runId })
   await audit(null, 'workforce.digest', 'ai_run', runId, { recipients, totalToday })
   return { recipients, employees: employees.length, alreadyToday: false }
 }
