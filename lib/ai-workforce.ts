@@ -1046,7 +1046,7 @@ async function runContent(snapshot: Snapshot, runId: string | null, slot: Conten
     const result = await aiJsonRetry<{ posts: ContentPost[] }>(
       [
         { role: 'system', content: `Kamu "Sari", Social Media Manager Homy (platform properti Indonesia). Tujuan UTAMA setiap konten: EDUKASI & ONBOARDING calon agen properti — supaya mereka paham cara memulai dan mau bergabung serta aktif di Homy Property. Kanal resmi: Instagram, Threads, Facebook Page. Nada hangat, jelas, ringkas, praktis, tanpa klaim harga/diskon, tanpa janji berlebihan. Bahasa Indonesia.\n\n${skillBriefFor('content')}` },
-        { role: 'user', content: `SESI: ${slot === 'pagi' ? 'PAGI' : 'SORE'} (WIB).\nTEMA WAJIB HARI INI (angkat isu & tujuan ini, jangan keluar topik): "${theme.topic}" — tujuan: ${theme.goal}.\nPoin edukasi yang bisa dipakai: ${theme.points.join('; ')}.\n\nKONDISI PLATFORM (JSON): ${JSON.stringify({ listing: snapshot.publishedListings?.slice(0, 6), kota: snapshot.cityBreakdown, total_tayang: snapshot.totals.listing_tayang, arahan_marketing: plan ? { summary: plan.summary, campaigns: plan.campaigns } : null }).slice(0, 6000)}\n\nBuat 3 konten BERBEDA untuk kanal: 1 "instagram" (caption edukatif + 8-12 hashtag + CTA), 1 "threads" (post singkat < 400 karakter + 2-3 hashtag), 1 "facebook" (1-3 paragraf + CTA + maks 5 hashtag). Semua WAJIB bernuansa edukasi/onboarding agen mengikuti tema di atas. Hasilkan JSON: { "posts": [ { "channel": "instagram|threads|facebook", "audience": "agen|umum|pembeli", "hook": "...", "body": "...", "hashtags": ["#..."], "cta": "...", "image_idea": "..." } ] }.` },
+        { role: 'user', content: `SESI: ${slot === 'pagi' ? 'PAGI' : 'SORE'} (WIB).\nTEMA WAJIB HARI INI (angkat isu & tujuan ini, jangan keluar topik): "${theme.topic}" — tujuan: ${theme.goal}.\nPoin edukasi yang bisa dipakai: ${theme.points.join('; ')}.\n\nKONDISI PLATFORM (JSON): ${JSON.stringify({ listing: snapshot.publishedListings?.slice(0, 6), kota: snapshot.cityBreakdown, total_tayang: snapshot.totals.listing_tayang, arahan_marketing: plan ? { summary: plan.summary, campaigns: plan.campaigns } : null }).slice(0, 6000)}\n\nBuat 3 konten BERBEDA untuk kanal: 1 "instagram" (caption edukatif + 8-12 hashtag + CTA), 1 "threads" (post singkat — TOTAL hook+isi+CTA+hashtag WAJIB di bawah 450 karakter — + 2-3 hashtag), 1 "facebook" (1-3 paragraf + CTA + maks 5 hashtag). Semua WAJIB bernuansa edukasi/onboarding agen mengikuti tema di atas. Hasilkan JSON: { "posts": [ { "channel": "instagram|threads|facebook", "audience": "agen|umum|pembeli", "hook": "...", "body": "...", "hashtags": ["#..."], "cta": "...", "image_idea": "..." } ] }.` },
       ],
       { temperature: 0.7, maxTokens: 1700 },
     )
@@ -1611,7 +1611,8 @@ export async function publishContentItem(actorId: string | null, id: string): Pr
   const body = String(payload.body ?? '').trim()
   const cta = payload.cta ? String(payload.cta).trim() : ''
   const hashtags = Array.isArray(payload.hashtags) ? (payload.hashtags as unknown[]).map(String).filter(Boolean) : []
-  const text = [hook, body, cta, hashtags.join(' ')].filter(Boolean).join('\n\n').slice(0, 2000)
+  const textLimit = channel === 'threads' ? 500 : channel === 'instagram' ? 2200 : 5000
+  const text = [hook, body, cta, hashtags.join(' ')].filter(Boolean).join('\n\n').slice(0, textLimit)
   if (!text) return { ok: false, error: 'Draf konten kosong.' }
 
   // Pastikan kanal benar-benar terhubung sebelum mencoba (hindari error mentah dari Graph).

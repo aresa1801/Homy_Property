@@ -260,7 +260,7 @@ export async function publishThreads(text: string, imageUrl?: string): Promise<{
   const conn = await getConnectionSecret('threads')
   if (!conn?.token) throw new Error('Threads belum terhubung.')
   if (!conn.accountId) throw new Error('ID akun Threads tidak ditemukan.')
-  const body = new URLSearchParams({ media_type: imageUrl ? 'IMAGE' : 'TEXT', text, access_token: conn.token })
+  const body = new URLSearchParams({ media_type: imageUrl ? 'IMAGE' : 'TEXT', text: text.slice(0, 500), access_token: conn.token })
   if (imageUrl) body.set('image_url', imageUrl)
   const create = await jsonFetch(`${THREADS_GRAPH}/${THREADS_VERSION}/${conn.accountId}/threads`, {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body,
