@@ -1480,7 +1480,7 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
     }
 
     const failed = employees.filter((e) => /^(gagal|dilewati)/.test(String(e.note ?? ''))).length
-    const ok = itemsCreated > 0 || publishedCount > 0
+    const ok = itemsCreated > 0 || publishedCount > 0 || scope === 'publish'
     const summary = (failed ? `[${failed} langkah terganggu] ` : '') + (briefing?.briefing || `Siklus ${scope} selesai: ${itemsCreated} item kerja dibuat.`) + publishNote
     await admin.from('ai_runs').update({
       status: ok ? 'ok' : 'error', summary: summary.slice(0, 800), items_created: itemsCreated, employees, finished_at: nowIso(),
