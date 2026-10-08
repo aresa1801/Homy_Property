@@ -1,9 +1,11 @@
 {
   "crons": [
     { "path": "/api/admin/workforce/cron?scope=core", "schedule": "0 1 * * *" },
-    { "path": "/api/admin/workforce/cron?scope=content", "schedule": "0 2 * * *" },
+    { "path": "/api/admin/workforce/cron?scope=content&slot=pagi", "schedule": "0 2 * * *" },
     { "path": "/api/admin/workforce/cron?scope=design", "schedule": "0 3 * * *" },
-    { "path": "/api/admin/workforce/cron?scope=extended", "schedule": "30 1 * * 1" },
-    { "path": "/api/admin/workforce/cron?scope=publish", "schedule": "0 4 * * *" }
+    { "path": "/api/admin/workforce/cron?scope=publish", "schedule": "0 4 * * *" },
+    { "path": "/api/admin/workforce/cron?scope=content&slot=sore", "schedule": "0 8 * * *" },
+    { "path": "/api/admin/workforce/cron?scope=publish", "schedule": "0 12 * * *" },
+    { "path": "/api/admin/workforce/cron?scope=extended", "schedule": "30 1 * * 1" }
   ]
 }

@@ -33,8 +33,10 @@ async function handle(request: Request) {
     const url = new URL(request.url)
     const raw = url.searchParams.get('scope') ?? 'core'
     const scope = (['core', 'content', 'extended', 'design', 'publish', 'all'] as const).find((s) => s === raw) ?? 'core'
-    const result = await runCycle(null, 'cron', scope)
-    return NextResponse.json({ ok: true, scope, cycle: result })
+    const rawSlot = url.searchParams.get('slot')
+    const slot = rawSlot === 'pagi' || rawSlot === 'sore' ? rawSlot : undefined
+    const result = await runCycle(null, 'cron', scope, slot)
+    return NextResponse.json({ ok: true, scope, slot: slot ?? null, cycle: result })
   } catch (error) {
     console.error('[homy-workforce:cron]', error instanceof Error ? error.message : error)
     return NextResponse.json({ error: error instanceof Error ? error.message : 'Siklus gagal' }, { status: 502 })

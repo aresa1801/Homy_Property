@@ -910,6 +910,40 @@ async function runGrowth(snapshot: Snapshot, runId: string | null): Promise<{ pl
 
 type ContentPost = { channel?: string; audience?: string; hook?: string; body?: string; hashtags?: string[]; cta?: string; image_idea?: string }
 
+export type ContentSlot = 'pagi' | 'sore'
+
+/** Kurikulum edukasi "Onboarding Agen Homy" — diputar per hari & per sesi supaya tiap konten angkat isu & tujuan berbeda. */
+const AGENT_EDU_THEMES: Record<ContentSlot, { topic: string; goal: string; points: string[] }[]> = {
+  pagi: [
+    { topic: 'Langkah pertama jadi Agen Homy', goal: 'daftar & pasarkan listing pertama', points: ['daftar gratis di homyproperty.id', 'lengkapi profil agen', 'unggah listing pertama dengan data lengkap'] },
+    { topic: 'Cara memotret & menulis listing yang menarik', goal: 'listing lebih cepat dilihat & diminati', points: ['foto terang & jelas dari beberapa sudut', 'judul jujur dan spesifik', 'cantumkan lokasi, luas, dan fasilitas'] },
+    { topic: 'Menentukan harga jual yang wajar', goal: 'hindari overprice, percepat closing', points: ['riset harga pasar sekitar', 'bandingkan listing sejenis', 'sesuaikan dengan kondisi pasar'] },
+    { topic: 'Etika & kredibilitas agen terpercaya', goal: 'membangun kepercayaan calon pembeli', points: ['jujur soal kondisi properti', 'respons cepat & ramah', 'tidak menjanjikan di luar kendali'] },
+    { topic: 'Mengapa listing lengkap lebih cepat laku', goal: 'menaikkan peluang listing dilihat pembeli', points: ['data lengkap menaikkan kepercayaan', 'sertakan foto & denah', 'perbarui status ketersediaan'] },
+    { topic: 'Alur kerja Agen Homy: dari prospek ke closing', goal: 'paham SOP dari lead sampai akad', points: ['balas pertanyaan masuk', 'jadwalkan survei', 'follow-up hingga transaksi'] },
+  ],
+  sore: [
+    { topic: 'Tips merespons calon pembeli dengan cepat & ramah', goal: 'konversi cepat dari balasan pertama', points: ['balas dalam hitungan menit', 'tanyakan kebutuhan & anggaran', 'tawarkan jadwal survei'] },
+    { topic: 'Studi kasus: closing pertama agen pemula', goal: 'memberi contoh nyata & memotivasi agen baru', points: ['mulai dari listing sederhana', 'manfaatkan jejaring sekitar', 'konsisten follow-up'] },
+    { topic: 'Manfaatkan media sosial untuk menjual listing', goal: 'perluas jangkauan tanpa biaya iklan', points: ['unggah foto & video singkat', 'pakai hashtag lokal', 'ajak interaksi di komentar'] },
+    { topic: 'Kelola banyak prospek tanpa kewalahan', goal: 'rapi & terukur melayani banyak calon', points: ['catat setiap prospek', 'susun prioritas harian', 'jadwalkan follow-up berkala'] },
+    { topic: 'Menangani keberatan calon pembeli', goal: 'mengubah keraguan jadi kesepakatan', points: ['dengarkan dulu keberatannya', 'jawab dengan data', 'tawarkan alternatif yang cocok'] },
+    { topic: 'Bangun jaringan & kolaborasi antar agen', goal: 'memperbesar peluang lewat referral', points: ['saling bagi informasi listing', 'jaga komunikasi & kepercayaan', 'kolaborasi untuk penjualan bersama'] },
+  ],
+}
+
+/** Sesi (pagi/sore) & indeks hari menurut WIB — dasar rotasi tema harian. */
+function wibSlotContext(): { dayIndex: number; hour: number } {
+  const wib = new Date(Date.now() + WIB_OFFSET_MS)
+  return { dayIndex: Math.floor((Date.now() + WIB_OFFSET_MS) / 86400000), hour: wib.getUTCHours() }
+}
+export function currentContentSlot(): ContentSlot { return wibSlotContext().hour < 12 ? 'pagi' : 'sore' }
+function pickTheme(slot: ContentSlot, dayIndex: number) {
+  const list = AGENT_EDU_THEMES[slot]
+  const off = slot === 'pagi' ? 0 : 3
+  return list[(dayIndex + off) % list.length]
+}
+
 type MarketingPlan = {
   summary?: string
   objectives?: string[]
@@ -987,51 +1021,55 @@ async function runMarketing(snapshot: Snapshot, runId: string | null): Promise<{
   return { planCount: 1 }
 }
 
-/** Cadangan bila AI mengembalikan kosong — jamin SMM tetap punya draf (approve-first). */
-function fallbackPosts(snapshot: Snapshot): ContentPost[] {
+/** Cadangan bila AI mengembalikan kosong — jamin SMM tetap punya draf bertema edukasi agen. */
+function fallbackPosts(snapshot: Snapshot, theme: { topic: string; goal: string; points: string[] }, slot: ContentSlot): ContentPost[] {
   const l = snapshot.publishedListings?.[0]
   const city = l?.city || snapshot.cityBreakdown?.[0]?.city || 'Indonesia'
-  const title = l?.title || 'properti unggulan'
   const link = 'https://homyproperty.id'
+  const sesi = slot === 'pagi' ? 'Pagi' : 'Sore'
+  const tips = theme.points.map((t) => `• ${t}`).join('\n')
+  const base = `Edukasi Agen Homy (${sesi}) — ${theme.topic}\n\n${tips}\n\nTujuan: ${theme.goal}.`
   return [
-    { channel: 'instagram', audience: 'pembeli', hook: `${title} — pilihan menarik di ${city}`, body: `Lagi cari properti di ${city}? ${title} bisa jadi opsi yang pas. Cek detail lengkap, foto, dan lokasinya di Homy Property.`, hashtags: ['#HomyProperty', '#PropertiIndonesia', '#RumahDijual', '#JualRumah', '#Properti'], cta: `Lihat detailnya di ${link}`, image_idea: 'Foto utama properti + logo Homy' },
-    { channel: 'threads', audience: 'agen', hook: 'Agen properti, pasarkan listing kamu di Homy', body: 'Punya listing? Pasarkan di Homy Property dan jangkau lebih banyak pembeli di seluruh Indonesia. Gratis dibuat, mudah dipakai.', hashtags: ['#HomyProperty', '#AgenProperti'], cta: `Daftar di ${link}`, image_idea: 'Kartu ajakan daftar agen' },
-    { channel: 'facebook', audience: 'umum', hook: `${title} di ${city}`, body: `Temukan ${title} di ${city} lewat Homy Property.\n\nHomy Property membantu kamu mencari rumah, apartemen, dan tanah dengan mudah — lengkap dengan informasi lokasi dan harga. Untuk agen properti, bergabunglah dan pasarkan listing Anda ke lebih banyak orang.`, hashtags: ['#HomyProperty', '#PropertiIndonesia', '#RumahDijual'], cta: `Kunjungi ${link}`, image_idea: 'Kartu Homy 1080×1080' },
+    { channel: 'instagram', audience: 'agen', hook: `${theme.topic} — panduan agen Homy`, body: `${base}\n\nBergabung gratis di Homy Property dan pasarkan listingmu ke lebih banyak pembeli di seluruh Indonesia.`, hashtags: ['#HomyProperty', '#AgenProperti', '#EdukasiProperti', '#PropertiIndonesia', '#JualRumah', '#TipsProperti'], cta: `Daftar agen di ${link}`, image_idea: `Kartu edukasi "${theme.topic}"` },
+    { channel: 'threads', audience: 'agen', hook: `${theme.topic}.`, body: `${theme.topic}.\n${theme.points.map((t) => `• ${t}`).join('\n')}\n\nMulai sebagai agen Homy di ${link}`, hashtags: ['#HomyProperty', '#AgenProperti'], cta: `Mulai di ${link}`, image_idea: 'Kartu tips agen' },
+    { channel: 'facebook', audience: 'agen', hook: `Panduan Agen Homy: ${theme.topic}`, body: `Ingin serius di properti? Berikut panduan singkat untuk agen Homy.\n\n${theme.topic}\n${tips}\n\nTujuan: ${theme.goal}. Bergabung gratis dan pasarkan listing Anda di ${city} dan seluruh Indonesia lewat Homy Property.`, hashtags: ['#HomyProperty', '#AgenProperti', '#PropertiIndonesia'], cta: `Kunjungi ${link}`, image_idea: 'Kartu edukasi Homy 1200×630' },
   ]
 }
 
-/** Social Media Manager: rangkai konten 3 kanal (Instagram, Threads, Facebook). */
-async function runContent(snapshot: Snapshot, runId: string | null): Promise<{ draftCount: number }> {
+/** Social Media Manager: rangkai konten edukasi agen 3 kanal (Instagram, Threads, Facebook) per sesi (pagi/sore). */
+async function runContent(snapshot: Snapshot, runId: string | null, slot: ContentSlot = currentContentSlot()): Promise<{ draftCount: number }> {
+  const { dayIndex } = wibSlotContext()
+  const theme = pickTheme(slot, dayIndex)
   const plan = await latestMarketingPlan()
-  let posts: ContentPost[] = fallbackPosts(snapshot)
+  let posts: ContentPost[] = fallbackPosts(snapshot, theme, slot)
   try {
     const result = await aiJsonRetry<{ posts: ContentPost[] }>(
       [
-        { role: 'system', content: `Kamu "Sari", Social Media Manager Homy (platform properti Indonesia). Kamu mengatur konten untuk TIGA kanal resmi: Instagram, Threads, dan Facebook Page. Kamu menggabungkan (a) highlight listing dari tim Sales dan (b) arahan brand & rekrutmen dari tim Marketing. Nada hangat, jelas, membantu, tidak lebay, tanpa klaim harga/diskon. Bahasa Indonesia.\n\n${skillBriefFor('content')}` },
-        { role: 'user', content: `DATA (JSON): ${JSON.stringify({ listing: snapshot.publishedListings, kota: snapshot.cityBreakdown, total_tayang: snapshot.totals.listing_tayang, arahan_marketing: plan ? { summary: plan.summary, campaigns: plan.campaigns } : null }).slice(0, 6000)}\n\nBuat 3 konten: 1 untuk "instagram" (caption + 8-12 hashtag + CTA), 1 untuk "threads" (post singkat < 400 karakter + 2-3 hashtag), 1 untuk "facebook" (post Halaman 1-3 paragraf + CTA + maks 5 hashtag). Sisipkan minimal satu konten bernuansa rekrutmen agen / ajakan mendaftar bagi khalayak yang relevan. Hasilkan JSON: { "posts": [ { "channel": "instagram|threads|facebook", "audience": "pembeli|agen|umum", "hook": "...", "body": "...", "hashtags": ["#..."], "cta": "...", "image_idea": "..." } ] }.` },
+        { role: 'system', content: `Kamu "Sari", Social Media Manager Homy (platform properti Indonesia). Tujuan UTAMA setiap konten: EDUKASI & ONBOARDING calon agen properti — supaya mereka paham cara memulai dan mau bergabung serta aktif di Homy Property. Kanal resmi: Instagram, Threads, Facebook Page. Nada hangat, jelas, ringkas, praktis, tanpa klaim harga/diskon, tanpa janji berlebihan. Bahasa Indonesia.\n\n${skillBriefFor('content')}` },
+        { role: 'user', content: `SESI: ${slot === 'pagi' ? 'PAGI' : 'SORE'} (WIB).\nTEMA WAJIB HARI INI (angkat isu & tujuan ini, jangan keluar topik): "${theme.topic}" — tujuan: ${theme.goal}.\nPoin edukasi yang bisa dipakai: ${theme.points.join('; ')}.\n\nKONDISI PLATFORM (JSON): ${JSON.stringify({ listing: snapshot.publishedListings?.slice(0, 6), kota: snapshot.cityBreakdown, total_tayang: snapshot.totals.listing_tayang, arahan_marketing: plan ? { summary: plan.summary, campaigns: plan.campaigns } : null }).slice(0, 6000)}\n\nBuat 3 konten BERBEDA untuk kanal: 1 "instagram" (caption edukatif + 8-12 hashtag + CTA), 1 "threads" (post singkat < 400 karakter + 2-3 hashtag), 1 "facebook" (1-3 paragraf + CTA + maks 5 hashtag). Semua WAJIB bernuansa edukasi/onboarding agen mengikuti tema di atas. Hasilkan JSON: { "posts": [ { "channel": "instagram|threads|facebook", "audience": "agen|umum|pembeli", "hook": "...", "body": "...", "hashtags": ["#..."], "cta": "...", "image_idea": "..." } ] }.` },
       ],
-      { temperature: 0.6, maxTokens: 1600 },
+      { temperature: 0.7, maxTokens: 1700 },
     )
     const rawPosts = Array.isArray(result.posts) ? result.posts.slice(0, 3) : []
     if (rawPosts.length) posts = rawPosts
   } catch { /* pakai cadangan */ }
-  const usedChannels = new Set((await itemsSince(['content_draft'], wibDayStartIso())).map((p) => String(p.channel ?? '')))
+  const usedChannels = new Set((await itemsSince(['content_draft'], wibDayStartIso())).filter((p) => String(p.slot ?? 'pagi') === slot).map((p) => String(p.channel ?? '')))
   let draftCount = 0
   for (const p of posts) {
     const body = String(p?.body ?? '').trim()
     if (!body) continue
     const rawCh = String(p?.channel ?? 'instagram').toLowerCase()
     const channel = (CONTENT_CHANNELS as readonly string[]).includes(rawCh) ? rawCh : 'instagram'
-    if (usedChannels.has(channel)) continue // sudah ada draf kanal ini hari ini
+    if (usedChannels.has(channel)) continue // sudah ada draf kanal ini untuk sesi ini hari ini
     usedChannels.add(channel)
     const hashtags = Array.isArray(p?.hashtags) ? p.hashtags.map((h) => String(h)).slice(0, 12) : []
     const audience = String(p?.audience ?? '').toLowerCase()
     await insertItem({
       employee_slug: 'content', kind: 'content_draft',
-      title: `${CHANNEL_LABEL[channel] ?? channel}: ${String(p?.hook ?? body).slice(0, 60)}`,
+      title: `${CHANNEL_LABEL[channel] ?? channel} (${slot}): ${String(p?.hook ?? body).slice(0, 50)}`,
       summary: body.slice(0, 800),
       status: 'open', priority: 'normal', requires_approval: false,
-      payload: { channel, audience: audience || null, hook: p?.hook ?? null, body, hashtags, cta: p?.cta ?? null, image_idea: p?.image_idea ?? null, autonomous: true } as Json,
+      payload: { channel, audience: audience || null, hook: p?.hook ?? null, body, hashtags, cta: p?.cta ?? null, image_idea: p?.image_idea ?? null, slot, theme: theme.topic, goal: theme.goal, autonomous: true } as Json,
       run_id: runId,
     })
     draftCount += 1
@@ -1393,7 +1431,7 @@ const SCOPE_PLAN: Record<CycleScope, string[]> = {
   all: ['analyst', 'sales', 'growth', 'marketing', 'content', 'design', 'listing', 'coo'],
 }
 
-export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron' | 'event' = 'manual', scope: CycleScope = 'core'): Promise<CycleResult> {
+export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron' | 'event' = 'manual', scope: CycleScope = 'core', slot: ContentSlot = currentContentSlot()): Promise<CycleResult> {
   if (!aiConfigured()) throw new AiError('Fitur AI belum diaktifkan (kunci AI belum diatur).', 503)
   const admin = sb()
   await ensureWorkforce()
@@ -1443,7 +1481,7 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
           itemsCreated += m.planCount
         } else if (slug === 'content') {
           if (skip) { employees.push({ slug, work: 0, note: 'dilewati (batas waktu)' }); continue }
-          const c = await runContent(snapshot, runId)
+          const c = await runContent(snapshot, runId, slot)
           employees.push({ slug, work: c.draftCount, note: `${c.draftCount} konten siap unggah` })
           itemsCreated += c.draftCount
         } else if (slug === 'design') {
@@ -1472,7 +1510,7 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
     let publishNote = ''
     if (scope === 'publish' || scope === 'content') {
       const remaining = Math.max(9000, 55000 - (Date.now() - t0))
-      const pub = await autopublishDrafts({ limit: scope === 'publish' ? 2 : 1, budgetMs: remaining, actorId })
+      const pub = await autopublishDrafts({ limit: 2, budgetMs: remaining, actorId, slot: scope === 'content' ? slot : undefined })
       publishedCount = pub.published.length
       if (publishedCount) publishNote = ` · ${publishedCount} konten tayang otonom`
       else if (pub.failed.length) publishNote = ` · publikasi gagal: ${String(pub.failed[0].error).slice(0, 90)}`
@@ -1628,7 +1666,7 @@ export type AutopublishResult = {
  * Terbitkan otomatis draf konten yang belum tayang sesuai analisa tim (Skill tim SMM).
  * Dijalankan di dalam siklus konten/publikasi (cron) — tanpa perintah manual dari Boss.
  * Menghormati batas waktu fungsi (Vercel 60s): publikasi Instagram butuh ~25s.  */
-export async function autopublishDrafts(opts: { limit?: number; budgetMs?: number; actorId?: string | null } = {}): Promise<AutopublishResult> {
+export async function autopublishDrafts(opts: { limit?: number; budgetMs?: number; actorId?: string | null; slot?: ContentSlot } = {}): Promise<AutopublishResult> {
   const admin = sb()
   const limit = Math.max(1, Math.min(opts.limit ?? 2, 4))
   const budgetMs = opts.budgetMs ?? 45000
@@ -1648,7 +1686,9 @@ export async function autopublishDrafts(opts: { limit?: number; budgetMs?: numbe
     .limit(12)
   const pending = (data ?? []).filter((r) => {
     const p = (r.payload ?? {}) as Json
-    return !(p.published as Json | undefined)?.external_id
+    if ((p.published as Json | undefined)?.external_id) return false
+    if (opts.slot && String(p.slot ?? 'pagi') !== opts.slot) return false
+    return true
   })
   if (!pending.length) return out
 

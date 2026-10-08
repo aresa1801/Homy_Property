@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 }
 
 type Body =
-  | { action: 'run'; scope?: 'core' | 'content' | 'extended' | 'design' | 'publish' | 'all' }
+  | { action: 'run'; scope?: 'core' | 'content' | 'extended' | 'design' | 'publish' | 'all'; slot?: 'pagi' | 'sore' }
   | { action: 'seed' }
   | { action: 'skills-seed' }
   | { action: 'decide'; id: string; decision: 'approve' | 'reject'; note?: string }
@@ -117,7 +117,7 @@ export async function POST(request: Request) {
     }
 
     // default: jalankan siklus
-    const result = await runCycle(actor.id, 'manual', body.scope ?? 'core')
+    const result = await runCycle(actor.id, 'manual', body.scope ?? 'core', body.slot)
     const payload = await listWorkforce()
     return NextResponse.json({ ok: true, cycle: result, ...payload })
   } catch (error) {

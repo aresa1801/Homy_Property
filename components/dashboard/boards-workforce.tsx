@@ -924,7 +924,7 @@ function PublishCard({ item, connected }: { item: Item; connected: boolean }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="break-words text-sm font-semibold text-[#0b3d2e]">{item.title}</p>
-          <p className="text-xs text-[#8a9a92]">{str(p.channel)} · {pub?.external_id ? 'tayang' : dup ? 'dilewati' : 'menunggu publikasi otonom'}</p>
+          <p className="text-xs text-[#8a9a92]">{str(p.channel)}{p.slot ? ` · ${str(p.slot)}` : ''} · {pub?.external_id ? 'tayang' : dup ? 'dilewati' : 'menunggu publikasi otonom'}</p>
         </div>
         {pub?.external_id ? <span className={`${ui.badge} bg-[#e7f2ea] text-[#2f7a52]`}>Terbit</span> : dup ? <span className={ui.badge}>Dilewati</span> : <span className={ui.badge}>{str(p.channel)}</span>}
       </div>
