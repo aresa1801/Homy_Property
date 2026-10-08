@@ -181,18 +181,6 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
     finally { setBusy(null) }
   }, [])
 
-  const publish = useCallback(async (id: string) => {
-    setBusy(`pub:${id}`); setError(null); setNotice(null)
-    try {
-      const res = await fetch('/api/admin/meta/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ itemId: id }) })
-      const p = await res.json().catch(() => ({}))
-      if (!res.ok) throw new Error(p?.error ?? 'Gagal menerbitkan.')
-      setNotice(`Terkirim ke ${str(p.channel)} ✅ (id ${str(p.externalId)})`)
-      await load()
-    } catch (e) { setError(e instanceof Error ? e.message : 'Terjadi kesalahan') }
-    finally { setBusy(null) }
-  }, [load])
-
   const employees = data?.employees ?? []
   const items = data?.items ?? []
   const runs = data?.runs ?? []
@@ -299,7 +287,7 @@ export function WorkforceBoard(props: BoardProps & { type?: string }) {
 
       {tab === 'chat' && <ChatPanel />}
 
-      {tab === 'social' && <SocialPanel status={social} items={items} busy={busy} onReload={loadSocial} onDisconnect={disconnect} onPublish={publish} />}
+      {tab === 'social' && <SocialPanel status={social} items={items} busy={busy} onReload={loadSocial} onDisconnect={disconnect} />}
 
       {tab === 'targets' && <TargetsPanel targets={data?.targets ?? []} employees={employees} onChange={() => void load()} />}
 
@@ -850,7 +838,7 @@ type Connection = {
   pageId: string | null; pageName: string | null; status: string; expiresAt: string | null
   scopes: string | null; connectedAt: string | null; lastError: string | null
 }
-type SocialStatus = { configured: { instagram: boolean; threads: boolean; facebook: boolean }; redirectUri: string; connections: Connection[] }
+type SocialStatus = { configured: { instagram: boolean; threads: boolean; facebook: boolean }; redirectUri: string; appDashboard?: string; connections: Connection[] }
 
 const CHANNEL_META: Record<'instagram' | 'threads' | 'facebook', { label: string; emoji: string }> = {
   instagram: { label: 'Instagram', emoji: '📸' },
@@ -858,22 +846,30 @@ const CHANNEL_META: Record<'instagram' | 'threads' | 'facebook', { label: string
   facebook: { label: 'Facebook Page', emoji: '📘' },
 }
 
-function SocialPanel({ status, items, busy, onReload, onDisconnect, onPublish }: {
+function SocialPanel({ status, items, busy, onReload, onDisconnect }: {
   status: SocialStatus | null; items: Item[]; busy: string | null
-  onReload: () => void; onDisconnect: (channel: string) => void; onPublish: (id: string) => void
+  onReload: () => void; onDisconnect: (channel: string) => void
 }) {
   const drafts = items.filter((i) => i.kind === 'content_draft')
   const conn = (ch: 'instagram' | 'threads' | 'facebook') => status?.connections.find((c) => c.channel === ch)
+  const broken = (status?.connections ?? []).filter((c) => c.status === 'error' && c.lastError)
   return (
     <div className="space-y-4">
       <div className={ui.card}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="max-w-2xl">
             <p className="flex items-center gap-2 text-sm font-semibold text-[#0b3d2e]"><AtSign className="size-4" /> Koneksi Sosial</p>
-            <p className="mt-1 text-sm text-[#718078]">Hubungkan akun <strong>Instagram Business</strong>, <strong>Threads</strong>, &amp; <strong>Facebook Page</strong> sekali di sini. Setelah terhubung, draf konten yang sudah Boss <strong>setujui</strong> bisa langsung diterbitkan — tetap approve-first, tidak ada post otomatis.</p>
+            <p className="mt-1 text-sm text-[#718078]">Hubungkan akun <strong>Instagram Business</strong>, <strong>Threads</strong>, &amp; <strong>Facebook Page</strong> sekali di sini. Setelah terhubung, karyawan AI (Sari — Social Media Manager) akan <strong>menerbitkan konten secara otonom</strong> sesuai analisa &amp; skill-nya — tanpa tombol manual.</p>
           </div>
           <button type="button" onClick={onReload} className={ui.ghost}><RefreshCw className="size-4" /> Muat ulang</button>
         </div>
+        {broken.length ? (
+          <div className="mt-3 rounded-xl border border-[#f0d4cf] bg-[#fdf3f1] p-3 text-xs text-[#9b4a3f]">
+            <p className="font-semibold">Publikasi terkendala di sisi Meta (bukan bug aplikasi)</p>
+            {broken.map((c) => <p key={c.channel} className="mt-1"><strong>{CHANNEL_META[c.channel].label}:</strong> {c.lastError}</p>)}
+            <p className="mt-2">Langkah cepat: <a className="underline" href={status?.appDashboard ?? 'https://developers.facebook.com/apps/'} target="_blank" rel="noreferrer">buka Meta Developer Console</a> → selesaikan <strong>Verifikasi Bisnis</strong>, set App Mode <strong>Live</strong>, dan beri <strong>Advanced Access</strong> untuk izin <em>pages_show_list, pages_read_engagement, pages_manage_posts, instagram_content_publish, threads_content_publish</em>. Lalu <strong>Hubungkan ulang</strong> akun di bawah.</p>
+          </div>
+        ) : null}
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           {(['instagram', 'threads', 'facebook'] as const).map((ch) => {
             const c = conn(ch)
@@ -907,17 +903,17 @@ function SocialPanel({ status, items, busy, onReload, onDisconnect, onPublish }:
       </div>
 
       <div className="space-y-3">
-        <p className={ui.eyebrow}>Draf konten &amp; publikasi ({drafts.length})</p>
+        <p className={ui.eyebrow}>Draf konten &amp; publikasi otonom ({drafts.length})</p>
         {!drafts.length ? <div className={ui.card}><p className="text-sm text-[#718078]">Belum ada draf konten. Jalankan siklus “Konten”.</p></div> : drafts.map((i) => {
           const ch = (() => { const c = String((i.payload as Record<string, unknown>).channel || 'instagram').toLowerCase(); return c === 'threads' ? 'threads' : c === 'facebook' ? 'facebook' : 'instagram' })()
-          return <PublishCard key={i.id} item={i} busy={busy === `pub:${i.id}`} connected={!!conn(ch)} onPublish={onPublish} />
+          return <PublishCard key={i.id} item={i} connected={!!conn(ch)} />
         })}
       </div>
     </div>
   )
 }
 
-function PublishCard({ item, busy, connected, onPublish }: { item: Item; busy: boolean; connected: boolean; onPublish: (id: string) => void }) {
+function PublishCard({ item, connected }: { item: Item; connected: boolean }) {
   const p = item.payload as Record<string, unknown>
   const pub = p.published as Record<string, unknown> | undefined
   const body = str(p.body)
@@ -927,7 +923,7 @@ function PublishCard({ item, busy, connected, onPublish }: { item: Item; busy: b
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <p className="break-words text-sm font-semibold text-[#0b3d2e]">{item.title}</p>
-          <p className="text-xs text-[#8a9a92]">{str(p.channel)} · {item.status === 'approved' ? 'disetujui' : item.status === 'awaiting_approval' ? 'menunggu keputusan' : item.status}</p>
+          <p className="text-xs text-[#8a9a92]">{str(p.channel)} · {pub?.external_id ? 'tayang' : 'menunggu publikasi otonom'}</p>
         </div>
         {pub?.external_id ? <span className={`${ui.badge} bg-[#e7f2ea] text-[#2f7a52]`}>Terbit</span> : <span className={ui.badge}>{str(p.channel)}</span>}
       </div>
@@ -937,12 +933,9 @@ function PublishCard({ item, busy, connected, onPublish }: { item: Item; busy: b
       {pub?.external_id ? (
         <p className="mt-2 text-xs text-[#2f7a52]">Terkirim {when(str(pub.posted_at))} · id <span className="break-all">{str(pub.external_id)}</span></p>
       ) : (
-        <div className="mt-3 flex items-center justify-between gap-2">
-          <p className="text-xs text-[#8a9a92]">{item.status === 'approved' ? (connected ? 'Siap diterbitkan.' : 'Kanal belum terhubung.') : 'Setujui dulu di tab “Kantor & Antrean”.'}</p>
-          <button type="button" disabled={busy || item.status !== 'approved' || !connected} onClick={() => onPublish(item.id)} className={ui.btn}>{busy ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} Terbitkan</button>
-        </div>
+        <p className="mt-3 text-xs text-[#8a9a92]">{connected ? 'Akan diterbitkan otomatis oleh Sari pada siklus publikasi berikutnya.' : 'Kanal belum terhubung — hubungkan di atas agar bisa terbit otomatis.'}</p>
       )}
-      {p.publish_error ? <p className="mt-2 text-xs text-[#b45c50]">Gagal: {str(p.publish_error)}</p> : null}
+      {p.publish_error ? <p className="mt-2 text-xs text-[#b45c50]">Tertunda: {str(p.publish_error)}</p> : null}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { listConnections, configured, redirectUri, removeConnection, type Channel } from '@/lib/meta'
+import { listConnections, configured, redirectUri, removeConnection, metaAppDashboard, type Channel } from '@/lib/meta'
 
 export const runtime = 'nodejs'
 
@@ -27,6 +27,7 @@ export async function GET() {
     ok: true,
     configured: { instagram: configured('instagram'), threads: configured('threads'), facebook: configured('facebook') },
     redirectUri: redirectUri(),
+    appDashboard: metaAppDashboard(),
     connections,
   })
 }

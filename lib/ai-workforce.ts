@@ -19,7 +19,7 @@
 import { aiConfigured, aiJson, aiModel, aiToolChat, AiError, type AiMessage, type AiToolDef } from '@/lib/ai'
 import { AI_SKILLS, EMPLOYEE_SKILLS, skillBriefFor, type AiSkill } from '@/lib/ai-skills'
 import { serviceClient } from '@/lib/visits'
-import { publishFacebook, publishInstagram, publishThreads, siteUrl } from '@/lib/meta'
+import { friendlyMetaError, getConnectionSecret, isMetaBlocked, markConnectionError, publishFacebook, publishInstagram, publishThreads, siteUrl } from '@/lib/meta'
 
 type Json = Record<string, unknown>
 const nowIso = () => new Date().toISOString()
@@ -1030,8 +1030,8 @@ async function runContent(snapshot: Snapshot, runId: string | null): Promise<{ d
       employee_slug: 'content', kind: 'content_draft',
       title: `${CHANNEL_LABEL[channel] ?? channel}: ${String(p?.hook ?? body).slice(0, 60)}`,
       summary: body.slice(0, 800),
-      status: 'awaiting_approval', priority: 'normal', requires_approval: true,
-      payload: { channel, audience: audience || null, hook: p?.hook ?? null, body, hashtags, cta: p?.cta ?? null, image_idea: p?.image_idea ?? null } as Json,
+      status: 'open', priority: 'normal', requires_approval: false,
+      payload: { channel, audience: audience || null, hook: p?.hook ?? null, body, hashtags, cta: p?.cta ?? null, image_idea: p?.image_idea ?? null, autonomous: true } as Json,
       run_id: runId,
     })
     draftCount += 1
@@ -1383,12 +1383,13 @@ export type CycleResult = {
   error?: string
 }
 
-export type CycleScope = 'core' | 'content' | 'extended' | 'design' | 'all'
+export type CycleScope = 'core' | 'content' | 'extended' | 'design' | 'publish' | 'all'
 const SCOPE_PLAN: Record<CycleScope, string[]> = {
   core: ['analyst', 'sales', 'coo'],
   content: ['marketing', 'content'],
   design: ['design'],
   extended: ['growth', 'listing'],
+  publish: [],
   all: ['analyst', 'sales', 'growth', 'marketing', 'content', 'design', 'listing', 'coo'],
 }
 
@@ -1466,10 +1467,23 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
       }
     }
 
+    // Publikasi otonom: karyawan AI (Sari) menerbitkan konten sendiri sesuai analisa & skill.
+    let publishedCount = 0
+    let publishNote = ''
+    if (scope === 'publish' || scope === 'content') {
+      const remaining = Math.max(9000, 55000 - (Date.now() - t0))
+      const pub = await autopublishDrafts({ limit: scope === 'publish' ? 2 : 1, budgetMs: remaining, actorId })
+      publishedCount = pub.published.length
+      if (publishedCount) publishNote = ` · ${publishedCount} konten tayang otonom`
+      else if (pub.failed.length) publishNote = ` · publikasi gagal: ${String(pub.failed[0].error).slice(0, 90)}`
+      else if (pub.notConnected && pub.skipped) publishNote = ' · kanal sosial belum terhubung'
+    }
+
     const failed = employees.filter((e) => /^(gagal|dilewati)/.test(String(e.note ?? ''))).length
-    const summary = (failed ? `[${failed} langkah terganggu] ` : '') + (briefing?.briefing || `Siklus ${scope} selesai: ${itemsCreated} item kerja dibuat.`)
+    const ok = itemsCreated > 0 || publishedCount > 0
+    const summary = (failed ? `[${failed} langkah terganggu] ` : '') + (briefing?.briefing || `Siklus ${scope} selesai: ${itemsCreated} item kerja dibuat.`) + publishNote
     await admin.from('ai_runs').update({
-      status: itemsCreated > 0 ? 'ok' : 'error', summary: summary.slice(0, 800), items_created: itemsCreated, employees, finished_at: nowIso(),
+      status: ok ? 'ok' : 'error', summary: summary.slice(0, 800), items_created: itemsCreated, employees, finished_at: nowIso(),
     }).eq('id', runId ?? '00000000-0000-0000-0000-000000000000')
 
     // Beri tahu admin hanya bila ada item BARU yang menunggu keputusan.
@@ -1478,8 +1492,8 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
       await notifyAdmins('AI Workforce: item menunggu keputusan', `${awaiting} item baru menunggu persetujuan Anda (${sales.draftCount} balasan/aksi penjualan, ${escalateCreated} eskalasi). Buka AI Workforce untuk meninjau.`)
     }
 
-    await audit(actorId, 'workforce.cycle', 'ai_run', runId, { trigger, scope, itemsCreated, employees, failed })
-    return { runId, ok: itemsCreated > 0, employees, itemsCreated, briefing: briefing ?? undefined }
+    await audit(actorId, 'workforce.cycle', 'ai_run', runId, { trigger, scope, itemsCreated, publishedCount, employees, failed })
+    return { runId, ok, employees, itemsCreated, briefing: briefing ?? undefined }
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Siklus gagal'
     await admin.from('ai_runs').update({ status: 'error', summary: message.slice(0, 800), finished_at: nowIso(), employees, items_created: itemsCreated }).eq('id', runId ?? '00000000-0000-0000-0000-000000000000')
@@ -1544,7 +1558,7 @@ export async function decideWorkItem(actorId: string, id: string, decision: Deci
 /* Publikasi konten ke Instagram / Threads (approve-first)             */
 /* ------------------------------------------------------------------ */
 
-export async function publishContentItem(actorId: string, id: string): Promise<{ ok: boolean; error?: string; externalId?: string; channel?: string }> {
+export async function publishContentItem(actorId: string | null, id: string): Promise<{ ok: boolean; error?: string; externalId?: string; channel?: string }> {
   const admin = sb()
   const { data: item } = await admin.from('ai_work_items').select('*').eq('id', id).maybeSingle()
   if (!item) return { ok: false, error: 'Item kerja tidak ditemukan.' }
@@ -1562,6 +1576,14 @@ export async function publishContentItem(actorId: string, id: string): Promise<{
   const text = [hook, body, cta, hashtags.join(' ')].filter(Boolean).join('\n\n').slice(0, 2000)
   if (!text) return { ok: false, error: 'Draf konten kosong.' }
 
+  // Pastikan kanal benar-benar terhubung sebelum mencoba (hindari error mentah dari Graph).
+  const conn = await getConnectionSecret(channel)
+  if (!conn?.token) {
+    const msg = `Kanal ${channel} belum terhubung. Hubungkan akun di tab Koneksi Sosial.`
+    await admin.from('ai_work_items').update({ payload: { ...payload, publish_error: msg }, updated_at: nowIso() }).eq('id', id)
+    return { ok: false, error: msg }
+  }
+
   try {
     let externalId = ''
     if (channel === 'instagram') {
@@ -1576,16 +1598,73 @@ export async function publishContentItem(actorId: string, id: string): Promise<{
       const r = await publishThreads(text)
       externalId = r.id
     }
-    const meta = { channel, external_id: externalId, posted_at: nowIso(), posted_by: actorId }
-    await admin.from('ai_work_items').update({ payload: { ...payload, published: meta }, status: 'approved', updated_at: nowIso() }).eq('id', id)
+    const meta = { channel, external_id: externalId, posted_at: nowIso(), posted_by: actorId ?? 'autonomous' }
+    await admin.from('ai_work_items').update({ payload: { ...payload, published: meta, publish_error: null }, status: 'done', updated_at: nowIso() }).eq('id', id)
     await audit(actorId, 'workforce.publish', 'ai_work_item', id, { channel, external_id: externalId })
     return { ok: true, externalId, channel }
   } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Gagal menerbitkan.'
+    const raw = error instanceof Error ? error.message : 'Gagal menerbitkan.'
+    const msg = friendlyMetaError(raw)
     await admin.from('ai_work_items').update({ payload: { ...payload, publish_error: msg }, updated_at: nowIso() }).eq('id', id)
-    await audit(actorId, 'workforce.publish.fail', 'ai_work_item', id, { channel, error: msg.slice(0, 300) })
+    // Tandai koneksi bermasalah agar muncul panduan perbaikan di UI.
+    if (isMetaBlocked(raw)) await markConnectionError(channel as 'instagram' | 'threads' | 'facebook', msg)
+    await audit(actorId, 'workforce.publish.fail', 'ai_work_item', id, { channel, error: raw.slice(0, 300) })
     return { ok: false, error: msg }
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* Publikasi otonom — karyawan AI menerbitkan sendiri (tanpa tombol)    */
+/* ------------------------------------------------------------------ */
+
+export type AutopublishResult = {
+  published: { id: string; channel: string; externalId: string }[]
+  failed: { id: string; channel: string; error: string }[]
+  skipped: number
+  notConnected: boolean
+}
+
+/**
+ * Terbitkan otomatis draf konten yang belum tayang sesuai analisa tim (Skill tim SMM).
+ * Dijalankan di dalam siklus konten/publikasi (cron) — tanpa perintah manual dari Boss.
+ * Menghormati batas waktu fungsi (Vercel 60s): publikasi Instagram butuh ~25s.  */
+export async function autopublishDrafts(opts: { limit?: number; budgetMs?: number; actorId?: string | null } = {}): Promise<AutopublishResult> {
+  const admin = sb()
+  const limit = Math.max(1, Math.min(opts.limit ?? 2, 4))
+  const budgetMs = opts.budgetMs ?? 45000
+  const deadline = Date.now() + budgetMs
+  const out: AutopublishResult = { published: [], failed: [], skipped: 0, notConnected: false }
+
+  // Status koneksi tiap kanal (hanya terbit kalau terhubung).
+  const { data: conns } = await admin.from('meta_connections').select('channel,status')
+  const status = new Map<string, string>((conns ?? []).map((c) => [String(c.channel), String(c.status)]))
+
+  const { data } = await admin
+    .from('ai_work_items')
+    .select('id,payload,created_at')
+    .eq('kind', 'content_draft')
+    .in('status', ['open', 'approved', 'awaiting_approval'])
+    .order('created_at', { ascending: true })
+    .limit(12)
+  const pending = (data ?? []).filter((r) => {
+    const p = (r.payload ?? {}) as Json
+    return !(p.published as Json | undefined)?.external_id
+  })
+  if (!pending.length) return out
+
+  for (const row of pending) {
+    if (out.published.length >= limit) { out.skipped += 1; continue }
+    // Sisakan margin: jangan mulai publikasi baru jika sisa waktu < 20s (Instagram ~25s).
+    if (Date.now() > deadline - 20000) { out.skipped += 1; continue }
+    const p = (row.payload ?? {}) as Json
+    const ch = String(p.channel ?? 'instagram').toLowerCase()
+    const channel = ch === 'threads' ? 'threads' : ch === 'facebook' ? 'facebook' : 'instagram'
+    if (status.get(channel) !== 'connected') { out.notConnected = true; out.skipped += 1; continue }
+    const res = await publishContentItem(opts.actorId ?? null, String(row.id))
+    if (res.ok) out.published.push({ id: String(row.id), channel, externalId: String(res.externalId ?? '') })
+    else out.failed.push({ id: String(row.id), channel, error: res.error ?? 'gagal' })
+  }
+  return out
 }
 
 /* ------------------------------------------------------------------ */

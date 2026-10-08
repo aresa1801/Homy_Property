@@ -189,6 +189,36 @@ export async function markConnectionError(channel: Channel, message: string): Pr
   await sb.from('meta_connections').update({ status: 'error', last_error: message.slice(0, 400), updated_at: new Date().toISOString() }).eq('channel', channel)
 }
 
+/** URL dashboard Meta App (untuk panduan perbaikan izin/koneksi). */
+export function metaAppDashboard(): string {
+  const id = process.env.META_APP_ID || process.env.NEXT_PUBLIC_FB_APP_ID || ''
+  return id ? `https://developers.facebook.com/apps/${id}/` : 'https://developers.facebook.com/apps/'
+}
+
+/** Terjemahkan error mentah Graph API menjadi pesan Indonesia + langkah perbaikan. */
+export function friendlyMetaError(raw: string): string {
+  const m = String(raw || '').toLowerCase()
+  if (m.includes('api access blocked')) {
+    return 'Akses API Meta diblokir untuk App ini ("API access blocked"). Ini masalah konfigurasi Meta App (bukan kode aplikasi): buka Meta Developer Console → selesaikan Verifikasi Bisnis, aktifkan App Mode = Live, dan pastikan izin pages_show_list / pages_read_engagement / pages_manage_posts / instagram_content_publish / threads_content_publish mendapat Advanced Access.'
+  }
+  if (m.includes('impersonating a user') || m.includes('pages_read_engagement') || m.includes('pages_manage_metadata') || m.includes('pages_manage_ads')) {
+    return 'Izin Page belum diberikan ke App. Aktifkan izin pages_show_list, pages_read_engagement, dan pages_manage_posts (Advanced Access) di App Review Meta, lalu hubungkan ulang akun di tab Koneksi Sosial.'
+  }
+  if (m.includes('cannot parse access token') || m.includes('invalid oauth') || m.includes('session has expired') || m.includes('expired')) {
+    return 'Token akses tidak valid atau kedaluwarsa. Hubungkan ulang akun di tab Koneksi Sosial.'
+  }
+  if (m.includes('permission')) {
+    return `Izin Meta kurang untuk aksi ini. Periksa App Review Meta. (${raw.slice(0, 160)})`
+  }
+  return raw
+}
+
+/** True bila error berasal dari pemblokiran/izin App-level Meta (bukan bug kode). */
+export function isMetaBlocked(raw: string): boolean {
+  const m = String(raw || '').toLowerCase()
+  return m.includes('api access blocked') || m.includes('impersonating a user') || m.includes('pages_read_engagement') || m.includes('pages_manage_metadata')
+}
+
 /** Ambil token mentah (server-only). */
 export async function getConnectionSecret(channel: Channel): Promise<{ token: string; accountId: string } | null> {
   const sb = serviceClient()

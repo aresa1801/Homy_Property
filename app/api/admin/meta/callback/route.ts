@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import {
-  exchangeCode, longLived, resolveInstagram, resolvePage, threadsProfile, saveConnection, markConnectionError,
+  exchangeCode, longLived, resolveInstagram, resolvePage, threadsProfile, saveConnection, markConnectionError, friendlyMetaError,
   IG_SCOPES, FB_SCOPES, THREADS_SCOPES, type Channel,
 } from '@/lib/meta'
 
@@ -83,7 +83,8 @@ export async function GET(request: Request) {
     if (!ok) throw new Error('Gagal menyimpan koneksi Threads.')
     return back(url, 'ok', `Threads terhubung: @${profile.username || profile.id}`)
   } catch (error) {
-    const msg = error instanceof Error ? error.message : 'Gagal menyelesaikan koneksi.'
+    const raw = error instanceof Error ? error.message : 'Gagal menyelesaikan koneksi.'
+    const msg = friendlyMetaError(raw)
     await markConnectionError(channel, msg)
     return back(url, 'error', msg)
   }
