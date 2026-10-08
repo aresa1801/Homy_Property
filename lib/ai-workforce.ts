@@ -1053,7 +1053,7 @@ async function runContent(snapshot: Snapshot, runId: string | null, slot: Conten
     const rawPosts = Array.isArray(result.posts) ? result.posts.slice(0, 3) : []
     if (rawPosts.length) posts = rawPosts
   } catch { /* pakai cadangan */ }
-  const usedChannels = new Set((await itemsSince(['content_draft'], wibDayStartIso())).filter((p) => String(p.slot ?? 'pagi') === slot).map((p) => String(p.channel ?? '')))
+  const usedChannels = new Set((await itemsSince(['content_draft'], wibDayStartIso())).filter((p) => String(p.slot ?? '') === slot).map((p) => String(p.channel ?? '')))
   let draftCount = 0
   for (const p of posts) {
     const body = String(p?.body ?? '').trim()
@@ -1510,7 +1510,7 @@ export async function runCycle(actorId: string | null, trigger: 'manual' | 'cron
     let publishNote = ''
     if (scope === 'publish' || scope === 'content') {
       const remaining = Math.max(9000, 55000 - (Date.now() - t0))
-      const pub = await autopublishDrafts({ limit: 2, budgetMs: remaining, actorId, slot: scope === 'content' ? slot : undefined })
+      const pub = await autopublishDrafts({ limit: scope === 'publish' ? 3 : 2, budgetMs: remaining, actorId, slot: scope === 'content' ? slot : undefined })
       publishedCount = pub.published.length
       if (publishedCount) publishNote = ` · ${publishedCount} konten tayang otonom`
       else if (pub.failed.length) publishNote = ` · publikasi gagal: ${String(pub.failed[0].error).slice(0, 90)}`
@@ -1687,7 +1687,7 @@ export async function autopublishDrafts(opts: { limit?: number; budgetMs?: numbe
   const pending = (data ?? []).filter((r) => {
     const p = (r.payload ?? {}) as Json
     if ((p.published as Json | undefined)?.external_id) return false
-    if (opts.slot && String(p.slot ?? 'pagi') !== opts.slot) return false
+    if (opts.slot && String(p.slot ?? '') !== opts.slot) return false
     return true
   })
   if (!pending.length) return out
