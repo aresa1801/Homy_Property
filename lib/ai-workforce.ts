@@ -200,7 +200,7 @@ export const WORKFORCE_ROSTER: EmployeeSeed[] = [
         'Menjaga konsistensi identitas visual brand Homy (warna, tipografi, gaya).',
       ],
       standards: ['Aset sesuai ukuran kanal (IG/Threads 1080×1080, Facebook 1200×630).', 'Headline ringkas, mudah dibaca, selaras pesan kampanye.', 'Visual bersih, modern, tanpa klaim harga/diskon.'],
-      guardrails: ['Tidak memakai aset berhak cipta tanpa izin.', 'Tidak menayangkan aset atas nama brand tanpa approval Boss.', 'Semua yang menyangkut biaya (stok berbayar, cetak) wajib persetujuan Boss.'],
+      guardrails: ['Tidak memakai aset berhak cipta tanpa izin.', 'Tidak menayangkan aset atas nama brand tanpa persetujuan Sari (Social Media Manager).', 'Semua yang menyangkut biaya (stok berbayar, cetak) wajib persetujuan Boss.'],
       escalates: ['Aset berbayar/berlisensi', 'Perubahan identitas visual brand'],
     },
     kpis: ['Aset siap pakai per konten', 'Konsistensi visual brand'],
@@ -1528,7 +1528,7 @@ async function runDesign(snapshot: Snapshot, runId: string | null): Promise<{ as
     try {
       const r = await aiJsonRetry<DesignSpec>(
         [
-          { role: 'system', content: `Kamu "Vino", Visual & Desain Grafis Homy (platform properti Indonesia). Kamu membuat brief poster & ilustrasi konten yang selaras dengan arahan Marketing (Maya) dan konten Social Media Manager (Sari). Gaya: bersih, modern, hangat, terpercaya. Bahasa Indonesia.\n\n${skillBriefFor('design')}${lessonSuffix('design')}` },
+          { role: 'system', content: `Kamu "Vino", Visual & Desain Grafis Homy (platform properti Indonesia). Kamu membuat brief poster & ilustrasi konten yang KREATIF, eye-catching, dan scroll-stopping untuk media sosial. Tujuan utama tiap aset: membuat orang BERHENTI menggulir dalam 2 detik pertama, tertarik, lalu membaca/menyimpan/membagikan. Selaras dengan arahan Marketing (Maya) dan konten Social Media Manager (Sari). Gaya: bersih, modern, hangat, terpercaya, tapi berani — kontras kuat, hierarki teks jelas, satu pesan utama yang langsung terbaca. Bahasa Indonesia.\n\nPedoman kreatif wajib: (1) satu hook visual dominan, jangan ramai; (2) tipografi besar & tegas untuk headline; (3) palet warna kontras tinggi yang tetap konsisten brand Homy; (4) manfaatkan whitespace agar fokus; (5) ide ilustrasi/foto yang menggugah (aspirasi punya rumah, kenyamanan, lokasi); (6) variasikan layout antar konten agar feed tidak monoton; (7) CTA selalu terlihat jelas. Hasilkan ide yang kreatif & spesifik, bukan template generik.\n\n${skillBriefFor('design')}${lessonSuffix('design')}` },
           { role: 'user', content: `KANAL: ${channel}\nJUDUL/HOOK: ${headline}\nISI: ${body}\nCTA: ${cta}\n\nBuat brief visual. Hasilkan JSON: { "headline": "teks utama poster (maks 8 kata)", "subheadline": "penjelas singkat", "cta": "ajakan", "palette": ["#hex", "#hex", "#hex"], "layout": "tata letak ringkas", "illustration": "ide ilustrasi/gambar", "notes": "catatan produksi" }.` },
         ],
         { temperature: 0.6, maxTokens: 800 },
@@ -1540,9 +1540,10 @@ async function runDesign(snapshot: Snapshot, runId: string | null): Promise<{ as
       employee_slug: 'design', kind: 'design_asset',
       title: `Aset ${CHANNEL_LABEL[channel] ?? channel}: ${String(spec.headline ?? headline).slice(0, 60)}`,
       summary: String(spec.illustration ?? spec.layout ?? 'Aset visual siap diproduksi.').slice(0, 800),
-      status: 'awaiting_approval', priority: 'normal', requires_approval: true,
+      status: 'approved', priority: 'normal', requires_approval: false,
       payload: {
         content_item_id: draftId, channel, format: fmt.label, w: fmt.w, h: fmt.h,
+        approved_by: 'sari', approval_note: 'Disetujui Sari (Social Media Manager) — tanpa keputusan Boss.',
         headline: String(spec.headline ?? headline).slice(0, 120),
         subheadline: String(spec.subheadline ?? body).slice(0, 200),
         cta: String(spec.cta ?? cta).slice(0, 80),

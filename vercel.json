@@ -1,14 +1,20 @@
 {
   "crons": [
-    { "path": "/api/admin/workforce/cron?scope=core", "schedule": "0 1 * * *" },
-    { "path": "/api/admin/workforce/cron?scope=content&slot=pagi", "schedule": "0 2 * * *" },
+    { "path": "/api/admin/workforce/cron?scope=all", "schedule": "0 23 * * *" },
+    { "path": "/api/admin/workforce/cron?scope=all", "schedule": "0 2 * * *" },
+    { "path": "/api/admin/workforce/cron?scope=all", "schedule": "0 5 * * *" },
+    { "path": "/api/admin/workforce/cron?scope=all", "schedule": "0 8 * * *" },
+    { "path": "/api/admin/workforce/cron?scope=all", "schedule": "0 11 * * *" },
+    { "path": "/api/admin/workforce/cron?scope=all", "schedule": "0 14 * * *" },
+    { "path": "/api/admin/workforce/cron?scope=all", "schedule": "0 17 * * *" },
+    { "path": "/api/admin/workforce/cron?scope=publish", "schedule": "30 23 * * *" },
     { "path": "/api/admin/workforce/cron?scope=publish", "schedule": "30 2 * * *" },
-    { "path": "/api/admin/workforce/cron?scope=design", "schedule": "0 3 * * *" },
-    { "path": "/api/admin/workforce/cron?scope=content&slot=sore", "schedule": "0 8 * * *" },
+    { "path": "/api/admin/workforce/cron?scope=publish", "schedule": "30 5 * * *" },
     { "path": "/api/admin/workforce/cron?scope=publish", "schedule": "30 8 * * *" },
-    { "path": "/api/admin/workforce/cron?scope=publish", "schedule": "0 12 * * *" },
+    { "path": "/api/admin/workforce/cron?scope=publish", "schedule": "30 11 * * *" },
+    { "path": "/api/admin/workforce/cron?scope=publish", "schedule": "30 14 * * *" },
+    { "path": "/api/admin/workforce/cron?scope=publish", "schedule": "30 17 * * *" },
     { "path": "/api/admin/workforce/cron?scope=learn", "schedule": "30 13 * * *" },
-    { "path": "/api/admin/workforce/cron?scope=extended", "schedule": "30 1 * * *" },
-    { "path": "/api/admin/workforce/cron?scope=digest", "schedule": "0 11 * * *" }
+    { "path": "/api/admin/workforce/cron?scope=digest", "schedule": "45 11 * * *" }
   ]
 }
