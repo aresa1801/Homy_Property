@@ -8,13 +8,13 @@ Marketplace properti Indonesia untuk **jual & sewa**, dengan **asisten AI**, **v
 
 ## 1. Ringkasan Produk
 
-Homy menghubungkan tiga pihak dalam satu alur:
+Homy menghubungkan pembeli/penyewa dengan **jaringan mitra terverifikasi** dalam satu alur:
 
 | Pihak | Kebutuhan | Yang disediakan Homy |
 |---|---|---|
-| **Pembeli / Penyewa** | Menemukan properti yang tepat, cepat | Pencarian berbasis AI, rekomendasi personal, tanya-jawab AI, simpan favorit, simpan pencarian (alert), ajukan kunjungan |
-| **Agen** (`agent`) | Mendapat prospek siap beli | Dasbor prospek (CRM), minat terkonfirmasi + skor AI, jadwal kunjungan, balasan AI, laporan transaksi & komisi |
-| **Pemilik Properti** (`property_owner`) | Memasarkan unit sendiri | Pasang listing, kelola media, moderasi, statistik minat, perjanjian kerja sama digital |
+| **Pembeli / Penyewa** (`user`) | Menemukan properti yang tepat, cepat | Pencarian berbasis AI, rekomendasi personal, tanya-jawab AI (Homy AI & HOMY CHAT), favorit, simpan pencarian (alert), ajukan kunjungan, notaris/PPAT pendamping |
+| **Agen** (`agent`) | Mendapat prospek siap beli | Dasbor prospek (CRM), minat terkonfirmasi + skor AI, jadwal kunjungan, balasan AI, laporan transaksi & **komisi 0,5%**, perjanjian agen↔pemilik, program bonus referral |
+| **Mitra institusi** (agensi/broker, institusi korporat, notaris/PPAT) | Menyalurkan inventaris atau layanan legal | Halaman mitra publik, feed listing terpusat, integrasi API/CSV (rencana), profil mitra legal & referensi timbal balik |
 
 Prinsip yang dipegang di seluruh sistem:
 
@@ -22,6 +22,7 @@ Prinsip yang dipegang di seluruh sistem:
 2. **Privasi listing** — alamat detail disembunyikan pada tampilan publik (lihat `hideDetailAddress()` di `lib/property-format.ts`).
 3. **Satu sumber kebenaran** — semua data di Supabase (Postgres + RLS), bukan mock.
 4. **Tanpa kunci rahasia di klien** — `service_role` hanya dipakai di route server.
+5. **Dijalankan seperti perusahaan** — operasional harian dijalankan "Kantor AI" (karyawan AI + COO orchestrator) dengan **persetujuan manusia** untuk setiap aksi keluar (§3.7).
 
 ---
 
@@ -46,7 +47,8 @@ Prinsip yang dipegang di seluruh sistem:
 - Filter listing: tipe properti, jenis (jual/sewa), provinsi/kota/kecamatan, harga, kamar, luas, sertifikat, perabot, dsb.
 - Halaman `/buy`, `/rent`, `/property/[id]`, `/list` (pasang properti), `/listing/[id]/edit`.
 - **Media properti** di bucket `property-media` (`/api/listings/[id]/photos`), dengan kompresi & validasi (`lib/image-utils.ts`).
-- Halaman legal: `/privacy`, `/terms`; SEO: `sitemap.ts`, `robots.ts`.
+- Halaman programmatic SEO per kota: **`/jual` & `/jual/[kota]`**, **`/sewa` & `/sewa/[kota]`** (lihat §3.10).
+- Halaman legal: `/privacy`, `/terms`; SEO: `sitemap.ts`, `robots.ts`, gambar OG dinamis (`/api/og`).
 
 ### 3.2 Kecerdasan Buatan (Homy AI)
 | Fitur | Endpoint | Catatan |
@@ -57,6 +59,7 @@ Prinsip yang dipegang di seluruh sistem:
 | Penulis deskripsi | `/api/ai/describe` | Bantu mitra menulis deskripsi |
 | Saran harga | `/api/ai/price-suggest` | Rata-rata listing per kecamatan/kota — flag `price_suggestion` |
 | Balasan otomatis prospek | flag `ai_auto_reply` | Draf balasan untuk pertanyaan calon pembeli di dasbor mitra |
+| **HOMY CHAT** — asisten bantuan platform | `POST /api/ai/homy-chat` | Membantu pengguna **memakai platform** (alur, langkah, menu dasbor Pengguna/Agen) — berbeda dari Homy AI yang menjawab soal listing/pasar. Logika di `lib/homy-chat.ts`. |
 
 AI dijalankan **di server** memakai `DEEPSEEK_API_KEY` dan hanya diberi data listing yang sudah dibersihkan (lihat `lib/market.ts` → `safeText()` / `hideDetailAddress()`).
 
@@ -74,16 +77,20 @@ AI dijalankan **di server** memakai `DEEPSEEK_API_KEY` dan hanya diberi data lis
 3. **Perjanjian kerja sama digital** — `/agreement` → `partner_agreements` (isi perjanjian, komisi, jenis & nomor identitas, **serial tanda tangan**, `signed_ip`, `signed_user_agent`, versi perjanjian) dan **PDF Perjanjian** (`lib/agreement-pdf.ts`, `GET /api/agreement/pdf`, `POST /api/agreement/draft`).
 4. **Halaman verifikasi** — `/verify` (`POST /api/verify`, `/api/verify/agreement`) untuk memeriksa status & keaslian.
 5. **Pengingat verifikasi mitra** — in-app + email (`/api/admin/verification-reminders`).
+6. **Halaman kemitraan publik `/partnership`** + formulir pengajuan → `partner_leads` (`kind`: `agent` · `agency` · `institution` · `notary` · `contact`); metadata bersama di `lib/partnership.ts` (label, badge, komisi, layanan, volume, kanal kontak).
+7. **Sanksi mitra** (`partner_sanctions`) — penegakan & jejak pelanggaran mitra dari sisi admin.
+
+> **Catatan peran:** sejak migrasi `2026-09-28-remove-property-owner-role.sql`, peran `property_owner` **dihapus** — semua data dimigrasikan ke `agent`, komisi tunggal **0,5%**. Peran aktif kini: `user` · `agent` · `admin` · `super_admin`.
 
 ### 3.5 Operasional Admin
 - **Dasbor multi-peran**: `/dashboard/[role]` + `/dashboard/[role]/[section]` (dinamis, lihat `components/dashboard/*`).
   - `user` — favorit, minat, kunjungan, rekomendasi, lamaran peran.
-  - `agent` / `property_owner` — prospek & minat, kunjungan, listing ("manage"), laporan transaksi.
-  - `admin` — antrean moderasi listing, verifikasi mitra, minat, pengaturan.
+  - `agent` — prospek & minat, kunjungan, listing ("manage"), laporan transaksi, perjanjian.
+  - `admin` — antrean moderasi listing, verifikasi mitra, minat, pengaturan, dan tab **Kantor AI** (workforce, §3.7).
   - `super-admin` — kendali penuh (`/dashboard/super-admin/manage`).
 - **Moderasi listing** — `properties.status` + `moderation_note`/`moderated_by`, `moderation_reports` + `components/moderation-queue.tsx` (`/api/admin/listings`).
 - **Laporan transaksi & komisi mitra** — `transaction_reports` (harga jual, rate komisi, jumlah komisi, status verifikasi).
-- **Feature flags** (`feature_flags`) & **pengaturan platform** (`platform_settings`): `commission_rate`, `commission_rate_agent` (0.5%), `commission_rate_owner` (2%), `listing_auto_publish`, `notification_email_from`, `ai_model`.
+- **Feature flags** (`feature_flags`) & **pengaturan platform** (`platform_settings`): `commission_rate` (model komisi tunggal **0,5%**), `listing_auto_publish`, `notification_email_from`, `ai_model`. (`commission_rate_owner` lama tetap disimpan untuk kompatibilitas data).
 - **Audit log** — `audit_logs` (aktor, aksi, entitas, metadata).
 - **Widget embed** — `GET /api/widgets/properti-baru` untuk menampilkan listing terbaru di situs pihak ketiga.
 
@@ -96,6 +103,52 @@ AI dijalankan **di server** memakai `DEEPSEEK_API_KEY` dan hanya diberi data lis
 
 ---
 
+### 3.7 Kantor AI — AI Workforce (karyawan AI + COO)
+
+Homy menjalankan operasional hariannya lewat **Kantor AI**: sekumpulan "karyawan" AI berkualitas tinggi yang masing-masing punya **job card** (tanggung jawab, standar, guardrail, jalur eskalasi, KPI) + satu **COO Orchestrator** yang merencanakan kerja harian, membagi tugas, memeriksa hasil, dan **hanya mengangkat hal yang butuh keputusan manusia** (uang, kebijakan, konflik). Inti: `lib/ai-workforce.ts`, `lib/ai-skills.ts`, `lib/ai-admin.ts`; API `/api/admin/workforce` (+ `/coo`, `/cron`); UI tab **Kantor AI** di dasbor admin. Akses hanya **admin/super_admin**.
+
+**Roster karyawan AI:**
+
+| Slug | Nama | Peran | Departemen | Otonomi |
+|---|---|---|---|---|
+| `coo` | Ayana | Chief Operating Officer (orchestrator) | Kantor Pusat | `auto` |
+| `analyst` | Rani | Analyst & Compliance | Kontrol & Kepatuhan | `auto` |
+| `sales` | Dita | Sales & Customer Success | Penjualan | `approve` |
+| `marketing` | Maya | Marketing & Brand | Pemasaran | `approve` |
+| `design` | Vino | Visual & Desain Grafis | Kreatif | `approve` |
+| `growth` | Bima | Growth & Lead Generation | Pertumbuhan | `approve` |
+| `content` | Sari | Social Media Manager | Pemasaran | `approve` |
+| `listing` | Tono | Listing Operations | Operasional Listing | `approve` |
+
+**Model otonomi:** `draft` (sekadar draf) · `approve` (butuh persetujuan manusia sebelum keluar) · `auto` (internal & aman — laporan/alert). Setiap tindakan dicatat ke `audit_logs`. Aset desain dari **Vino** keluar dengan status **disetujui Sari** (Social Media Manager), bukan menunggu Boss.
+
+**Siklus otomatis & penjadwalan:** `/api/admin/workforce/cron` (dilindungi `CRON_SECRET`) menjalankan siklus dengan `scope`: `core` · `content` · `extended` · `design` · `publish` · `learn` · `digest` · `all` (plus `slot: pagi|sore`). Siklus berjalan tiap **3 jam (06:00–24:00 WIB)**; karena akun Vercel **Hobby** membatasi 1×/hari per ekspresi cron, jadwal 3-jam dipecah menjadi beberapa cron harian terpisah di `vercel.json` (mis. `scope=all` @:00, `scope=design` @:15 khusus Vino, `scope=publish` @:30, plus `learn` & `digest`).
+
+**Pembelajaran & KPI:** setiap karyawan menyimpan **pelajaran** (`ai_lessons`) dari koreksi/gagal/duplikat; pelajaran aktif disuntikkan ke prompt saat siklus. Ada juga **target/KPI** (`ai_targets`) dan jejak siklus (`ai_runs`, `ai_work_items`, `ai_skills`, `ai_employees`). Item kerja berstatus `awaiting_approval` disetujui/ditolak via `POST /api/admin/workforce` (`action:'decide'`). Ringkasan harian (digest COO) dikirim ke admin.
+
+### 3.8 Direktori Notaris / PPAT & Pendampingan Legal
+- Halaman publik **`/notaris`** + `GET /api/notaries` — direktori mitra legal terverifikasi (**rekomendasi** platform, bukan kewajiban; pengguna bebas memakai notaris pilihannya).
+- Pengajuan pendampingan: `POST /api/notary-requests` (`notary_requests`, area `notary_areas`).
+- Logika domain di `lib/notary.ts`; mitra legal dikelola lewat alur kemitraan (§3.4) dengan jenis `notary`.
+
+### 3.9 Program Bonus Referral (Agen → Agen)
+- Aturan di `lib/referral.ts` (versi ketentuan `2026-09-27`, halaman `/referral/ketentuan`): hanya **agen terverifikasi** yang boleh mereferensikan, dan hanya bila pihak yang diajak juga mendaftar sebagai **agen** (agent→agent).
+- Bonus **0,1% dari nilai transaksi**, dibatasi (cap) **Rp 2.000.000** per transaksi; dibayar **setelah** transaksi diverifikasi admin dengan **masa tahan 30 hari** (antisipasi batal/refund), lalu transfer manual.
+- **Satu level** (tidak berjenjang). Anti-fraud: tanpa self-referral & tanpa identitas/HP/rekening sama; atribusi hanya via tautan resmi kode di `/r/[code]` (cookie 30 hari).
+- Tabel: `referrals`, `referral_participants`, `referral_ledger`, `referral_payouts`, `referral_clicks`, `referral_settings`. API `/api/referrals` + `/api/admin/referrals`.
+
+### 3.10 SEO Programmatic & Halaman Lokasi
+- **Satu sumber host kanonik** (`lib/seo.ts`, `SITE_URL`) untuk canonical/OG/sitemap/robots; meta per halaman + **JSON-LD** (breadcrumb/ItemList/FAQ).
+- Halaman lokasi otomatis (`lib/location-seo.ts` + dataset **514 kabupaten/kota** di `lib/regions-data.ts`): **`/jual/[kota]`** & **`/sewa/[kota]`** dibangun dari listing `published` (murni server-side, aman-gagal).
+- `app/sitemap.ts` + `app/robots.ts` menyeluruh; gambar **OG dinamis** `GET /api/og` (+ `/api/og/content`).
+- Wilayah: `lib/regions.ts`, `lib/regions-data.ts`; peta: `lib/homy-maps.ts` + `GET /api/maps/resolve`.
+
+### 3.11 Integrasi Meta (Instagram · Threads · Facebook)
+- Koneksi kanal via `GET /api/admin/meta/{connect,callback,status}` (`meta_connections`), memakai **Graph API v21.0** (`lib/meta.ts`).
+- **Sari (content)** menerbitkan konten ke Instagram/Threads/Facebook Page dengan alur **persetujuan**; penanganan error/blocked yang ramah (`friendlyMetaError`, `isMetaBlocked`). Hanya admin/super_admin yang menghubungkan akun.
+
+---
+
 ## 4. Tumpukan Teknologi
 
 | Lapisan | Teknologi |
@@ -105,7 +158,9 @@ AI dijalankan **di server** memakai `DEEPSEEK_API_KEY` dan hanya diberi data lis
 | Data | **Supabase** (`@supabase/supabase-js`, `@supabase/ssr`) — Postgres + Auth + Storage + RLS |
 | Data fetching klien | **SWR** 2.3.6 |
 | Email | **Resend** (`lib/email.ts`) |
-| AI | **DeepSeek** (`lib/ai.ts`, `lib/inquiry-ai.ts`) |
+| AI | **DeepSeek** (`lib/ai.ts`, `lib/inquiry-ai.ts`, `lib/homy-chat.ts`) |
+| Kantor AI (workforce) | **DeepSeek** + tool-calling (`lib/ai-workforce.ts`, `lib/ai-skills.ts`, `lib/ai-admin.ts`) |
+| Sosial | **Meta Graph API v21.0** + Threads API (`lib/meta.ts`) |
 | Notifikasi push | **web-push** (VAPID) |
 | PDF | `lib/pdf-lite.ts` (invoice & perjanjian, tanpa dependensi berat) |
 | Hosting | **Vercel** + Vercel Analytics |
@@ -119,25 +174,35 @@ AI dijalankan **di server** memakai `DEEPSEEK_API_KEY` dan hanya diberi data lis
 .
 ├── app/                      # Next.js App Router (halaman + route handler)
 │   ├── api/                  # Seluruh API (lihat §7)
-│   ├── dashboard/[role]/     # Dasbor multi-peran (user | agent | property_owner | admin | super-admin)
+│   ├── dashboard/[role]/     # Dasbor multi-peran (user | agent | admin | super-admin)
 │   ├── property/[id]/        # Detail properti
+│   ├── jual/  jual/[kota]/    # SEO lokasi — rumah dijual
+│   ├── sewa/  sewa/[kota]/    # SEO lokasi — rumah disewa
 │   ├── listing/[id]/edit/    # Edit listing
+│   ├── notaris/              # Direktori Notaris/PPAT
+│   ├── partnership/          # Halaman & formulir kemitraan
+│   ├── referral/ketentuan/   # Ketentuan program referral
 │   ├── agreement/            # Perjanjian kerja sama mitra (isi + tanda tangan)
 │   ├── verify/               # Verifikasi dokumen/perjanjian
 │   ├── ai-assistant/         # Halaman Homy AI
+│   ├── r/[code]/             # Pelacak tautan referral (redirect)
 │   ├── open/  open-file/     # Deep link & file handler (Launch Queue)
 │   ├── page.tsx              # Beranda (pencarian AI + rekomendasi)
 │   └── layout.tsx globals.css manifest.webmanifest sitemap.ts robots.ts
 ├── components/
-│   ├── dashboard/            # boards-admin / boards-ai / boards-listing / boards-ops / boards-verify
+│   ├── dashboard/            # boards-admin / boards-ai / boards-listing / boards-ops / boards-verify / workforce / owner-agreement
 │   ├── ai/                   # ai-chat, curate-panel, visit-scheduler
 │   └── *.tsx                 # Shell, header/footer, favorit, inbox pesan, dst.
 ├── lib/
-│   ├── supabase/             # client.ts (browser) · server.ts (SSR) · proxy.ts · types.ts
+│   ├── supabase/             # client.ts (browser) · server.ts (SSR) · service.ts (admin) · proxy.ts · types.ts
 │   ├── market.ts             # Query listing + statistik pasar (dipakai AI)
-│   ├── ai.ts inquiry-ai.ts   # Integrasi DeepSeek
-│   ├── email.ts push.ts      # Resend + Web Push
-│   ├── agreement-*.ts        # Dokumen, tanda tangan, & PDF perjanjian
+│   ├── ai.ts inquiry-ai.ts   # Integrasi DeepSeek · homy-chat.ts (bantuan platform)
+│   ├── ai-workforce.ts ai-skills.ts ai-admin.ts   # Kantor AI (karyawan AI + COO)
+│   ├── meta.ts               # Publikasi IG/Threads/Facebook
+│   ├── notary.ts referral.ts partnership.ts       # Logika domain mitra
+│   ├── email.ts push.ts notifications.ts user-emails.ts  # Resend + Web Push + notifikasi
+│   ├── seo.ts location-seo.ts regions.ts regions-data.ts  # SEO & wilayah
+│   ├── agreement-*.ts owner-agreement*.ts partner-agreement.ts  # Perjanjian & PDF
 │   ├── pdf-lite.ts           # Generator PDF ringan
 │   ├── verification.ts visits.ts interest.ts    # Logika domain
 │   ├── dashboard-client.ts   # Data agregat dasbor
@@ -154,10 +219,11 @@ AI dijalankan **di server** memakai `DEEPSEEK_API_KEY` dan hanya diberi data lis
 
 | Area | Rute |
 |---|---|
-| Publik | `/`, `/buy`, `/rent`, `/property/[id]`, `/ai-assistant`, `/partnership`, `/contact`, `/privacy`, `/terms`, `/share` |
+| Publik | `/`, `/buy`, `/rent`, `/jual`, `/jual/[kota]`, `/sewa`, `/sewa/[kota]`, `/property/[id]`, `/ai-assistant`, `/partnership`, `/notaris`, `/contact`, `/privacy`, `/terms`, `/share` |
+| Referral | `/r/[code]` (tautan kode), `/referral/ketentuan` |
 | Akun | `/auth/login`, `/auth/error`, `/onboarding`, `/message` |
-| Mitra (pemilik/agen) | `/list`, `/listing/[id]/edit`, `/agreement`, `/verify` |
-| Dasbor | `/dashboard/[role]`, `/dashboard/[role]/[section]`, `/dashboard/user/*`, `/dashboard/agent/*`, `/dashboard/property-owner/*`, `/dashboard/admin/*`, `/dashboard/super-admin/*` |
+| Mitra (agen) | `/list`, `/listing/[id]/edit`, `/agreement`, `/verify` |
+| Dasbor | `/dashboard/[role]`, `/dashboard/[role]/[section]`, `/dashboard/user/*`, `/dashboard/agent/*`, `/dashboard/admin/*` (termasuk tab **Kantor AI**), `/dashboard/super-admin/*` |
 | PWA / Deep link | `/open`, `/open-file`, `/manifest.webmanifest` |
 
 ---
@@ -171,27 +237,43 @@ AI dijalankan **di server** memakai `DEEPSEEK_API_KEY` dan hanya diberi data lis
 `POST /api/inquiries` · `GET/POST /api/leads` · `GET/POST /api/interest` · `GET/POST /api/visits` · `POST /api/visits/follow-up` · `GET/POST /api/favorites` · `GET/POST /api/alerts` · `GET/POST /api/rentals`
 
 **AI**
-`POST /api/ai/chat` · `GET /api/ai/conversations` · `POST /api/ai/curate` · `POST /api/ai/describe` · `POST /api/ai/price-suggest`
+`POST /api/ai/chat` · `POST /api/ai/homy-chat` (bantuan platform) · `GET /api/ai/conversations` · `POST /api/ai/curate` · `POST /api/ai/describe` · `POST /api/ai/price-suggest`
 
 **Mitra & verifikasi**
-`POST /api/verify` · `POST /api/verify/agreement` · `GET/POST /api/agreement/draft` · `GET /api/agreement/pdf`
+`POST /api/verify` · `POST /api/verify/agreement` · `GET/POST /api/agreement/draft` · `GET /api/agreement/pdf` · `GET/POST /api/agent/owner-agreement` (PDF perjanjian agen↔pemilik) · `GET /api/partner/status`
+
+**Notaris & legal**
+`GET /api/notaries` · `GET/POST /api/notary-requests`
+
+**Referral**
+`GET /r/[code]` (redirect + log klik) · `GET/POST /api/referrals` · `GET/POST /api/admin/referrals`
+
+**Kantor AI (admin)**
+`GET/POST /api/admin/workforce` (roster · antrean · `run` · `seed` · `decide` · `toggle` · `lesson` · `target`) · `GET/POST /api/admin/workforce/coo` · `GET /api/admin/workforce/cron` (terjadwal, `CRON_SECRET`)
+
+**Meta (sosial)**
+`GET /api/admin/meta/connect` · `GET /api/admin/meta/callback` · `GET /api/admin/meta/status`
+
+**SEO, OG & peta**
+`GET /api/og` · `GET /api/og/content` · `GET /api/og/content/[id]` · `GET /api/maps/resolve`
 
 **Admin & operasi**
-`GET/PATCH /api/admin/listings` · `POST /api/admin/ops` · `GET /api/admin/verification-doc` · `GET/POST /api/admin/verification-reminders` · `GET/POST /api/dashboard/[role]` · `POST /api/dashboard/actions`
+`GET/PATCH /api/admin/listings` · `GET /api/admin/ai/*` · `POST /api/admin/ops` · `GET /api/admin/verification-doc` · `GET/POST /api/admin/verification-reminders` · `GET /api/admin/meta/*` · `GET/POST /api/dashboard/[role]` · `POST /api/dashboard/actions`
 
 **Notifikasi & sesi**
 `GET/POST /api/notifications` · `POST /api/push` · `POST /api/push/test` · `GET /auth/callback`
 
 ---
 
-## 8. Basis Data (25 tabel, skema `public`)
+## 8. Basis Data (±40 tabel, skema `public`)
 
 ### Identitas & peran
 | Tabel | Kegunaan | Kolom kunci |
 |---|---|---|
-| `profiles` | Profil pengguna (1:1 dengan `auth.users`) | `id`, `full_name`, `phone`, `avatar_url`, `role` |
+| `profiles` | Profil pengguna (1:1 dengan `auth.users`) | `id`, `full_name`, `phone`, `avatar_url`, `role` (`user`\|`agent`\|`admin`\|`super_admin`) |
 | `user_roles` | Riwayat pemberian peran & status | `user_id`, `role`, `status`, `granted_at` |
 | `role_applications` | Lamaran menjadi mitra | `applicant_id`, `requested_role`, `status`, `reviewer_note` |
+| `user_emails` | Pemetaan email pengguna (notifikasi & pencarian) | `user_id`, `email` |
 | `audit_logs` | Jejak audit aksi | `actor_id`, `action`, `entity_type`, `entity_id`, `metadata` |
 
 ### Properti
@@ -219,17 +301,45 @@ AI dijalankan **di server** memakai `DEEPSEEK_API_KEY` dan hanya diberi data lis
 | `partner_agreements` | Perjanjian kerja sama digital | `role`, `commission_rate`, `agreement_version`, `signature_name`, `signature_serial`, `signed_ip`, `signed_user_agent`, `status` |
 | `partner_leads` | Prospek mitra (form kemitraan & prospek AI) | `kind`, `full_name`, `email`, `company`, `city`, `license_no`, `status`, `source`, `metadata` |
 | `partner_availability` | Ketersediaan mitra | `user_id`, jadwal/mode |
+| `partner_sanctions` | Sanksi/pelanggaran mitra | `user_id`, `reason`, `status`, `applied_at` |
+| `partner_agreements` · `owner_agreements` | Perjanjian kerja sama & perjanjian agen↔pemilik | pihak, `commission_rate`, `agreement_version`, tanda tangan, `status` |
 | `transaction_reports` | Laporan transaksi mitra + komisi | `sale_price`, `commission_rate`, `commission_amount`, `status`, `verified_by` |
 | `payments` | Tagihan (deposit, sewa, dsb.) | `payer_id`, `property_id`, `rental_request_id`, `amount`, `payment_type`, `status`, `provider_reference` |
+| `referrals` · `referral_participants` | Program bonus referral (agent→agent) | kode, `referrer_id`, `referred_id`, `status` |
+| `referral_ledger` · `referral_payouts` · `referral_clicks` · `referral_settings` | Buku besar, pencairan, klik, & konfigurasi referral | `referral_id`, `amount`, `status`, `code` |
 
 ### Platform
 | Tabel | Kegunaan |
 |---|---|
 | `notifications` | Notifikasi in-app (`kind`, `title`, `body`, `href`, `read_at`) |
 | `push_subscriptions` | Langganan Web Push (VAPID: `endpoint`, `p256dh`, `auth`) |
-| `ai_conversations` | Riwayat tanya-jawab AI (`mode`, `question`, `answer`, `sources`) |
 | `feature_flags` | Flag fitur (`price_suggestion`, `ai_auto_reply`, `ai_assistant`, `mobile_app_beta`, `owner_email_notifications`) |
 | `platform_settings` | Pengaturan platform (komisi, model AI, kontak dukungan) |
+| `moderation_reports` | Laporan pelanggaran konten/listing |
+
+### Kantor AI (workforce)
+| Tabel | Kegunaan |
+|---|---|
+| `ai_employees` | Roster karyawan AI (job card, otonomi, status) |
+| `ai_skills` | Keterampilan/kapabilitas karyawan |
+| `ai_work_items` | Item kerja per siklus (antrean, status, `awaiting_approval`) |
+| `ai_runs` | Jejak siklus/eksekusi |
+| `ai_lessons` | Pelajaran hasil self-improvement (aktif → disuntik ke prompt) |
+| `ai_targets` | Target/KPI karyawan |
+| `ai_conversations` · `ai_chat_messages` | Riwayat tanya-jawab AI & pesan chat |
+| `ai_analyses` | Analisis AI tersimpan (harga/pasar/listing) |
+
+### Notaris & legal
+| Tabel | Kegunaan |
+|---|---|
+| `notaries` | Direktori mitra Notaris/PPAT |
+| `notary_requests` | Permintaan pendampingan legal |
+| `notary_areas` | Wilayah layanan notaris |
+
+### Integrasi Meta
+| Tabel | Kegunaan |
+|---|---|
+| `meta_connections` | Koneksi akun IG/Threads/Facebook (token, status) |
 
 ### Storage (bucket Supabase)
 | Bucket | Akses | Isi |
@@ -277,11 +387,12 @@ Buka Invoice-HOMY-*.pdf / Perjanjian-*.pdf via "Buka dengan Homy" → /open-file
 
 | Peran | Ringkasan akses |
 |---|---|
-| `user` | Cari, favorit, inquiry, jadwal kunjungan, notifikasi, ajukan peran mitra |
-| `agent` | Semua di atas + CRM prospek, minat terkonfirmasi, laporan transaksi |
-| `property_owner` | Semua di atas + pasang/kelola listing sendiri |
-| `admin` | Moderasi listing, verifikasi mitra, pengaturan, antrean minat |
+| `user` | Cari, favorit, inquiry, jadwal kunjungan, notifikasi, ajukan kunjungan legal, ajukan peran mitra |
+| `agent` | Semua di atas + CRM prospek, minat terkonfirmasi, laporan transaksi, perjanjian agen↔pemilik, program referral |
+| `admin` | Moderasi listing, verifikasi mitra, pengaturan, antrean minat, tab **Kantor AI** |
 | `super_admin` | Kendali penuh termasuk manajemen peran & pengaturan platform |
+
+> Peran `property_owner` **sudah dihapus** (migrasi `2026-09-28`); seluruh data dimigrasikan ke `agent`. Lihat juga jenis kemitraan `agent` · `agency` · `institution` · `notary` (§3.4).
 
 Penegakan akses: **RLS Supabase** sebagai lapisan dasar + pemeriksaan peran di server (route handler/dasbor). Tulis-menulis ke data sensitif dilakukan lewat route server dengan klien admin, bukan dari komponen klien.
 
@@ -306,6 +417,11 @@ Buat `.env.local` (jangan pernah commit). Nilai untuk produksi ada di Vercel →
 | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | ✅ | Kunci publik Web Push |
 | `VAPID_PRIVATE_KEY` | ✅ | **Rahasia** — kunci privat Web Push |
 | `VAPID_SUBJECT` | ✅ | Kontak pemilik kunci (`mailto:` / URL) |
+| `CRON_SECRET` | ✅ | **Rahasia** — mengamankan `/api/admin/workforce/cron` (Vercel Cron) |
+| `NEXT_PUBLIC_SITE_URL` | — | Host kanonik untuk SEO/canonical/OG (default `homyproperty.id`) |
+| `META_APP_ID` / `META_APP_SECRET` | — | Aplikasi Meta (publikasi IG/Threads/Facebook) |
+| `NEXT_PUBLIC_FB_APP_ID` | — | App ID Facebook untuk klien |
+| `THREADS_APP_ID` / `THREADS_APP_SECRET` | — | Aplikasi Threads (publikasi konten) |
 | `NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL` | — | Redirect OAuth saat pengembangan lokal |
 
 ---
